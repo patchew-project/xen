@@ -56,7 +56,7 @@ uint8_t __read_mostly default_xen_spec_ctrl;
 uint8_t __read_mostly default_spec_ctrl_flags;
 
 paddr_t __read_mostly l1tf_addr_mask, __read_mostly l1tf_safe_maddr;
-static bool __initdata cpu_has_bug_l1tf;
+static bool __initdata cpu_has_bug_l1tf, hw_smt_enabled;
 static unsigned int __initdata l1d_maxphysaddr;
 
 static int __init parse_spec_ctrl(const char *s)
@@ -277,6 +277,49 @@ static __init int parse_pv_l1tf(const char *s)
     return rc;
 }
 custom_param("pv-l1tf", parse_pv_l1tf);
+
+static void __init detect_smt_status(void)
+{
+    uint64_t val;
+    unsigned int cpu;
+
+    /*
+     * x86_num_siblings defaults to 1 in the absence of other information, and
+     * is adjusted based on other topology information found in CPUID leaves.
+     *
+     * On AMD hardware, it will be the current SMT configuration.  On Intel
+     * hardware, it will represent the maximum capability, rather than the
+     * current configuration.
+     */
+    if ( boot_cpu_data.x86_num_siblings < 2 )
+        return;
+
+    /*
+     * Intel Nehalem and later hardware does have an MSR which reports the
+     * current count of cores/threads in the package.
+     *
+     * At the time of writing, it is almost completely undocumented, so isn't
+     * virtualised reliably.
+     */
+    if ( boot_cpu_data.x86_vendor == X86_VENDOR_INTEL && !cpu_has_hypervisor &&
+         !rdmsr_safe(MSR_INTEL_CORE_THREAD_COUNT, val) )
+    {
+        hw_smt_enabled = (MASK_EXTR(val, MSR_CTC_CORE_MASK) !=
+                          MASK_EXTR(val, MSR_CTC_THREAD_MASK));
+        return;
+    }
+
+    /*
+     * Search over the CPUs reported in the ACPI tables.  Any whose APIC ID
+     * has a non-zero thread id component indicates that SMT is active.
+     */
+    for_each_present_cpu ( cpu )
+        if ( x86_cpu_to_apicid[cpu] & (boot_cpu_data.x86_num_siblings - 1) )
+        {
+            hw_smt_enabled = true;
+            return;
+        }
+}
 
 static void __init print_details(enum ind_thunk thunk, uint64_t caps)
 {
@@ -703,6 +746,8 @@ void __init init_speculation_mitigations(void)
     if ( boot_cpu_has(X86_FEATURE_ARCH_CAPS) )
         rdmsrl(MSR_ARCH_CAPABILITIES, caps);
 
+    detect_smt_status();
+
     /*
      * Has the user specified any custom BTI mitigations?  If so, follow their
      * instructions exactly and disable all heuristics.
@@ -873,8 +918,7 @@ void __init init_speculation_mitigations(void)
      * However, if we are on affected hardware, with HT enabled, and the user
      * hasn't explicitly chosen whether to use HT or not, nag them to do so.
      */
-    if ( opt_smt == -1 && cpu_has_bug_l1tf && !pv_shim &&
-         boot_cpu_data.x86_num_siblings > 1 )
+    if ( opt_smt == -1 && cpu_has_bug_l1tf && !pv_shim && hw_smt_enabled )
         warning_add(
             "Booted on L1TF-vulnerable hardware with SMT/Hyperthreading\n"
             "enabled.  Please assess your configuration and choose an\n"
