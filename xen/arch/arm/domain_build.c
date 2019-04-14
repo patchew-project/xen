@@ -1334,6 +1334,7 @@ static int __init handle_node(struct domain *d, struct kernel_info *kinfo,
         DT_MATCH_COMPATIBLE("arm,cortex-a15-pmu"),
         DT_MATCH_COMPATIBLE("arm,cortex-a53-edac"),
         DT_MATCH_COMPATIBLE("arm,armv8-pmuv3"),
+        DT_MATCH_COMPATIBLE("arm,cortex-a53-pmu"),
         DT_MATCH_PATH("/cpus"),
         DT_MATCH_TYPE("memory"),
         /* The memory mapped timer is not supported by Xen. */
