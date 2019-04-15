@@ -11,6 +11,8 @@ DIR=$3
 
 set -e
 
+sleep 1000 ||:
+
 if test \! -d $DIR-remote; then
 	rm -rf $DIR-remote $DIR-remote.tmp
 	mkdir -p $DIR-remote.tmp; rmdir $DIR-remote.tmp
