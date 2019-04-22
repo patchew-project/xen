@@ -101,6 +101,11 @@ prelink.o: $(ALL_OBJS)
 endif
 
 $(TARGET)-syms: prelink.o xen.lds
+ifneq ($(CONFIG_EARLY_PRINTK), )
+ifneq ($(CONFIG_DEBUG), y)
+	$(error CONFIG_EARLY_PRINTK enabled for non-debug build)
+endif
+endif
 	$(LD) $(LDFLAGS) -T xen.lds -N prelink.o \
 	    $(BASEDIR)/common/symbols-dummy.o -o $(@D)/.$(@F).0
 	$(NM) -pa --format=sysv $(@D)/.$(@F).0 \
