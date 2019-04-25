@@ -157,6 +157,13 @@ static void __init process_memory_node(const void *fdt, int node,
         device_tree_get_reg(&cell, address_cells, size_cells, &start, &size);
         if ( !size )
             continue;
+
+        /*
+         * Xen cannot deal with memory starting at 0x0. Burn the first
+         * page.
+         */
+        if ( start == 0 )
+            start += PAGE_SIZE;
         bootinfo.mem.bank[bootinfo.mem.nr_banks].start = start;
         bootinfo.mem.bank[bootinfo.mem.nr_banks].size = size;
         bootinfo.mem.nr_banks++;
