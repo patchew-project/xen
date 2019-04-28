@@ -973,7 +973,8 @@ static PyObject *pyxc_physinfo(XcObject *self)
     xc_physinfo_t pinfo;
     char cpu_cap[128], virt_caps[128], *p;
     int i;
-    const char *virtcap_names[] = { "hvm", "hvm_directio" };
+    const char *virtcap_names[] = { "hvm", "pv",
+                                    "hvm_directio", "pv_directio" };
 
     if ( xc_physinfo(self->xc_handle, &pinfo) != 0 )
         return pyxc_error_to_exception(self->xc_handle);
@@ -989,6 +990,10 @@ static PyObject *pyxc_physinfo(XcObject *self)
     for ( i = 0; i < 2; i++ )
         if ( (pinfo.capabilities >> i) & 1 )
           p += sprintf(p, "%s ", virtcap_names[i]);
+    if (pinfo.capabilities & XEN_SYSCTL_PHYSCAP_directio)
+        for ( i = 0; i < 2; i++ )
+            if ( (pinfo.capabilities >> i) & 1 )
+              p += sprintf(p, "%s ", virtcap_names[i+2]);
     if ( p != virt_caps )
       *(p-1) = '\0';
 
