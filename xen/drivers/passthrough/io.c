@@ -413,34 +413,52 @@ int pt_irq_create_bind(
                 pirq_dpci->gmsi.gflags = gflags;
             }
         }
-        /* Calculate dest_vcpu_id for MSI-type pirq migration. */
-        dest = MASK_EXTR(pirq_dpci->gmsi.gflags,
-                         XEN_DOMCTL_VMSI_X86_DEST_ID_MASK);
-        dest_mode = pirq_dpci->gmsi.gflags & XEN_DOMCTL_VMSI_X86_DM_MASK;
-        delivery_mode = MASK_EXTR(pirq_dpci->gmsi.gflags,
-                                  XEN_DOMCTL_VMSI_X86_DELIV_MASK);
-
-        dest_vcpu_id = hvm_girq_dest_2_vcpu_id(d, dest, dest_mode);
-        pirq_dpci->gmsi.dest_vcpu_id = dest_vcpu_id;
-        spin_unlock(&d->event_lock);
-
-        pirq_dpci->gmsi.posted = false;
-        vcpu = (dest_vcpu_id >= 0) ? d->vcpu[dest_vcpu_id] : NULL;
-        if ( iommu_intpost )
+        /*
+         * Migrate pirq and create posted format IRTE only if we know the gmsi's
+         * dest_id and vector.
+         */
+        if ( pirq_dpci->gmsi.gvec )
         {
-            if ( delivery_mode == dest_LowestPrio )
-                vcpu = vector_hashing_dest(d, dest, dest_mode,
-                                           pirq_dpci->gmsi.gvec);
-            if ( vcpu )
-                pirq_dpci->gmsi.posted = true;
-        }
-        if ( vcpu && iommu_enabled )
-            hvm_migrate_pirq(pirq_dpci, vcpu);
+            /* Calculate dest_vcpu_id for MSI-type pirq migration. */
+            dest = MASK_EXTR(pirq_dpci->gmsi.gflags,
+                             XEN_DOMCTL_VMSI_X86_DEST_ID_MASK);
+            dest_mode = pirq_dpci->gmsi.gflags & XEN_DOMCTL_VMSI_X86_DM_MASK;
+            delivery_mode = MASK_EXTR(pirq_dpci->gmsi.gflags,
+                                      XEN_DOMCTL_VMSI_X86_DELIV_MASK);
 
-        /* Use interrupt posting if it is supported. */
-        if ( iommu_intpost )
-            pi_update_irte(vcpu ? &vcpu->arch.hvm.vmx.pi_desc : NULL,
-                           info, pirq_dpci->gmsi.gvec);
+            dest_vcpu_id = hvm_girq_dest_2_vcpu_id(d, dest, dest_mode);
+            pirq_dpci->gmsi.dest_vcpu_id = dest_vcpu_id;
+            spin_unlock(&d->event_lock);
+
+            pirq_dpci->gmsi.posted = false;
+            vcpu = (dest_vcpu_id >= 0) ? d->vcpu[dest_vcpu_id] : NULL;
+            if ( iommu_intpost )
+            {
+                if ( delivery_mode == dest_LowestPrio )
+                    vcpu = vector_hashing_dest(d, dest, dest_mode,
+                                               pirq_dpci->gmsi.gvec);
+                if ( vcpu )
+                    pirq_dpci->gmsi.posted = true;
+            }
+            if ( vcpu && iommu_enabled )
+                hvm_migrate_pirq(pirq_dpci, vcpu);
+
+            /* Use interrupt posting if it is supported. */
+            if ( iommu_intpost )
+                pi_update_irte(vcpu ? &vcpu->arch.hvm.vmx.pi_desc : NULL,
+                               info, pirq_dpci->gmsi.gvec);
+        }
+        else /* pirq_dpci->gmsi.gvec == 0 */
+        {
+            pirq_dpci->gmsi.dest_vcpu_id = -1;
+            spin_unlock(&d->event_lock);
+
+            if ( unlikely(pirq_dpci->gmsi.posted) )
+            {
+                pi_update_irte(NULL, info, 0);
+                pirq_dpci->gmsi.posted = false;
+            }
+        }
 
         if ( pt_irq_bind->u.msi.gflags & XEN_DOMCTL_VMSI_X86_UNMASKED )
         {
