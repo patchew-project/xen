@@ -308,8 +308,8 @@ int vgic_v2_map_resources(struct domain *d)
      * Map the gic virtual cpu interface in the gic cpu interface
      * region of the guest.
      */
-    ret = map_mmio_regions(d, gaddr_to_gfn(cbase), csize / PAGE_SIZE,
-                           maddr_to_mfn(vbase), p2m_mmio_direct_dev);
+    ret = map_regions(d, gaddr_to_gfn(cbase), csize / PAGE_SIZE,
+                      maddr_to_mfn(vbase), p2m_mmio_direct_dev);
     if ( ret )
     {
         gdprintk(XENLOG_ERR, "Unable to remap VGIC CPU to VCPU\n");

@@ -82,14 +82,14 @@ static int exynos5_init_time(void)
 static int exynos5250_specific_mapping(struct domain *d)
 {
     /* Map the chip ID */
-    map_mmio_regions(d, gaddr_to_gfn(EXYNOS5_PA_CHIPID), 1,
-                     maddr_to_mfn(EXYNOS5_PA_CHIPID),
-                     p2m_mmio_direct_dev);
+    map_regions(d, gaddr_to_gfn(EXYNOS5_PA_CHIPID), 1,
+                maddr_to_mfn(EXYNOS5_PA_CHIPID),
+                p2m_mmio_direct_dev);
 
     /* Map the PWM region */
-    map_mmio_regions(d, gaddr_to_gfn(EXYNOS5_PA_TIMER), 2,
-                     maddr_to_mfn(EXYNOS5_PA_TIMER),
-                     p2m_mmio_direct_dev);
+    map_regions(d, gaddr_to_gfn(EXYNOS5_PA_TIMER), 2,
+                maddr_to_mfn(EXYNOS5_PA_TIMER),
+                p2m_mmio_direct_dev);
 
     return 0;
 }

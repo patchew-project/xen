@@ -98,24 +98,24 @@ static int omap5_init_time(void)
 static int omap5_specific_mapping(struct domain *d)
 {
     /* Map the PRM module */
-    map_mmio_regions(d, gaddr_to_gfn(OMAP5_PRM_BASE), 2,
-                     maddr_to_mfn(OMAP5_PRM_BASE),
-                     p2m_mmio_direct_dev);
+    map_regions(d, gaddr_to_gfn(OMAP5_PRM_BASE), 2,
+                maddr_to_mfn(OMAP5_PRM_BASE),
+                p2m_mmio_direct_dev);
 
     /* Map the PRM_MPU */
-    map_mmio_regions(d, gaddr_to_gfn(OMAP5_PRCM_MPU_BASE), 1,
-                     maddr_to_mfn(OMAP5_PRCM_MPU_BASE),
-                     p2m_mmio_direct_dev);
+    map_regions(d, gaddr_to_gfn(OMAP5_PRCM_MPU_BASE), 1,
+                maddr_to_mfn(OMAP5_PRCM_MPU_BASE),
+                p2m_mmio_direct_dev);
 
     /* Map the Wakeup Gen */
-    map_mmio_regions(d, gaddr_to_gfn(OMAP5_WKUPGEN_BASE), 1,
-                     maddr_to_mfn(OMAP5_WKUPGEN_BASE),
-                     p2m_mmio_direct_dev);
+    map_regions(d, gaddr_to_gfn(OMAP5_WKUPGEN_BASE), 1,
+                maddr_to_mfn(OMAP5_WKUPGEN_BASE),
+                p2m_mmio_direct_dev);
 
     /* Map the on-chip SRAM */
-    map_mmio_regions(d, gaddr_to_gfn(OMAP5_SRAM_PA), 32,
-                     maddr_to_mfn(OMAP5_SRAM_PA),
-                     p2m_mmio_direct_dev);
+    map_regions(d, gaddr_to_gfn(OMAP5_SRAM_PA), 32,
+                maddr_to_mfn(OMAP5_SRAM_PA),
+                p2m_mmio_direct_dev);
 
     return 0;
 }

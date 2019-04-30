@@ -80,10 +80,10 @@ static int __init modify_identity_mmio(struct domain *d, unsigned long pfn,
     for ( ; ; )
     {
         if ( map )
-            rc = map_mmio_regions(d, _gfn(pfn), nr_pages, _mfn(pfn),
-                                  p2m_mmio_direct);
+            rc = map_regions(d, _gfn(pfn), nr_pages, _mfn(pfn),
+                             p2m_mmio_direct);
         else
-            rc = unmap_mmio_regions(d, _gfn(pfn), nr_pages, _mfn(pfn));
+            rc = unmap_regions(d, _gfn(pfn), nr_pages, _mfn(pfn));
         if ( rc == 0 )
             break;
         if ( rc < 0 )

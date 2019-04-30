@@ -2267,11 +2267,11 @@ static unsigned int mmio_order(const struct domain *d,
 
 #define MAP_MMIO_MAX_ITER 64 /* pretty arbitrary */
 
-int map_mmio_regions(struct domain *d,
-                     gfn_t start_gfn,
-                     unsigned long nr,
-                     mfn_t mfn,
-                     p2m_type_t p2mt)
+int map_regions(struct domain *d,
+                gfn_t start_gfn,
+                unsigned long nr,
+                mfn_t mfn,
+                p2m_type_t p2mt)
 {
     int ret = 0;
     unsigned long i;
@@ -2304,10 +2304,10 @@ int map_mmio_regions(struct domain *d,
     return i == nr ? 0 : i ?: ret;
 }
 
-int unmap_mmio_regions(struct domain *d,
-                       gfn_t start_gfn,
-                       unsigned long nr,
-                       mfn_t mfn)
+int unmap_regions(struct domain *d,
+                  gfn_t start_gfn,
+                  unsigned long nr,
+                  mfn_t mfn)
 {
     int ret = 0;
     unsigned long i;

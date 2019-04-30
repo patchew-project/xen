@@ -1171,11 +1171,11 @@ static int __init map_range_to_domain(const struct dt_device_node *dev,
 
     if ( need_mapping )
     {
-        res = map_mmio_regions(d,
-                               gaddr_to_gfn(addr),
-                               PFN_UP(len),
-                               maddr_to_mfn(addr),
-                               mr_data->p2mt);
+        res = map_regions(d,
+                          gaddr_to_gfn(addr),
+                          PFN_UP(len),
+                          maddr_to_mfn(addr),
+                          mr_data->p2mt);
 
         if ( res < 0 )
         {

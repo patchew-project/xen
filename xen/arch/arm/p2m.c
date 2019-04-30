@@ -1331,19 +1331,19 @@ static inline int p2m_remove_mapping(struct domain *d,
     return rc;
 }
 
-int map_mmio_regions(struct domain *d,
-                     gfn_t gfn,
-                     unsigned long nr,
-                     mfn_t mfn,
-                     p2m_type_t p2mt)
+int map_regions(struct domain *d,
+                gfn_t gfn,
+                unsigned long nr,
+                mfn_t mfn,
+                p2m_type_t p2mt)
 {
     return p2m_insert_mapping(d, gfn, nr, mfn, p2mt);
 }
 
-int unmap_mmio_regions(struct domain *d,
-                       gfn_t start_gfn,
-                       unsigned long nr,
-                       mfn_t mfn)
+int unmap_regions(struct domain *d,
+                  gfn_t start_gfn,
+                  unsigned long nr,
+                  mfn_t mfn)
 {
     return p2m_remove_mapping(d, start_gfn, nr, mfn);
 }

@@ -46,15 +46,15 @@ static int map_range(unsigned long s, unsigned long e, void *data,
         /*
          * ARM TODOs:
          * - On ARM whether the memory is prefetchable or not should be passed
-         *   to map_mmio_regions in order to decide which memory attributes
+         *   to map_regions in order to decide which memory attributes
          *   should be used.
          *
-         * - {un}map_mmio_regions doesn't support preemption.
+         * - {un}map_regions doesn't support preemption.
          */
 
-        rc = map->map ? map_mmio_regions(map->d, _gfn(s), size, _mfn(s),
+        rc = map->map ? map_regions(map->d, _gfn(s), size, _mfn(s),
                                          p2m_mmio_direct)
-                      : unmap_mmio_regions(map->d, _gfn(s), size, _mfn(s));
+                      : unmap_regions(map->d, _gfn(s), size, _mfn(s));
         if ( rc == 0 )
         {
             *c += size;

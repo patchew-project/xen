@@ -8,18 +8,20 @@ int __must_check
 guest_physmap_remove_page(struct domain *d, gfn_t gfn, mfn_t mfn,
                           unsigned int page_order);
 
-/* Map MMIO regions in the p2m: start_gfn and nr describe the range in
- *  * the guest physical address space to map, starting from the machine
- *   * frame number mfn. */
-int map_mmio_regions(struct domain *d,
-                     gfn_t start_gfn,
-                     unsigned long nr,
-                     mfn_t mfn,
-                     p2m_type_t p2mt);
-int unmap_mmio_regions(struct domain *d,
-                       gfn_t start_gfn,
-                       unsigned long nr,
-                       mfn_t mfn);
+/*
+ * Map memory regions in the p2m: start_gfn and nr describe the range in
+ * the guest physical address space to map, starting from the machine
+ * frame number mfn.
+ */
+int map_regions(struct domain *d,
+                gfn_t start_gfn,
+                unsigned long nr,
+                mfn_t mfn,
+                p2m_type_t p2mt);
+int unmap_regions(struct domain *d,
+                  gfn_t start_gfn,
+                  unsigned long nr,
+                  mfn_t mfn);
 
 /*
  * Populate-on-Demand
