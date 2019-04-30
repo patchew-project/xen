@@ -415,6 +415,21 @@ static void init_console_info(libxl__gc *gc,
        Only 'channels' when mapped to consoles have a string name. */
 }
 
+static uint32_t libxl__memory_policy_to_xc(libxl_memory_policy c)
+{
+    switch (c) {
+    case LIBXL_MEMORY_POLICY_ARM_MEM_WB:
+        return MEMORY_POLICY_ARM_MEM_WB;
+    case LIBXL_MEMORY_POLICY_ARM_DEV_NGRE:
+        return MEMORY_POLICY_ARM_DEV_nGRE;
+    case LIBXL_MEMORY_POLICY_X86_UC:
+        return MEMORY_POLICY_X86_UC;
+    case LIBXL_MEMORY_POLICY_DEFAULT:
+    default:
+        return MEMORY_POLICY_DEFAULT;
+    }
+}
+
 int libxl__domain_build(libxl__gc *gc,
                         libxl_domain_config *d_config,
                         uint32_t domid,
@@ -1369,9 +1384,11 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
             ret = ERROR_FAIL;
             goto error_out;
         }
-        ret = xc_domain_memory_mapping(CTX->xch, domid,
+        ret = xc_domain_mem_map_policy(CTX->xch, domid,
                                        io->gfn, io->start,
-                                       io->number, 1);
+                                       io->number, 1,
+                                       libxl__memory_policy_to_xc(
+                                           io->memory_policy));
         if (ret < 0) {
             LOGED(ERROR, domid,
                   "failed to map to domain iomem range %"PRIx64"-%"PRIx64
