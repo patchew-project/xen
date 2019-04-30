@@ -2270,11 +2270,15 @@ static unsigned int mmio_order(const struct domain *d,
 int map_mmio_regions(struct domain *d,
                      gfn_t start_gfn,
                      unsigned long nr,
-                     mfn_t mfn)
+                     mfn_t mfn,
+                     p2m_type_t p2mt)
 {
     int ret = 0;
     unsigned long i;
     unsigned int iter, order;
+
+    if ( p2mt != p2m_mmio_direct )
+        return -EOPNOTSUPP;
 
     if ( !paging_mode_translate(d) )
         return 0;
