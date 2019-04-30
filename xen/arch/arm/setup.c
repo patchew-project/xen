@@ -204,6 +204,19 @@ void __init dt_unreserved_regions(paddr_t s, paddr_t e,
         }
     }
 
+    for ( ; i - nr < bootinfo.reserved_mem.nr_banks; i++ )
+    {
+        paddr_t r_s = bootinfo.reserved_mem.bank[i - nr].start;
+        paddr_t r_e = r_s + bootinfo.reserved_mem.bank[i - nr].size;
+
+        if ( s < r_e && r_s < e )
+        {
+            dt_unreserved_regions(r_e, e, cb, i+1);
+            dt_unreserved_regions(s, r_s, cb, i+1);
+            return;
+        }
+    }
+
     cb(s, e);
 }
 
@@ -390,7 +403,7 @@ static paddr_t __init consider_modules(paddr_t s, paddr_t e,
 {
     const struct bootmodules *mi = &bootinfo.modules;
     int i;
-    int nr_rsvd;
+    int nr;
 
     s = (s+align-1) & ~(align-1);
     e = e & ~(align-1);
@@ -416,9 +429,9 @@ static paddr_t __init consider_modules(paddr_t s, paddr_t e,
 
     /* Now check any fdt reserved areas. */
 
-    nr_rsvd = fdt_num_mem_rsv(device_tree_flattened);
+    nr = fdt_num_mem_rsv(device_tree_flattened);
 
-    for ( ; i < mi->nr_mods + nr_rsvd; i++ )
+    for ( ; i < mi->nr_mods + nr; i++ )
     {
         paddr_t mod_s, mod_e;
 
@@ -438,6 +451,23 @@ static paddr_t __init consider_modules(paddr_t s, paddr_t e,
                 return mod_e;
 
             return consider_modules(s, mod_s, size, align, i+1);
+        }
+    }
+
+    /* Now check for reserved-memory regions */
+    nr += mi->nr_mods;
+    for ( ; i - nr < bootinfo.reserved_mem.nr_banks; i++ )
+    {
+        paddr_t r_s = bootinfo.reserved_mem.bank[i - nr].start;
+        paddr_t r_e = r_s + bootinfo.reserved_mem.bank[i - nr].size;
+
+        if ( s < r_e && r_s < e )
+        {
+            r_e = consider_modules(r_e, e, size, align, i+1);
+            if ( r_e )
+                return r_e;
+
+            return consider_modules(s, r_s, size, align, i+1);
         }
     }
     return e;
