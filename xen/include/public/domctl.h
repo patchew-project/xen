@@ -571,12 +571,24 @@ struct xen_domctl_bind_pt_irq {
 */
 #define DPCI_ADD_MAPPING         1
 #define DPCI_REMOVE_MAPPING      0
+/*
+ * Default memory policy. Corresponds to:
+ * Arm: MEMORY_POLICY_ARM_DEV_nGRE
+ * x86: MEMORY_POLICY_X86_UC
+ */
+#define MEMORY_POLICY_DEFAULT    0
+/* x86 only. Memory type UNCACHABLE */
+#define MEMORY_POLICY_X86_UC     0
+/* Arm only. Outer Shareable, Device-nGRE memory */
+#define MEMORY_POLICY_ARM_DEV_nGRE       0
+/* Arm only. Outer Shareable, Outer/Inner Write-Back Cacheable memory */
+#define MEMORY_POLICY_ARM_MEM_WB         1
 struct xen_domctl_memory_mapping {
     uint64_aligned_t first_gfn; /* first page (hvm guest phys page) in range */
     uint64_aligned_t first_mfn; /* first page (machine page) in range */
     uint64_aligned_t nr_mfns;   /* number of pages in range (>0) */
     uint32_t add_mapping;       /* add or remove mapping */
-    uint32_t padding;           /* padding for 64-bit aligned structure */
+    uint32_t memory_policy;      /* cacheability of the memory mapping */
 };
 
 
