@@ -38,6 +38,12 @@
 
         .code16
 
+/*
+ * do_boot_cpu() programs the Startup-IPI to point here.  Due to the SIPI
+ * format, the relocated entrypoint must be 4k aligned.
+ *
+ * It is entered in Real Mode, with %cs = wakeup_start >> 4 and %ip = 0.
+ */
 GLOBAL(trampoline_realmode_entry)
         mov     %cs,%ax
         mov     %ax,%ds
