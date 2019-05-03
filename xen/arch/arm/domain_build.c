@@ -1334,6 +1334,7 @@ static int __init handle_node(struct domain *d, struct kernel_info *kinfo,
         DT_MATCH_COMPATIBLE("arm,cortex-a15-pmu"),
         DT_MATCH_COMPATIBLE("arm,cortex-a53-edac"),
         DT_MATCH_COMPATIBLE("arm,armv8-pmuv3"),
+        DT_MATCH_COMPATIBLE("arm,cortex-a53-pmu"),
         DT_MATCH_PATH("/cpus"),
         DT_MATCH_TYPE("memory"),
         /* The memory mapped timer is not supported by Xen. */
@@ -1353,7 +1354,7 @@ static int __init handle_node(struct domain *d, struct kernel_info *kinfo,
         { /* sentinel */ },
     };
     struct dt_device_node *child;
-    int res;
+    int res, i, nirq, irq_id;
     const char *name;
     const char *path;
 
@@ -1397,6 +1398,20 @@ static int __init handle_node(struct domain *d, struct kernel_info *kinfo,
     {
         dt_dprintk(" IOMMU, skip it\n");
         return 0;
+    }
+
+    /* Skip the node, using PPI source */
+    nirq = dt_number_of_irq(node);
+
+    for ( i = 0 ; i < nirq ; i++ )
+    {
+        irq_id = platform_get_irq(node, i);
+
+        if ( irq_id >= 16 && irq_id < 32 )
+        {
+            dt_dprintk(" Skip node with (PPI source)\n");
+            return 0;
+        }
     }
 
     /*
