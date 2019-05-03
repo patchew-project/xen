@@ -87,16 +87,20 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
         b_info->device_model_ssidref = SECINITSID_DOMDM;
 
     if (!b_info->device_model_version) {
-        if (b_info->type == LIBXL_DOMAIN_TYPE_HVM) {
+        switch (b_info->type) {
+        case LIBXL_DOMAIN_TYPE_HVM:
             if (libxl_defbool_val(b_info->device_model_stubdomain)) {
                 b_info->device_model_version =
                     LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL;
             } else {
                 b_info->device_model_version = libxl__default_device_model(gc);
             }
-        } else {
-            b_info->device_model_version =
-                LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN;
+            break;
+        case LIBXL_DOMAIN_TYPE_PV:
+        case LIBXL_DOMAIN_TYPE_PVH:
+        default:
+            /* may be set later */
+            break;
         }
         if (b_info->device_model_version
                 == LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN) {
@@ -978,6 +982,17 @@ static void initiate_domain_create(libxl__egc *egc,
         goto error_out;
     }
 
+    if (d_config->b_info.device_model_version
+        == LIBXL_DEVICE_MODEL_VERSION_UNKNOWN) {
+        ret = libxl__need_xenpv_qemu(gc, d_config, domid);
+        if (ret)
+            d_config->b_info.device_model_version =
+                LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN;
+        else
+            d_config->b_info.device_model_version =
+                LIBXL_DEVICE_MODEL_VERSION_NONE_REQUIRED;
+    }
+
     dcs->guest_domid = domid;
     dcs->sdss.dm.guest_domid = 0; /* means we haven't spawned */
 
@@ -1312,6 +1327,7 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
     libxl__domain_create_state *dcs = CONTAINER_OF(multidev, *dcs, multidev);
     STATE_AO_GC(dcs->ao);
     int i;
+    bool need_qemu;
 
     /* convenience aliases */
     const uint32_t domid = dcs->guest_domid;
@@ -1464,10 +1480,17 @@ static void domcreate_launch_dm(libxl__egc *egc, libxl__multidev *multidev,
         libxl__device_console_add(gc, domid, &console, state, &device);
         libxl__device_console_dispose(&console);
 
-        ret = libxl__need_xenpv_qemu(gc, d_config);
-        if (ret < 0)
-            goto error_out;
-        if (ret) {
+        switch (d_config->b_info.device_model_version) {
+            case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN_TRADITIONAL:
+            case LIBXL_DEVICE_MODEL_VERSION_QEMU_XEN:
+                need_qemu = true;
+                break;
+            default:
+                need_qemu = false;
+                break;
+        }
+
+        if (need_qemu) {
             dcs->sdss.dm.guest_domid = domid;
             libxl__spawn_local_dm(egc, &dcs->sdss.dm);
             return;
