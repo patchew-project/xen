@@ -191,13 +191,13 @@ void ctxt_switch_levelling(const struct vcpu *next)
 bool_t opt_cpu_info;
 boolean_param("cpuinfo", opt_cpu_info);
 
-int get_model_name(struct cpuinfo_x86 *c)
+static bool get_model_name(struct cpuinfo_x86 *c)
 {
 	unsigned int *v;
 	char *p, *q;
 
 	if (c->extended_cpuid_level < 0x80000004)
-		return 0;
+		return false;
 
 	v = (unsigned int *) c->x86_model_id;
 	cpuid(0x80000002, &v[0], &v[1], &v[2], &v[3]);
@@ -217,7 +217,7 @@ int get_model_name(struct cpuinfo_x86 *c)
 		  *q++ = '\0';	/* Zero-pad the rest */
 	}
 
-	return 1;
+	return true;
 }
 
 
@@ -326,13 +326,18 @@ static void __init early_cpu_detect(void)
 	c->x86_capability[cpufeat_word(X86_FEATURE_FPU)] = edx;
 	c->x86_capability[cpufeat_word(X86_FEATURE_SSE3)] = ecx;
 
+	c->extended_cpuid_level = cpuid_eax(0x80000000);
+	if ((c->extended_cpuid_level >> 16) != 0x8000)
+		c->extended_cpuid_level = 0;
+
 	printk(XENLOG_INFO
 	       "CPU Vendor: %s, Family %u (%#x), Model %u (%#x), Stepping %u (raw %08x)\n",
 	       this_cpu->c_vendor, c->x86, c->x86,
 	       c->x86_model, c->x86_model, c->x86_mask, eax);
+	if (get_model_name(c))
+		printk(XENLOG_INFO "CPU Model:  %.48s\n", c->x86_model_id);
 
-	eax = cpuid_eax(0x80000000);
-	if ((eax >> 16) == 0x8000 && eax >= 0x80000008) {
+	if (c->extended_cpuid_level >= 0x80000008) {
 		eax = cpuid_eax(0x80000008);
 		paddr_bits = eax & 0xff;
 		if (paddr_bits > PADDR_BITS)

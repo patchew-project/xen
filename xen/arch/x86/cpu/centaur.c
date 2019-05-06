@@ -44,7 +44,6 @@ static void init_c3(struct cpuinfo_x86 *c)
 		__set_bit(X86_FEATURE_CONSTANT_TSC, c->x86_capability);
 	}
 
-	get_model_name(c);
 	display_cacheinfo(c);
 }
 
