@@ -923,6 +923,8 @@ typedef struct dom0_vga_console_info {
             /* Mode attributes (offset 0x0, VESA command 0x4f01). */
             uint16_t mode_attrs;
 #endif
+            /* high 32 bits of lfb_base */
+            uint32_t ext_lfb_base;
         } vesa_lfb;
     } u;
 } dom0_vga_console_info_t;
