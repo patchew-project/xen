@@ -2080,7 +2080,7 @@ void page_unlock(struct page_info *page)
 
 /* Update the L1 entry at pl1e to new value nl1e. */
 static int mod_l1_entry(l1_pgentry_t *pl1e, l1_pgentry_t nl1e,
-                        unsigned long gl1mfn, unsigned int cmd,
+                        mfn_t gl1mfn, unsigned int cmd,
                         struct vcpu *pt_vcpu, struct domain *pg_dom)
 {
     bool preserve_ad = (cmd == MMU_PT_UPDATE_PRESERVE_AD);
@@ -2177,8 +2177,8 @@ static int mod_l1_entry(l1_pgentry_t *pl1e, l1_pgentry_t nl1e,
     }
     else if ( pv_l1tf_check_l1e(pt_dom, nl1e) )
         return -ERESTART;
-    else if ( unlikely(!UPDATE_ENTRY(l1, pl1e, ol1e, nl1e, gl1mfn, pt_vcpu,
-                                     preserve_ad)) )
+    else if ( unlikely(!UPDATE_ENTRY(l1, pl1e, ol1e, nl1e, gl1mfn,
+                                     pt_vcpu, preserve_ad)) )
     {
         return -EBUSY;
     }
@@ -2188,16 +2188,16 @@ static int mod_l1_entry(l1_pgentry_t *pl1e, l1_pgentry_t nl1e,
 }
 
 
-/* Update the L2 entry at pl2e to new value nl2e. pl2e is within frame pfn. */
+/* Update the L2 entry at pl2e to new value nl2e. pl2e is within frame mfn. */
 static int mod_l2_entry(l2_pgentry_t *pl2e,
                         l2_pgentry_t nl2e,
-                        unsigned long pfn,
+                        mfn_t mfn,
                         int preserve_ad,
                         struct vcpu *vcpu)
 {
     l2_pgentry_t ol2e;
     struct domain *d = vcpu->domain;
-    struct page_info *l2pg = mfn_to_page(_mfn(pfn));
+    struct page_info *l2pg = mfn_to_page(mfn);
     unsigned long type = l2pg->u.inuse.type_info;
     int rc = 0;
 
@@ -2224,16 +2224,16 @@ static int mod_l2_entry(l2_pgentry_t *pl2e,
         if ( !l2e_has_changed(ol2e, nl2e, ~FASTPATH_FLAG_WHITELIST) )
         {
             nl2e = adjust_guest_l2e(nl2e, d);
-            if ( UPDATE_ENTRY(l2, pl2e, ol2e, nl2e, pfn, vcpu, preserve_ad) )
+            if ( UPDATE_ENTRY(l2, pl2e, ol2e, nl2e, mfn, vcpu, preserve_ad) )
                 return 0;
             return -EBUSY;
         }
 
-        if ( unlikely((rc = get_page_from_l2e(nl2e, pfn, d, 0)) < 0) )
+        if ( unlikely((rc = get_page_from_l2e(nl2e, mfn_x(mfn), d, 0)) < 0) )
             return rc;
 
         nl2e = adjust_guest_l2e(nl2e, d);
-        if ( unlikely(!UPDATE_ENTRY(l2, pl2e, ol2e, nl2e, pfn, vcpu,
+        if ( unlikely(!UPDATE_ENTRY(l2, pl2e, ol2e, nl2e, mfn, vcpu,
                                     preserve_ad)) )
         {
             ol2e = nl2e;
@@ -2242,21 +2242,21 @@ static int mod_l2_entry(l2_pgentry_t *pl2e,
     }
     else if ( pv_l1tf_check_l2e(d, nl2e) )
         return -ERESTART;
-    else if ( unlikely(!UPDATE_ENTRY(l2, pl2e, ol2e, nl2e, pfn, vcpu,
+    else if ( unlikely(!UPDATE_ENTRY(l2, pl2e, ol2e, nl2e, mfn, vcpu,
                                      preserve_ad)) )
     {
         return -EBUSY;
     }
 
-    put_page_from_l2e(ol2e, pfn, 0, true);
+    put_page_from_l2e(ol2e, mfn_x(mfn), 0, true);
 
     return rc;
 }
 
-/* Update the L3 entry at pl3e to new value nl3e. pl3e is within frame pfn. */
+/* Update the L3 entry at pl3e to new value nl3e. pl3e is within frame mfn. */
 static int mod_l3_entry(l3_pgentry_t *pl3e,
                         l3_pgentry_t nl3e,
-                        unsigned long pfn,
+                        mfn_t mfn,
                         int preserve_ad,
                         struct vcpu *vcpu)
 {
@@ -2287,17 +2287,17 @@ static int mod_l3_entry(l3_pgentry_t *pl3e,
         if ( !l3e_has_changed(ol3e, nl3e, ~FASTPATH_FLAG_WHITELIST) )
         {
             nl3e = adjust_guest_l3e(nl3e, d);
-            rc = UPDATE_ENTRY(l3, pl3e, ol3e, nl3e, pfn, vcpu, preserve_ad);
+            rc = UPDATE_ENTRY(l3, pl3e, ol3e, nl3e, mfn, vcpu, preserve_ad);
             return rc ? 0 : -EFAULT;
         }
 
-        rc = get_page_from_l3e(nl3e, pfn, d, 0);
+        rc = get_page_from_l3e(nl3e, mfn_x(mfn), d, 0);
         if ( unlikely(rc < 0) )
             return rc;
         rc = 0;
 
         nl3e = adjust_guest_l3e(nl3e, d);
-        if ( unlikely(!UPDATE_ENTRY(l3, pl3e, ol3e, nl3e, pfn, vcpu,
+        if ( unlikely(!UPDATE_ENTRY(l3, pl3e, ol3e, nl3e, mfn, vcpu,
                                     preserve_ad)) )
         {
             ol3e = nl3e;
@@ -2306,7 +2306,7 @@ static int mod_l3_entry(l3_pgentry_t *pl3e,
     }
     else if ( pv_l1tf_check_l3e(d, nl3e) )
         return -ERESTART;
-    else if ( unlikely(!UPDATE_ENTRY(l3, pl3e, ol3e, nl3e, pfn, vcpu,
+    else if ( unlikely(!UPDATE_ENTRY(l3, pl3e, ol3e, nl3e, mfn, vcpu,
                                      preserve_ad)) )
     {
         return -EFAULT;
@@ -2316,14 +2316,14 @@ static int mod_l3_entry(l3_pgentry_t *pl3e,
         if ( !create_pae_xen_mappings(d, pl3e) )
             BUG();
 
-    put_page_from_l3e(ol3e, pfn, 0, 1);
+    put_page_from_l3e(ol3e, mfn_x(mfn), 0, 1);
     return rc;
 }
 
-/* Update the L4 entry at pl4e to new value nl4e. pl4e is within frame pfn. */
+/* Update the L4 entry at pl4e to new value nl4e. pl4e is within frame mfn. */
 static int mod_l4_entry(l4_pgentry_t *pl4e,
                         l4_pgentry_t nl4e,
-                        unsigned long pfn,
+                        mfn_t mfn,
                         int preserve_ad,
                         struct vcpu *vcpu)
 {
@@ -2354,17 +2354,17 @@ static int mod_l4_entry(l4_pgentry_t *pl4e,
         if ( !l4e_has_changed(ol4e, nl4e, ~FASTPATH_FLAG_WHITELIST) )
         {
             nl4e = adjust_guest_l4e(nl4e, d);
-            rc = UPDATE_ENTRY(l4, pl4e, ol4e, nl4e, pfn, vcpu, preserve_ad);
+            rc = UPDATE_ENTRY(l4, pl4e, ol4e, nl4e, mfn, vcpu, preserve_ad);
             return rc ? 0 : -EFAULT;
         }
 
-        rc = get_page_from_l4e(nl4e, pfn, d, 0);
+        rc = get_page_from_l4e(nl4e, mfn_x(mfn), d, 0);
         if ( unlikely(rc < 0) )
             return rc;
         rc = 0;
 
         nl4e = adjust_guest_l4e(nl4e, d);
-        if ( unlikely(!UPDATE_ENTRY(l4, pl4e, ol4e, nl4e, pfn, vcpu,
+        if ( unlikely(!UPDATE_ENTRY(l4, pl4e, ol4e, nl4e, mfn, vcpu,
                                     preserve_ad)) )
         {
             ol4e = nl4e;
@@ -2373,13 +2373,13 @@ static int mod_l4_entry(l4_pgentry_t *pl4e,
     }
     else if ( pv_l1tf_check_l4e(d, nl4e) )
         return -ERESTART;
-    else if ( unlikely(!UPDATE_ENTRY(l4, pl4e, ol4e, nl4e, pfn, vcpu,
+    else if ( unlikely(!UPDATE_ENTRY(l4, pl4e, ol4e, nl4e, mfn, vcpu,
                                      preserve_ad)) )
     {
         return -EFAULT;
     }
 
-    put_page_from_l4e(ol4e, pfn, 0, 1);
+    put_page_from_l4e(ol4e, mfn_x(mfn), 0, 1);
     return rc;
 }
 #endif /* CONFIG_PV */
@@ -3083,7 +3083,7 @@ int new_guest_cr3(mfn_t mfn)
                           l4e_from_mfn(mfn,
                                        (_PAGE_PRESENT | _PAGE_RW |
                                         _PAGE_USER | _PAGE_ACCESSED)),
-                          mfn_x(gt_mfn), 0, curr);
+                          gt_mfn, 0, curr);
         unmap_domain_page(pl4e);
         switch ( rc )
         {
@@ -3752,12 +3752,12 @@ long do_mmu_update(
 {
     struct mmu_update req;
     void *va = NULL;
-    unsigned long gpfn, gmfn, mfn;
+    unsigned long gpfn, gmfn;
     struct page_info *page;
     unsigned int cmd, i = 0, done = 0, pt_dom;
     struct vcpu *curr = current, *v = curr;
     struct domain *d = v->domain, *pt_owner = d, *pg_owner;
-    mfn_t map_mfn = INVALID_MFN;
+    mfn_t map_mfn = INVALID_MFN, mfn;
     bool sync_guest = false;
     uint32_t xsm_needed = 0;
     uint32_t xsm_checked = 0;
@@ -3883,14 +3883,14 @@ long do_mmu_update(
                 break;
             }
 
-            mfn = mfn_x(page_to_mfn(page));
+            mfn = page_to_mfn(page);
 
-            if ( !mfn_eq(_mfn(mfn), map_mfn) )
+            if ( !mfn_eq(mfn, map_mfn) )
             {
                 if ( va )
                     unmap_domain_page(va);
-                va = map_domain_page(_mfn(mfn));
-                map_mfn = _mfn(mfn);
+                va = map_domain_page(mfn);
+                map_mfn = mfn;
             }
             va = _p(((unsigned long)va & PAGE_MASK) + (req.ptr & ~PAGE_MASK));
 
@@ -3926,7 +3926,8 @@ long do_mmu_update(
                     {
                         bool local_in_use = false;
 
-                        if ( pagetable_get_pfn(curr->arch.guest_table) == mfn )
+                        if ( mfn_eq(pagetable_get_mfn(curr->arch.guest_table),
+                                    mfn) )
                         {
                             local_in_use = true;
                             get_cpu_info()->root_pgt_changed = true;
@@ -3939,15 +3940,15 @@ long do_mmu_update(
                          */
                         if ( (page->u.inuse.type_info & PGT_count_mask) >
                              (1 + !!(page->u.inuse.type_info & PGT_pinned) +
-                              (pagetable_get_pfn(curr->arch.guest_table_user) ==
-                               mfn) + local_in_use) )
+                              (mfn_eq(pagetable_get_mfn(curr->arch.guest_table_user),
+                                      mfn)) + local_in_use) )
                             sync_guest = true;
                     }
                     break;
 
                 case PGT_writable_page:
                     perfc_incr(writable_mmu_updates);
-                    if ( paging_write_guest_entry(v, va, req.val, _mfn(mfn)) )
+                    if ( paging_write_guest_entry(v, va, req.val, mfn) )
                         rc = 0;
                     break;
                 }
@@ -3958,7 +3959,7 @@ long do_mmu_update(
             else if ( get_page_type(page, PGT_writable_page) )
             {
                 perfc_incr(writable_mmu_updates);
-                if ( paging_write_guest_entry(v, va, req.val, _mfn(mfn)) )
+                if ( paging_write_guest_entry(v, va, req.val, mfn) )
                     rc = 0;
                 put_page_type(page);
             }
@@ -3980,7 +3981,7 @@ long do_mmu_update(
                 break;
             }
 
-            mfn = req.ptr >> PAGE_SHIFT;
+            mfn = maddr_to_mfn(req.ptr);
             gpfn = req.val;
 
             xsm_needed |= XSM_MMU_MACHPHYS_UPDATE;
@@ -3992,7 +3993,7 @@ long do_mmu_update(
                 xsm_checked = xsm_needed;
             }
 
-            page = get_page_from_mfn(_mfn(mfn), pg_owner);
+            page = get_page_from_mfn(mfn, pg_owner);
             if ( unlikely(!page) )
             {
                 gdprintk(XENLOG_WARNING,
@@ -4001,7 +4002,7 @@ long do_mmu_update(
                 break;
             }
 
-            set_gpfn_from_mfn(mfn, gpfn);
+            set_gpfn_from_mfn(mfn_x(mfn), gpfn);
             paging_mark_pfn_dirty(pg_owner, _pfn(gpfn));
 
             put_page(page);
@@ -4257,8 +4258,7 @@ static int __do_update_va_mapping(
         goto out;
     }
 
-    rc = mod_l1_entry(pl1e, val, mfn_x(gl1mfn), MMU_NORMAL_PT_UPDATE, v,
-                      pg_owner);
+    rc = mod_l1_entry(pl1e, val, gl1mfn, MMU_NORMAL_PT_UPDATE, v, pg_owner);
 
     page_unlock(gl1pg);
     put_page(gl1pg);
