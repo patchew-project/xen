@@ -205,7 +205,7 @@ void getdomaininfo(struct domain *d, struct xen_domctl_getdomaininfo *info)
     info->outstanding_pages = d->outstanding_pages;
     info->shr_pages         = atomic_read(&d->shr_pages);
     info->paged_pages       = atomic_read(&d->paged_pages);
-    info->shared_info_frame = mfn_to_gmfn(d, virt_to_mfn(d->shared_info));
+    info->shared_info_frame = gfn_x(domain_shared_info_gfn(d));
     BUG_ON(SHARED_M2P(info->shared_info_frame));
 
     info->cpupool = d->cpupool ? d->cpupool->cpupool_id : CPUPOOLID_NONE;

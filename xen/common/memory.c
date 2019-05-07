@@ -512,6 +512,7 @@ static bool propagate_node(unsigned int xmf, unsigned int *memflags)
 
 static long memory_exchange(XEN_GUEST_HANDLE_PARAM(xen_memory_exchange_t) arg)
 {
+#ifdef CONFIG_M2P
     struct xen_memory_exchange exch;
     PAGE_LIST_HEAD(in_chunk_list);
     PAGE_LIST_HEAD(out_chunk_list);
@@ -806,6 +807,9 @@ static long memory_exchange(XEN_GUEST_HANDLE_PARAM(xen_memory_exchange_t) arg)
     if ( __copy_field_to_guest(arg, &exch, nr_exchanged) )
         rc = -EFAULT;
     return rc;
+#else /* !CONFIG_M2P */
+    return -EOPNOTSUPP;
+#endif
 }
 
 int xenmem_add_to_physmap(struct domain *d, struct xen_add_to_physmap *xatp,

@@ -118,6 +118,10 @@ struct xen_domctl_getdomaininfo {
     uint64_aligned_t outstanding_pages;
     uint64_aligned_t shr_pages;
     uint64_aligned_t paged_pages;
+    /*
+     * GFN of shared_info struct. Some architectures (e.g Arm) may not
+     * provide a valid GFN.
+     */
     uint64_aligned_t shared_info_frame; /* GMFN of shared_info struct */
     uint64_aligned_t cpu_time;
     uint32_t nr_online_vcpus;    /* Number of VCPUs currently online. */
