@@ -278,7 +278,7 @@ struct page_info
 
 #define is_xen_heap_page(page) ((page)->count_info & PGC_xen_heap)
 #define is_xen_heap_mfn(mfn) \
-    (__mfn_valid(mfn) && is_xen_heap_page(mfn_to_page(_mfn(mfn))))
+    (mfn_valid(mfn) && is_xen_heap_page(mfn_to_page(mfn)))
 #define is_xen_fixed_mfn(mfn)                     \
     (((mfn_to_maddr(mfn)) >= __pa(&_stext)) &&    \
      ((mfn_to_maddr(mfn)) <= __pa(&__2M_rwdata_end)))
