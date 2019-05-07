@@ -509,7 +509,7 @@ static inline struct page_info *get_page_from_gfn(
 static inline gfn_t mfn_to_gfn(const struct domain *d, mfn_t mfn)
 {
     if ( paging_mode_translate(d) )
-        return _gfn(get_gpfn_from_mfn(mfn_x(mfn)));
+        return _gfn(get_pfn_from_mfn(mfn));
     else
         return _gfn(mfn_x(mfn));
 }

@@ -652,7 +652,7 @@ p2m_pod_decrease_reservation(struct domain *d, gfn_t gfn, unsigned int order)
             }
             p2m_tlb_flush_sync(p2m);
             for ( j = 0; j < n; ++j )
-                set_gpfn_from_mfn(mfn_x(mfn), INVALID_M2P_ENTRY);
+                set_pfn_from_mfn(mfn, INVALID_M2P_ENTRY);
             p2m_pod_cache_add(p2m, page, cur_order);
 
             steal_for_cache =  ( p2m->pod.entry_count > p2m->pod.count );
@@ -1203,7 +1203,7 @@ p2m_pod_demand_populate(struct p2m_domain *p2m, gfn_t gfn,
 
     for( i = 0; i < (1UL << order); i++ )
     {
-        set_gpfn_from_mfn(mfn_x(mfn) + i, gfn_x(gfn_aligned) + i);
+        set_pfn_from_mfn(mfn_add(mfn, i), gfn_x(gfn_aligned) + i);
         paging_mark_pfn_dirty(d, _pfn(gfn_x(gfn_aligned) + i));
     }
 

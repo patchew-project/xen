@@ -1424,7 +1424,7 @@ static void free_heap_pages(
 
         /* This page is not a guest frame any more. */
         page_set_owner(&pg[i], NULL); /* set_gpfn_from_mfn snoops pg owner */
-        set_gpfn_from_mfn(mfn_x(mfn) + i, INVALID_M2P_ENTRY);
+        set_pfn_from_mfn(mfn_add(mfn, + i), INVALID_M2P_ENTRY);
 
         if ( need_scrub )
         {

@@ -273,7 +273,7 @@ static void populate_physmap(struct memop_args *a)
             if ( !paging_mode_translate(d) )
             {
                 for ( j = 0; j < (1U << a->extent_order); j++ )
-                    set_gpfn_from_mfn(mfn_x(mfn_add(mfn, j)), gpfn + j);
+                    set_pfn_from_mfn(mfn_add(mfn, j), gpfn + j);
 
                 /* Inform the domain of the new page's machine address. */ 
                 if ( unlikely(__copy_mfn_to_guest_offset(a->extent_list, i,
