@@ -195,8 +195,8 @@ void __hwdom_init iommu_hwdom_init(struct domain *d)
 
         page_list_for_each ( page, &d->page_list )
         {
-            unsigned long mfn = mfn_x(page_to_mfn(page));
-            unsigned long dfn = mfn_to_gmfn(d, mfn);
+            mfn_t mfn = page_to_mfn(page);
+            dfn_t dfn = _dfn(gfn_x(mfn_to_gfn(d, mfn)));
             unsigned int mapping = IOMMUF_readable;
             int ret;
 
@@ -205,8 +205,7 @@ void __hwdom_init iommu_hwdom_init(struct domain *d)
                   == PGT_writable_page) )
                 mapping |= IOMMUF_writable;
 
-            ret = iommu_map(d, _dfn(dfn), _mfn(mfn), 0, mapping,
-                            &flush_flags);
+            ret = iommu_map(d, dfn, mfn, 0, mapping, &flush_flags);
 
             if ( !rc )
                 rc = ret;
