@@ -313,17 +313,6 @@ static inline void *page_to_virt(const struct page_info *pg)
 struct page_info *get_page_from_gva(struct vcpu *v, vaddr_t va,
                                     unsigned long flags);
 
-/*
- * Arm does not have an M2P, but common code expects a handful of
- * M2P-related defines and functions. Provide dummy versions of these.
- */
-#define INVALID_M2P_ENTRY        (~0UL)
-#define SHARED_M2P_ENTRY         (~0UL - 1UL)
-#define SHARED_M2P(_e)           ((_e) == SHARED_M2P_ENTRY)
-
-/* We don't have a M2P on Arm */
-static inline void set_pfn_from_mfn(mfn_t mfn, unsigned long pfn) {}
-
 /* Arch-specific portion of memory_op hypercall. */
 long arch_memory_op(int op, XEN_GUEST_HANDLE_PARAM(void) arg);
 
