@@ -482,7 +482,14 @@ static void __init init_pdx(void)
 {
     paddr_t bank_start, bank_size, bank_end;
 
-    u64 mask = pdx_init_mask(bootinfo.mem.bank[0].start);
+    /*
+     * Pass 0x0 to pdx_init_mask to get a mask initialized with the
+     * first to 1<<MAX_ORDER pages of RAM left uncompressed.
+     *
+     * If the logic changes in pfn_pdx_hole_setup we might have to
+     * update this function too.
+     */
+    u64 mask = pdx_init_mask(0x0);
     int bank;
 
     for ( bank = 0 ; bank < bootinfo.mem.nr_banks; bank++ )
