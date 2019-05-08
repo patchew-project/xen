@@ -23,9 +23,6 @@ struct arch_iommu
 /* Always share P2M Table between the CPU and the IOMMU */
 #define iommu_use_hap_pt(d) (has_iommu_pt(d))
 
-const struct iommu_ops *iommu_get_ops(void);
-void iommu_set_ops(const struct iommu_ops *ops);
-
 #endif /* __ARCH_ARM_IOMMU_H__ */
 
 /*

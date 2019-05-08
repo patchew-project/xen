@@ -64,6 +64,9 @@ extern int8_t iommu_hwdom_reserved;
 
 extern unsigned int iommu_dev_iotlb_timeout;
 
+const struct iommu_ops *iommu_get_ops(void);
+void iommu_set_ops(const struct iommu_ops *ops);
+
 int iommu_setup(void);
 int iommu_hardware_setup(void);
 

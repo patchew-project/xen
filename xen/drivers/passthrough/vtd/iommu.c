@@ -2700,7 +2700,7 @@ static void vtd_dump_p2m_table(struct domain *d)
     vtd_dump_p2m_table_level(hd->arch.pgd_maddr, agaw_to_level(hd->arch.agaw), 0, 0);
 }
 
-const struct iommu_ops __initconstrel intel_iommu_ops = {
+static const struct iommu_ops __initconstrel _iommu_ops = {
     .init = intel_iommu_domain_init,
     .hwdom_init = intel_iommu_hwdom_init,
     .add_device = intel_iommu_add_device,
@@ -2733,7 +2733,7 @@ const struct iommu_ops __initconstrel intel_iommu_ops = {
 };
 
 const struct iommu_init_ops __initconstrel intel_iommu_init_ops = {
-    .ops = &intel_iommu_ops,
+    .ops = &_iommu_ops,
     .setup = vtd_setup,
     .supports_x2apic = intel_iommu_supports_eim,
 };

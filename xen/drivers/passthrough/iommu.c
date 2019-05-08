@@ -21,6 +21,21 @@
 #include <xen/keyhandler.h>
 #include <xsm/xsm.h>
 
+static struct iommu_ops __read_mostly iommu_ops;
+
+const struct iommu_ops *iommu_get_ops(void)
+{
+    return &iommu_ops;
+}
+
+void __init iommu_set_ops(const struct iommu_ops *ops)
+{
+    BUG_ON(!ops);
+
+    ASSERT(!iommu_ops.init || iommu_ops.init == ops->init);
+    iommu_ops = *ops;
+}
+
 static void iommu_dump_p2m_table(unsigned char key);
 
 unsigned int __read_mostly iommu_dev_iotlb_timeout = 1000;

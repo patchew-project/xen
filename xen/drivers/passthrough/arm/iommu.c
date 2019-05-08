@@ -20,23 +20,6 @@
 #include <xen/device_tree.h>
 #include <asm/device.h>
 
-static const struct iommu_ops *iommu_ops;
-
-const struct iommu_ops *iommu_get_ops(void)
-{
-    return iommu_ops;
-}
-
-void __init iommu_set_ops(const struct iommu_ops *ops)
-{
-    BUG_ON(ops == NULL);
-
-    if ( iommu_ops && iommu_ops != ops )
-        printk("WARNING: Cannot set IOMMU ops, already set to a different value\n");
-
-    iommu_ops = ops;
-}
-
 int __init iommu_hardware_setup(void)
 {
     struct dt_device_node *np;
