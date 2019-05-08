@@ -1554,53 +1554,6 @@ int deassign_device(struct domain *d, u16 seg, u8 bus, u8 devfn)
     return ret;
 }
 
-static int iommu_get_device_group(
-    struct domain *d, u16 seg, u8 bus, u8 devfn,
-    XEN_GUEST_HANDLE_64(uint32) buf, int max_sdevs)
-{
-    const struct domain_iommu *hd = dom_iommu(d);
-    struct pci_dev *pdev;
-    int group_id, sdev_id;
-    u32 bdf;
-    int i = 0;
-    const struct iommu_ops *ops = hd->platform_ops;
-
-    if ( !iommu_enabled || !ops || !ops->get_device_group_id )
-        return 0;
-
-    group_id = ops->get_device_group_id(seg, bus, devfn);
-
-    pcidevs_lock();
-    for_each_pdev( d, pdev )
-    {
-        if ( (pdev->seg != seg) ||
-             ((pdev->bus == bus) && (pdev->devfn == devfn)) )
-            continue;
-
-        if ( xsm_get_device_group(XSM_HOOK, (seg << 16) | (pdev->bus << 8) | pdev->devfn) )
-            continue;
-
-        sdev_id = ops->get_device_group_id(seg, pdev->bus, pdev->devfn);
-        if ( (sdev_id == group_id) && (i < max_sdevs) )
-        {
-            bdf = 0;
-            bdf |= (pdev->bus & 0xff) << 16;
-            bdf |= (pdev->devfn & 0xff) << 8;
-
-            if ( unlikely(copy_to_guest_offset(buf, i, &bdf, 1)) )
-            {
-                pcidevs_unlock();
-                return -1;
-            }
-            i++;
-        }
-    }
-
-    pcidevs_unlock();
-
-    return i;
-}
-
 void iommu_dev_iotlb_flush_timeout(struct domain *d, struct pci_dev *pdev)
 {
     pcidevs_lock();

@@ -729,6 +729,71 @@ int iommu_group_assign(struct pci_dev *pdev)
     return 0;
 }
 
+static struct iommu_group *iommu_group_lookup(uint16_t seg, uint8_t bus,
+                                              uint8_t devfn)
+{
+    unsigned int id = 0;
+    struct iommu_group *grp;
+
+    while ( radix_tree_gang_lookup(&iommu_groups, (void **)&grp, id, 1) )
+    {
+        struct pci_dev *pdev;
+
+        list_for_each_entry ( pdev, &grp->devs_list, grpdevs_list )
+            if ( pdev->seg == seg && pdev->bus == bus &&
+                 pdev->devfn == devfn )
+                return grp;
+
+        id = grp->id + 1;
+    }
+
+    return NULL;
+}
+
+int iommu_get_device_group(struct domain *d, u16 seg, u8 bus, u8 devfn,
+                           XEN_GUEST_HANDLE_64(uint32) buf, int max_sdevs)
+{
+    struct iommu_group *grp;
+    struct pci_dev *pdev;
+    int i = 0;
+
+    pcidevs_lock();
+
+    grp = iommu_group_lookup(seg, bus, devfn);
+    if ( !grp )
+    {
+        pcidevs_unlock();
+        return 0;
+    }
+
+    list_for_each_entry ( pdev, &grp->devs_list, grpdevs_list )
+    {
+        uint32_t sbdf;
+
+        if ( i >= max_sdevs )
+            break;
+
+        if ( pdev->domain != d )
+            continue;
+
+        sbdf = PCI_SBDF3(pdev->seg, pdev->bus, pdev->devfn);
+
+        if ( xsm_get_device_group(XSM_HOOK, sbdf) )
+            continue;
+
+        if ( unlikely(copy_to_guest_offset(buf, i, &sbdf, 1)) )
+        {
+            pcidevs_unlock();
+            return -1;
+        }
+        i++;
+    }
+
+    pcidevs_unlock();
+
+    return i;
+}
+
 #endif /* CONFIG_HAS_PCI */
 
 /*

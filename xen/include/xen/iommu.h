@@ -319,6 +319,8 @@ extern struct page_list_head iommu_pt_cleanup_list;
 
 void iommu_groups_init(void);
 int iommu_group_assign(struct pci_dev *pdev);
+int iommu_get_device_group(struct domain *d, u16 seg, u8 bus, u8 devfn,
+                           XEN_GUEST_HANDLE_64(uint32) buf, int max_sdevs);
 
 #endif /* CONFIG_HAS_PCI */
 
