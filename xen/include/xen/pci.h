@@ -75,6 +75,9 @@ struct pci_dev {
     struct list_head alldevs_list;
     struct list_head domain_list;
 
+    struct list_head grpdevs_list;
+    struct iommu_group *grp;
+
     struct list_head msi_list;
 
     struct arch_msix *msix;

@@ -427,6 +427,7 @@ static struct pci_dev *alloc_pdev(struct pci_seg *pseg, u8 bus, u8 devfn)
 
     check_pdev(pdev);
     apply_quirks(pdev);
+    iommu_group_assign(pdev);
 
     return pdev;
 }
@@ -1097,6 +1098,8 @@ static int __init _scan_pci_devices(struct pci_seg *pseg, void *arg)
 int __init scan_pci_devices(void)
 {
     int ret;
+
+    iommu_groups_init();
 
     pcidevs_lock();
     ret = pci_segments_iterate(_scan_pci_devices, NULL);

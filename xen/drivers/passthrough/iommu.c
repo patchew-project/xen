@@ -655,6 +655,82 @@ static void iommu_dump_p2m_table(unsigned char key)
     }
 }
 
+#ifdef CONFIG_HAS_PCI
+
+struct iommu_group {
+    unsigned int id;
+    unsigned int index;
+    struct list_head devs_list;
+};
+
+static struct radix_tree_root iommu_groups;
+
+void __init iommu_groups_init(void)
+{
+    radix_tree_init(&iommu_groups);
+}
+
+static struct iommu_group *alloc_iommu_group(unsigned int id)
+{
+    struct iommu_group *grp;
+    static unsigned int index;
+
+    grp = xzalloc(struct iommu_group);
+    if ( !grp )
+        return NULL;
+
+    grp->id = id;
+    grp->index = index++;
+    INIT_LIST_HEAD(&grp->devs_list);
+
+    if ( radix_tree_insert(&iommu_groups, id, grp) )
+    {
+        xfree(grp);
+        grp = NULL;
+    }
+
+    return grp;
+}
+
+static struct iommu_group *get_iommu_group(unsigned int id)
+{
+    struct iommu_group *grp = radix_tree_lookup(&iommu_groups, id);
+
+    if ( !grp )
+        grp = alloc_iommu_group(id);
+
+    return grp;
+}
+
+int iommu_group_assign(struct pci_dev *pdev)
+{
+    const struct iommu_ops *ops;
+    unsigned int id;
+    struct iommu_group *grp;
+
+    ops = iommu_get_ops();
+    if ( !ops || !ops->get_device_group_id )
+        return 0;
+
+    id = ops->get_device_group_id(pdev->seg, pdev->bus, pdev->devfn);
+    grp = get_iommu_group(id);
+
+    if ( ! grp )
+        return -ENOMEM;
+
+    if ( iommu_verbose )
+        printk(XENLOG_INFO "Assign %04x:%02x:%02x.%u -> IOMMU group %u\n",
+               pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
+               PCI_FUNC(pdev->devfn), grp->index);
+
+    list_add(&pdev->grpdevs_list, &grp->devs_list);
+    pdev->grp = grp;
+
+    return 0;
+}
+
+#endif /* CONFIG_HAS_PCI */
+
 /*
  * Local variables:
  * mode: C
