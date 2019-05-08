@@ -28,6 +28,8 @@ struct iommu_ops __read_mostly iommu_ops;
 
 int __init iommu_hardware_setup(void)
 {
+    int rc;
+
     if ( !iommu_init_ops )
         return -ENODEV;
 
@@ -37,7 +39,12 @@ int __init iommu_hardware_setup(void)
         /* x2apic setup may have previously initialised the struct. */
         ASSERT(iommu_ops.init == iommu_init_ops->ops->init);
 
-    return iommu_init_ops->setup();
+    rc = iommu_init_ops->setup();
+
+    if ( !rc )
+        rc = scan_pci_devices();
+
+    return rc;
 }
 
 int iommu_enable_x2apic(void)
