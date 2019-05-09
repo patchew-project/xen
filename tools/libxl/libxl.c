@@ -669,6 +669,21 @@ int libxl_set_parameters(libxl_ctx *ctx, char *params)
     return 0;
 }
 
+int libxl_get_parameters(libxl_ctx *ctx, char *params, char *values)
+{
+    int ret;
+    GC_INIT(ctx);
+
+    ret = xc_get_parameters(ctx->xch, params, values);
+    if (ret < 0) {
+        LOGEV(ERROR, ret, "getting parameters");
+        GC_FREE;
+        return ret;//ERROR_FAIL;
+    }
+    GC_FREE;
+    return 0;
+}
+
 static int fd_set_flags(libxl_ctx *ctx, int fd,
                         int fcntlgetop, int fcntlsetop, const char *fl,
                         int flagmask, int set_p)
