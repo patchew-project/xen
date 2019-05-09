@@ -208,6 +208,32 @@ int xc_set_parameters(xc_interface *xch, char *params)
     return ret;
 }
 
+int xc_get_parameters(xc_interface *xch, char *params, char *values)
+{
+    int ret, len = strlen(params);
+    DECLARE_SYSCTL;
+    DECLARE_HYPERCALL_BOUNCE(params, len, XC_HYPERCALL_BUFFER_BOUNCE_IN);
+    DECLARE_HYPERCALL_BOUNCE(values, 1023, XC_HYPERCALL_BUFFER_BOUNCE_OUT);
+
+    if ( xc_hypercall_bounce_pre(xch, params) )
+        return -1;
+    if ( xc_hypercall_bounce_pre(xch, values) )
+        return -1;
+
+    sysctl.cmd = XEN_SYSCTL_get_parameter;
+    set_xen_guest_handle(sysctl.u.get_parameter.params, params);
+    set_xen_guest_handle(sysctl.u.get_parameter.values, values);
+    sysctl.u.get_parameter.size = len;
+    memset(sysctl.u.get_parameter.pad, 0, sizeof(sysctl.u.get_parameter.pad));
+
+    ret = do_sysctl(xch, &sysctl);
+
+    xc_hypercall_bounce_post(xch, params);
+    xc_hypercall_bounce_post(xch, values);
+
+    return ret;
+}
+
 int xc_physinfo(xc_interface *xch,
                 xc_physinfo_t *put_info)
 {
