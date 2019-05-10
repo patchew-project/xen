@@ -426,8 +426,6 @@ int me_wifi_quirk(struct domain *domain, u8 bus, u8 devfn, int map)
 
 void pci_vtd_quirk(const struct pci_dev *pdev)
 {
-    int seg = pdev->sbdf.seg;
-    int bus = pdev->sbdf.bus;
     int pos;
     bool_t ff;
     u32 val, val2;
@@ -464,12 +462,10 @@ void pci_vtd_quirk(const struct pci_dev *pdev)
     /* Sandybridge-EP (Romley) */
     case 0x3c00: /* host bridge */
     case 0x3c01 ... 0x3c0b: /* root ports */
-        pos = pci_find_ext_capability(seg, bus, pdev->sbdf.extfunc,
-                                      PCI_EXT_CAP_ID_ERR);
+        pos = pci_find_ext_capability(pdev->sbdf, PCI_EXT_CAP_ID_ERR);
         if ( !pos )
         {
-            pos = pci_find_ext_capability(seg, bus, pdev->sbdf.extfunc,
-                                          PCI_EXT_CAP_ID_VNDR);
+            pos = pci_find_ext_capability(pdev->sbdf, PCI_EXT_CAP_ID_VNDR);
             while ( pos )
             {
                 val = pci_conf_read32(pdev->sbdf, pos + PCI_VNDR_HEADER);
@@ -478,8 +474,8 @@ void pci_vtd_quirk(const struct pci_dev *pdev)
                     pos += PCI_VNDR_HEADER;
                     break;
                 }
-                pos = pci_find_next_ext_capability(seg, bus, pdev->sbdf.extfunc,
-                                                   pos, PCI_EXT_CAP_ID_VNDR);
+                pos = pci_find_next_ext_capability(pdev->sbdf, pos,
+                                                   PCI_EXT_CAP_ID_VNDR);
             }
             ff = 0;
         }

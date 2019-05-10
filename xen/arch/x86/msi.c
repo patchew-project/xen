@@ -339,7 +339,7 @@ static void msi_set_enable(struct pci_dev *dev, int enable)
     uint8_t slot = dev->sbdf.dev;
     uint8_t func = dev->sbdf.func;
 
-    pos = pci_find_cap_offset(seg, bus, slot, func, PCI_CAP_ID_MSI);
+    pos = pci_find_cap_offset(dev->sbdf, PCI_CAP_ID_MSI);
     if ( pos )
         __msi_set_enable(seg, bus, slot, func, pos, enable);
 }
@@ -347,12 +347,9 @@ static void msi_set_enable(struct pci_dev *dev, int enable)
 static void msix_set_enable(struct pci_dev *dev, int enable)
 {
     int pos;
-    uint16_t control, seg = dev->sbdf.seg;
-    uint8_t bus = dev->sbdf.bus;
-    uint8_t slot = dev->sbdf.dev;
-    uint8_t func = dev->sbdf.func;
+    uint16_t control;
 
-    pos = pci_find_cap_offset(seg, bus, slot, func, PCI_CAP_ID_MSIX);
+    pos = pci_find_cap_offset(dev->sbdf, PCI_CAP_ID_MSIX);
     if ( pos )
     {
         control = pci_conf_read16(dev->sbdf, msix_control_reg(pos));
@@ -669,13 +666,10 @@ static int msi_capability_init(struct pci_dev *dev,
     struct msi_desc *entry;
     int pos;
     unsigned int i, maxvec, mpos;
-    uint16_t control, seg = dev->sbdf.seg;
-    uint8_t bus = dev->sbdf.bus;
-    uint8_t slot = dev->sbdf.dev;
-    uint8_t func = dev->sbdf.func;
+    uint16_t control;
 
     ASSERT(pcidevs_locked());
-    pos = pci_find_cap_offset(seg, bus, slot, func, PCI_CAP_ID_MSI);
+    pos = pci_find_cap_offset(dev->sbdf, PCI_CAP_ID_MSI);
     if ( !pos )
         return -ENODEV;
     control = pci_conf_read16(dev->sbdf, msi_control_reg(pos));
@@ -752,9 +746,7 @@ static u64 read_pci_mem_bar(u16 seg, u8 bus, u8 slot, u8 func, u8 bir, int vf)
     if ( vf >= 0 )
     {
         struct pci_dev *pdev = pci_get_pdev(seg, bus, PCI_DEVFN(slot, func));
-        unsigned int pos = pci_find_ext_capability(seg, bus,
-                                                   PCI_DEVFN(slot, func),
-                                                   PCI_EXT_CAP_ID_SRIOV);
+        unsigned int pos = pci_find_ext_capability(sbdf, PCI_EXT_CAP_ID_SRIOV);
         u16 ctrl = pci_conf_read16(sbdf, pos + PCI_SRIOV_CTRL);
         u16 num_vf = pci_conf_read16(sbdf, pos + PCI_SRIOV_NUM_VF);
         u16 offset = pci_conf_read16(sbdf, pos + PCI_SRIOV_VF_OFFSET);
@@ -1096,13 +1088,12 @@ static int __pci_enable_msix(struct msi_info *msi, struct msi_desc **desc)
     int pos, nr_entries;
     struct pci_dev *pdev;
     u16 control;
-    u8 slot = PCI_SLOT(msi->devfn);
-    u8 func = PCI_FUNC(msi->devfn);
     struct msi_desc *old_desc;
 
     ASSERT(pcidevs_locked());
     pdev = pci_get_pdev(msi->seg, msi->bus, msi->devfn);
-    pos = pci_find_cap_offset(msi->seg, msi->bus, slot, func, PCI_CAP_ID_MSIX);
+    pos = pci_find_cap_offset(PCI_SBDF3_T(msi->seg, msi->bus, msi->devfn),
+                              PCI_CAP_ID_MSIX);
     if ( !pdev || !pos )
         return -ENODEV;
 
@@ -1145,12 +1136,7 @@ static void _pci_cleanup_msix(struct arch_msix *msix)
 static void __pci_disable_msix(struct msi_desc *entry)
 {
     struct pci_dev *dev = entry->dev;
-    uint16_t seg = dev->sbdf.seg;
-    uint8_t bus = dev->sbdf.bus;
-    uint8_t slot = dev->sbdf.dev;
-    uint8_t func = dev->sbdf.func;
-    unsigned int pos = pci_find_cap_offset(seg, bus, slot, func,
-                                           PCI_CAP_ID_MSIX);
+    unsigned int pos = pci_find_cap_offset(dev->sbdf, PCI_CAP_ID_MSIX);
     uint16_t control = pci_conf_read16(dev->sbdf,
                                        msix_control_reg(entry->msi_attrib.pos));
     bool maskall = dev->msix->host_maskall;
@@ -1186,8 +1172,7 @@ int pci_prepare_msix(u16 seg, u8 bus, u8 devfn, bool off)
 {
     int rc;
     struct pci_dev *pdev;
-    u8 slot = PCI_SLOT(devfn), func = PCI_FUNC(devfn);
-    unsigned int pos = pci_find_cap_offset(seg, bus, slot, func,
+    unsigned int pos = pci_find_cap_offset(PCI_SBDF3_T(seg, bus, devfn),
                                            PCI_CAP_ID_MSIX);
 
     if ( !use_msi )
@@ -1267,10 +1252,6 @@ void pci_cleanup_msi(struct pci_dev *pdev)
 int pci_msi_conf_write_intercept(struct pci_dev *pdev, unsigned int reg,
                                  unsigned int size, uint32_t *data)
 {
-    uint16_t seg = pdev->sbdf.seg;
-    uint8_t bus = pdev->sbdf.bus;
-    uint8_t slot = pdev->sbdf.dev;
-    uint8_t func = pdev->sbdf.func;
     struct msi_desc *entry;
     unsigned int pos;
 
@@ -1278,8 +1259,7 @@ int pci_msi_conf_write_intercept(struct pci_dev *pdev, unsigned int reg,
     {
         entry = find_msi_entry(pdev, -1, PCI_CAP_ID_MSIX);
         pos = entry ? entry->msi_attrib.pos
-                    : pci_find_cap_offset(seg, bus, slot, func,
-                                          PCI_CAP_ID_MSIX);
+                    : pci_find_cap_offset(pdev->sbdf, PCI_CAP_ID_MSIX);
         ASSERT(pos);
 
         if ( reg >= pos && reg < msix_pba_offset_reg(pos) + 4 )

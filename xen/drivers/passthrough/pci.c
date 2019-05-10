@@ -332,8 +332,7 @@ static struct pci_dev *alloc_pdev(struct pci_seg *pseg, u8 bus, u8 devfn)
     pdev->domain = NULL;
     INIT_LIST_HEAD(&pdev->msi_list);
 
-    if ( pci_find_cap_offset(pseg->nr, bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
-                             PCI_CAP_ID_MSIX) )
+    if ( pci_find_cap_offset(pdev->sbdf, PCI_CAP_ID_MSIX) )
     {
         struct arch_msix *msix = xzalloc(struct arch_msix);
 
@@ -371,8 +370,7 @@ static struct pci_dev *alloc_pdev(struct pci_seg *pseg, u8 bus, u8 devfn)
             break;
 
         case DEV_TYPE_PCIe_ENDPOINT:
-            pos = pci_find_cap_offset(pseg->nr, bus, PCI_SLOT(devfn),
-                                      PCI_FUNC(devfn), PCI_CAP_ID_EXP);
+            pos = pci_find_cap_offset(pdev->sbdf, PCI_CAP_ID_EXP);
             BUG_ON(!pos);
             cap = pci_conf_read16(pdev->sbdf, pos + PCI_EXP_DEVCAP);
             if ( cap & PCI_EXP_DEVCAP_PHANTOM )
@@ -585,13 +583,12 @@ struct pci_dev *pci_get_pdev_by_domain(const struct domain *d, int seg,
 static void pci_enable_acs(struct pci_dev *pdev)
 {
     int pos;
-    uint16_t cap, ctrl, seg = pdev->sbdf.seg;
-    uint8_t bus = pdev->sbdf.bus;
+    uint16_t cap, ctrl;
 
     if ( !iommu_enabled )
         return;
 
-    pos = pci_find_ext_capability(seg, bus, pdev->sbdf.extfunc, PCI_EXT_CAP_ID_ACS);
+    pos = pci_find_ext_capability(pdev->sbdf, PCI_EXT_CAP_ID_ACS);
     if (!pos)
         return;
 
@@ -722,7 +719,7 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
 
     if ( !pdev->info.is_virtfn && !pdev->vf_rlen[0] )
     {
-        unsigned int pos = pci_find_ext_capability(seg, bus, devfn,
+        unsigned int pos = pci_find_ext_capability(pdev->sbdf,
                                                    PCI_EXT_CAP_ID_SRIOV);
         u16 ctrl = pci_conf_read16(pdev->sbdf, pos + PCI_SRIOV_CTRL);
 
@@ -907,13 +904,13 @@ enum pdev_type pdev_type(u16 seg, u8 bus, u8 devfn)
 {
     u16 class_device, creg;
     u8 d = PCI_SLOT(devfn), f = PCI_FUNC(devfn);
-    int pos = pci_find_cap_offset(seg, bus, d, f, PCI_CAP_ID_EXP);
     const pci_sbdf_t sbdf = {
         .seg = seg,
         .bus = bus,
         .dev = d,
         .func = f,
     };
+    int pos = pci_find_cap_offset(sbdf, PCI_CAP_ID_EXP);
 
     class_device = pci_conf_read16(sbdf, PCI_CLASS_DEVICE);
     switch ( class_device )
@@ -1177,9 +1174,7 @@ static int hest_match_pci(const struct acpi_hest_aer_common *p,
 static bool_t hest_match_type(const struct acpi_hest_header *hest_hdr,
                               const struct pci_dev *pdev)
 {
-    unsigned int pos = pci_find_cap_offset(pdev->sbdf.seg, pdev->sbdf.bus,
-                                           pdev->sbdf.dev, pdev->sbdf.func,
-                                           PCI_CAP_ID_EXP);
+    unsigned int pos = pci_find_cap_offset(pdev->sbdf, PCI_CAP_ID_EXP);
     uint8_t pcie = MASK_EXTR(pci_conf_read16(pdev->sbdf, pos + PCI_EXP_FLAGS),
                              PCI_EXP_FLAGS_TYPE);
 
@@ -1249,8 +1244,7 @@ bool_t pcie_aer_get_firmware_first(const struct pci_dev *pdev)
 {
     struct aer_hest_parse_info info = { .pdev = pdev };
 
-    return pci_find_cap_offset(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                               pdev->sbdf.func, PCI_CAP_ID_EXP) &&
+    return pci_find_cap_offset(pdev->sbdf, PCI_CAP_ID_EXP) &&
            apei_hest_parse(aer_hest_parse, &info) >= 0 &&
            info.firmware_first;
 }

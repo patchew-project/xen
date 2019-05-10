@@ -445,9 +445,7 @@ static int init_msix(struct pci_dev *pdev)
     uint16_t control;
     int rc;
 
-    msix_offset = pci_find_cap_offset(pdev->sbdf.seg, pdev->sbdf.bus,
-                                      pdev->sbdf.dev, pdev->sbdf.func,
-                                      PCI_CAP_ID_MSIX);
+    msix_offset = pci_find_cap_offset(pdev->sbdf, PCI_CAP_ID_MSIX);
     if ( !msix_offset )
         return 0;
 

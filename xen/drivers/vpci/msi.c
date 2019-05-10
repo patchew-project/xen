@@ -185,9 +185,7 @@ static void mask_write(const struct pci_dev *pdev, unsigned int reg,
 
 static int init_msi(struct pci_dev *pdev)
 {
-    unsigned int pos = pci_find_cap_offset(pdev->sbdf.seg, pdev->sbdf.bus,
-                                           pdev->sbdf.dev, pdev->sbdf.func,
-                                           PCI_CAP_ID_MSI);
+    unsigned int pos = pci_find_cap_offset(pdev->sbdf, PCI_CAP_ID_MSI);
     uint16_t control;
     int ret;
 

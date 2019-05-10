@@ -31,11 +31,16 @@ static inline int pci_ats_enabled(int seg, int bus, int devfn)
 {
     u32 value;
     int pos;
+    const pci_sbdf_t sbdf = {
+        .seg = seg,
+        .bus = bus,
+        .extfunc = devfn,
+    };
 
-    pos = pci_find_ext_capability(seg, bus, devfn, PCI_EXT_CAP_ID_ATS);
+    pos = pci_find_ext_capability(sbdf, PCI_EXT_CAP_ID_ATS);
     BUG_ON(!pos);
 
-    value = pci_conf_read16(PCI_SBDF3_T(seg, bus, devfn), pos + ATS_REG_CTL);
+    value = pci_conf_read16(sbdf, pos + ATS_REG_CTL);
 
     return value & ATS_ENABLE;
 }
@@ -45,7 +50,8 @@ static inline int pci_ats_device(int seg, int bus, int devfn)
     if ( !ats_enabled )
         return 0;
 
-    return pci_find_ext_capability(seg, bus, devfn, PCI_EXT_CAP_ID_ATS);
+    return pci_find_ext_capability(PCI_SBDF3_T(seg, bus, devfn),
+                                   PCI_EXT_CAP_ID_ATS);
 }
 
 #endif /* _ATS_H_ */

@@ -8,18 +8,12 @@
 #include <xen/pci.h>
 #include <xen/pci_regs.h>
 
-int pci_find_cap_offset(u16 seg, u8 bus, u8 dev, u8 func, u8 cap)
+int pci_find_cap_offset(pci_sbdf_t sbdf, unsigned int cap)
 {
     u8 id;
     int max_cap = 48;
     u8 pos = PCI_CAPABILITY_LIST;
     u16 status;
-    const pci_sbdf_t sbdf = {
-        .seg = seg,
-        .bus = bus,
-        .dev = dev,
-        .func = func,
-    };
 
     status = pci_conf_read16(sbdf, PCI_STATUS);
     if ( (status & PCI_STATUS_CAP_LIST) == 0 )
@@ -45,15 +39,10 @@ int pci_find_cap_offset(u16 seg, u8 bus, u8 dev, u8 func, u8 cap)
     return 0;
 }
 
-int pci_find_next_cap(u16 seg, u8 bus, unsigned int devfn, u8 pos, int cap)
+int pci_find_next_cap(pci_sbdf_t sbdf, unsigned int pos, unsigned int cap)
 {
     u8 id;
     int ttl = 48;
-    const pci_sbdf_t sbdf = {
-        .seg = seg,
-        .bus = bus,
-        .extfunc = devfn,
-    };
 
     while ( ttl-- )
     {
@@ -83,9 +72,9 @@ int pci_find_next_cap(u16 seg, u8 bus, unsigned int devfn, u8 pos, int cap)
  * within the device's PCI configuration space or 0 if the device does
  * not support it.
  */
-int pci_find_ext_capability(int seg, int bus, int devfn, int cap)
+int pci_find_ext_capability(pci_sbdf_t sbdf, unsigned int cap)
 {
-    return pci_find_next_ext_capability(seg, bus, devfn, 0, cap);
+    return pci_find_next_ext_capability(sbdf, 0, cap);
 }
 
 /**
@@ -98,15 +87,11 @@ int pci_find_ext_capability(int seg, int bus, int devfn, int cap)
  * within the device's PCI configuration space or 0 if the device does
  * not support it.
  */
-int pci_find_next_ext_capability(int seg, int bus, int devfn, int start, int cap)
+int pci_find_next_ext_capability(pci_sbdf_t sbdf, unsigned int start,
+                                 unsigned int cap)
 {
-    int ttl = 480; /* 3840 bytes, minimum 8 bytes per capability */
-    int pos = max(start, 0x100);
-    const pci_sbdf_t sbdf = {
-        .seg = seg,
-        .bus = bus,
-        .extfunc = devfn,
-    };
+    unsigned int ttl = 480; /* 3840 bytes, minimum 8 bytes per capability */
+    unsigned int pos = max(start, 0x100u);
     uint32_t header = pci_conf_read32(sbdf, pos);
 
     /*

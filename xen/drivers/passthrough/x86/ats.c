@@ -23,11 +23,9 @@ boolean_param("ats", ats_enabled);
 int enable_ats_device(struct pci_dev *pdev, struct list_head *ats_list)
 {
     u32 value;
-    uint16_t seg = pdev->sbdf.seg;
-    uint16_t bus = pdev->sbdf.bus, devfn = pdev->sbdf.extfunc;
     int pos;
 
-    pos = pci_find_ext_capability(seg, bus, devfn, PCI_EXT_CAP_ID_ATS);
+    pos = pci_find_ext_capability(pdev->sbdf, PCI_EXT_CAP_ID_ATS);
     BUG_ON(!pos);
 
     if ( iommu_verbose )
