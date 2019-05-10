@@ -42,7 +42,6 @@ static uint32_t control_read(const struct pci_dev *pdev, unsigned int reg,
 static int update_entry(struct vpci_msix_entry *entry,
                         const struct pci_dev *pdev, unsigned int nr)
 {
-    uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
     int rc = vpci_msix_arch_disable_entry(entry, pdev);
 
     /* Ignore ENOENT, it means the entry wasn't setup. */
@@ -50,7 +49,8 @@ static int update_entry(struct vpci_msix_entry *entry,
     {
         gprintk(XENLOG_WARNING,
                 "%04x:%02x:%02x.%u: unable to disable entry %u for update: %d\n",
-                pdev->seg, pdev->bus, slot, func, nr, rc);
+                pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev, pdev->sbdf.func,
+                nr, rc);
         return rc;
     }
 
@@ -61,7 +61,8 @@ static int update_entry(struct vpci_msix_entry *entry,
     {
         gprintk(XENLOG_WARNING,
                 "%04x:%02x:%02x.%u: unable to enable entry %u: %d\n",
-                pdev->seg, pdev->bus, slot, func, nr, rc);
+                pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev, pdev->sbdf.func,
+                nr, rc);
         /* Entry is likely not properly configured. */
         return rc;
     }
@@ -72,7 +73,6 @@ static int update_entry(struct vpci_msix_entry *entry,
 static void control_write(const struct pci_dev *pdev, unsigned int reg,
                           uint32_t val, void *data)
 {
-    uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
     struct vpci_msix *msix = data;
     bool new_masked = val & PCI_MSIX_FLAGS_MASKALL;
     bool new_enabled = val & PCI_MSIX_FLAGS_ENABLE;
@@ -135,7 +135,8 @@ static void control_write(const struct pci_dev *pdev, unsigned int reg,
             default:
                 gprintk(XENLOG_WARNING,
                         "%04x:%02x:%02x.%u: unable to disable entry %u: %d\n",
-                        pdev->seg, pdev->bus, slot, func, i, rc);
+                        pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                        pdev->sbdf.func, i, rc);
                 return;
             }
         }
@@ -146,7 +147,8 @@ static void control_write(const struct pci_dev *pdev, unsigned int reg,
 
     val = control_read(pdev, reg, data);
     if ( pci_msi_conf_write_intercept(msix->pdev, reg, 2, &val) >= 0 )
-        pci_conf_write16(pdev->seg, pdev->bus, slot, func, reg, val);
+        pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                         pdev->sbdf.func, reg, val);
 }
 
 static struct vpci_msix *msix_find(const struct domain *d, unsigned long addr)
@@ -181,7 +183,7 @@ static bool access_allowed(const struct pci_dev *pdev, unsigned long addr,
 
     gprintk(XENLOG_WARNING,
             "%04x:%02x:%02x.%u: unaligned or invalid size MSI-X table access\n",
-            pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+            pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev, pdev->sbdf.func);
 
     return false;
 }
@@ -433,8 +435,8 @@ int vpci_make_msix_hole(const struct pci_dev *pdev)
                 gprintk(XENLOG_WARNING,
                         "%04x:%02x:%02x.%u: existing mapping (mfn: %" PRI_mfn
                         "type: %d) at %#lx clobbers MSIX MMIO area\n",
-                        pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
-                        PCI_FUNC(pdev->devfn), mfn_x(mfn), t, start);
+                        pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                        pdev->sbdf.func, mfn_x(mfn), t, start);
                 return -EEXIST;
             }
             put_gfn(d, start);
@@ -447,18 +449,18 @@ int vpci_make_msix_hole(const struct pci_dev *pdev)
 static int init_msix(struct pci_dev *pdev)
 {
     struct domain *d = pdev->domain;
-    uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
     unsigned int msix_offset, i, max_entries;
     uint16_t control;
     int rc;
 
-    msix_offset = pci_find_cap_offset(pdev->seg, pdev->bus, slot, func,
+    msix_offset = pci_find_cap_offset(pdev->sbdf.seg, pdev->sbdf.bus,
+                                      pdev->sbdf.dev, pdev->sbdf.func,
                                       PCI_CAP_ID_MSIX);
     if ( !msix_offset )
         return 0;
 
-    control = pci_conf_read16(pdev->seg, pdev->bus, slot, func,
-                              msix_control_reg(msix_offset));
+    control = pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                              pdev->sbdf.func, msix_control_reg(msix_offset));
 
     max_entries = msix_table_size(control);
 
@@ -470,11 +472,11 @@ static int init_msix(struct pci_dev *pdev)
     pdev->vpci->msix->pdev = pdev;
 
     pdev->vpci->msix->tables[VPCI_MSIX_TABLE] =
-        pci_conf_read32(pdev->seg, pdev->bus, slot, func,
-                        msix_table_offset_reg(msix_offset));
+        pci_conf_read32(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                        pdev->sbdf.func, msix_table_offset_reg(msix_offset));
     pdev->vpci->msix->tables[VPCI_MSIX_PBA] =
-        pci_conf_read32(pdev->seg, pdev->bus, slot, func,
-                        msix_pba_offset_reg(msix_offset));
+        pci_conf_read32(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                        pdev->sbdf.func, msix_pba_offset_reg(msix_offset));
 
     for ( i = 0; i < pdev->vpci->msix->max_entries; i++)
     {

@@ -114,15 +114,15 @@ static void vpci_ignored_write(const struct pci_dev *pdev, unsigned int reg,
 uint32_t vpci_hw_read16(const struct pci_dev *pdev, unsigned int reg,
                         void *data)
 {
-    return pci_conf_read16(pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
-                           PCI_FUNC(pdev->devfn), reg);
+    return pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                           pdev->sbdf.func, reg);
 }
 
 uint32_t vpci_hw_read32(const struct pci_dev *pdev, unsigned int reg,
                         void *data)
 {
-    return pci_conf_read32(pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
-                           PCI_FUNC(pdev->devfn), reg);
+    return pci_conf_read32(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                           pdev->sbdf.func, reg);
 }
 
 int vpci_add_register(struct vpci *vpci, vpci_read_t *read_handler,

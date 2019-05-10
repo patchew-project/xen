@@ -23,8 +23,8 @@ boolean_param("ats", ats_enabled);
 int enable_ats_device(struct pci_dev *pdev, struct list_head *ats_list)
 {
     u32 value;
-    u16 seg = pdev->seg;
-    u8 bus = pdev->bus, devfn = pdev->devfn;
+    uint16_t seg = pdev->sbdf.seg;
+    uint16_t bus = pdev->sbdf.bus, devfn = pdev->sbdf.extfunc;
     int pos;
 
     pos = pci_find_ext_capability(seg, bus, devfn, PCI_EXT_CAP_ID_ATS);
@@ -76,8 +76,8 @@ int enable_ats_device(struct pci_dev *pdev, struct list_head *ats_list)
 void disable_ats_device(struct pci_dev *pdev)
 {
     u32 value;
-    u16 seg = pdev->seg;
-    u8 bus = pdev->bus, devfn = pdev->devfn;
+    uint16_t seg = pdev->sbdf.seg;
+    uint8_t bus = pdev->sbdf.bus, devfn = pdev->sbdf.extfunc;
 
     BUG_ON(!pdev->ats.cap_pos);
 

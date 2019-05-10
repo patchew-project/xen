@@ -77,9 +77,8 @@ static void control_write(const struct pci_dev *pdev, unsigned int reg,
     msi->vectors = vectors;
     msi->enabled = new_enabled;
 
-    pci_conf_write16(pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
-                     PCI_FUNC(pdev->devfn), reg,
-                     control_read(pdev, reg, data));
+    pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                     pdev->sbdf.func, reg, control_read(pdev, reg, data));
 }
 
 static void update_msi(const struct pci_dev *pdev, struct vpci_msi *msi)
@@ -187,8 +186,8 @@ static void mask_write(const struct pci_dev *pdev, unsigned int reg,
 
 static int init_msi(struct pci_dev *pdev)
 {
-    uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
-    unsigned int pos = pci_find_cap_offset(pdev->seg, pdev->bus, slot, func,
+    unsigned int pos = pci_find_cap_offset(pdev->sbdf.seg, pdev->sbdf.bus,
+                                           pdev->sbdf.dev, pdev->sbdf.func,
                                            PCI_CAP_ID_MSI);
     uint16_t control;
     int ret;
@@ -211,8 +210,8 @@ static int init_msi(struct pci_dev *pdev)
         return ret;
 
     /* Get the maximum number of vectors the device supports. */
-    control = pci_conf_read16(pdev->seg, pdev->bus, slot, func,
-                              msi_control_reg(pos));
+    control = pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                              pdev->sbdf.func, msi_control_reg(pos));
 
     /*
      * FIXME: I've only been able to test this code with devices using a single
@@ -293,8 +292,8 @@ void vpci_dump_msi(void)
             msi = pdev->vpci->msi;
             if ( msi && msi->enabled )
             {
-                printk("%04x:%02x:%02x.%u MSI\n", pdev->seg, pdev->bus,
-                       PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+                printk("%04x:%02x:%02x.%u MSI\n", pdev->sbdf.seg,
+                       pdev->sbdf.bus, pdev->sbdf.dev, pdev->sbdf.func);
 
                 printk("  enabled: %d 64-bit: %d",
                        msi->enabled, msi->address64);
@@ -311,8 +310,8 @@ void vpci_dump_msi(void)
             {
                 int rc;
 
-                printk("%04x:%02x:%02x.%u MSI-X\n", pdev->seg, pdev->bus,
-                       PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+                printk("%04x:%02x:%02x.%u MSI-X\n", pdev->sbdf.seg,
+                       pdev->sbdf.bus, pdev->sbdf.dev, pdev->sbdf.func);
 
                 printk("  entries: %u maskall: %d enabled: %d\n",
                        msix->max_entries, msix->masked, msix->enabled);

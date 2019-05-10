@@ -1484,7 +1484,7 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
 {
     struct acpi_drhd_unit *drhd;
     int ret = 0;
-    u8 seg = pdev->seg, bus = pdev->bus, secbus;
+    uint8_t seg = pdev->sbdf.seg, bus = pdev->sbdf.bus, secbus;
 
     drhd = acpi_find_matched_drhd_unit(pdev);
     if ( !drhd )
@@ -1515,7 +1515,7 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
                    PCI_SLOT(devfn), PCI_FUNC(devfn));
         ret = domain_context_mapping_one(domain, drhd->iommu, bus, devfn,
                                          pdev);
-        if ( !ret && devfn == pdev->devfn && ats_device(pdev, drhd) > 0 )
+        if ( !ret && devfn == pdev->sbdf.extfunc && ats_device(pdev, drhd) > 0 )
             enable_ats_device(pdev, &drhd->iommu->ats_devices);
 
         break;
@@ -1543,7 +1543,7 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
          * behind the bridge. Map that id as well if we didn't already.
          */
         if ( !ret && pdev_type(seg, bus, devfn) == DEV_TYPE_PCIe2PCI_BRIDGE &&
-             (secbus != pdev->bus || pdev->devfn != 0) )
+             (secbus != pdev->sbdf.bus || pdev->sbdf.extfunc != 0) )
             ret = domain_context_mapping_one(domain, drhd->iommu, secbus, 0,
                                              pci_get_pdev(seg, secbus, 0));
 
@@ -1557,7 +1557,7 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
         break;
     }
 
-    if ( !ret && devfn == pdev->devfn )
+    if ( !ret && devfn == pdev->sbdf.extfunc )
         pci_vtd_quirk(pdev);
 
     return ret;
@@ -1635,7 +1635,8 @@ static int domain_context_unmap(struct domain *domain, u8 devfn,
     struct acpi_drhd_unit *drhd;
     struct iommu *iommu;
     int ret = 0;
-    u8 seg = pdev->seg, bus = pdev->bus, tmp_bus, tmp_devfn, secbus;
+    uint8_t seg = pdev->sbdf.seg, bus = pdev->sbdf.bus, tmp_bus, tmp_devfn,
+            secbus;
     int found = 0;
 
     drhd = acpi_find_matched_drhd_unit(pdev);
@@ -1665,7 +1666,7 @@ static int domain_context_unmap(struct domain *domain, u8 devfn,
                    domain->domain_id, seg, bus,
                    PCI_SLOT(devfn), PCI_FUNC(devfn));
         ret = domain_context_unmap_one(domain, iommu, bus, devfn);
-        if ( !ret && devfn == pdev->devfn && ats_device(pdev, drhd) > 0 )
+        if ( !ret && devfn == pdev->sbdf.extfunc && ats_device(pdev, drhd) > 0 )
             disable_ats_device(pdev);
 
         break;
@@ -1711,7 +1712,8 @@ static int domain_context_unmap(struct domain *domain, u8 devfn,
      */
     for_each_pdev ( domain, pdev )
     {
-        if ( pdev->seg == seg && pdev->bus == bus && pdev->devfn == devfn )
+        if ( pdev->sbdf.seg == seg && pdev->sbdf.bus == bus &&
+             pdev->sbdf.extfunc == devfn )
             continue;
 
         drhd = acpi_find_matched_drhd_unit(pdev);
@@ -2050,8 +2052,8 @@ static int intel_iommu_add_device(u8 devfn, struct pci_dev *pdev)
 
     for_each_rmrr_device ( rmrr, bdf, i )
     {
-        if ( rmrr->segment == pdev->seg &&
-             PCI_BUS(bdf) == pdev->bus &&
+        if ( rmrr->segment == pdev->sbdf.seg &&
+             PCI_BUS(bdf) == pdev->sbdf.bus &&
              PCI_DEVFN2(bdf) == devfn )
         {
             /*
@@ -2096,8 +2098,8 @@ static int intel_iommu_remove_device(u8 devfn, struct pci_dev *pdev)
 
     for_each_rmrr_device ( rmrr, bdf, i )
     {
-        if ( rmrr->segment != pdev->seg ||
-             PCI_BUS(bdf) != pdev->bus ||
+        if ( rmrr->segment != pdev->sbdf.seg ||
+             PCI_BUS(bdf) != pdev->sbdf.bus ||
              PCI_DEVFN2(bdf) != devfn )
             continue;
 
@@ -2421,8 +2423,8 @@ static int reassign_device_ownership(
         unsigned int i;
 
         for_each_rmrr_device( rmrr, bdf, i )
-            if ( rmrr->segment == pdev->seg &&
-                 PCI_BUS(bdf) == pdev->bus &&
+            if ( rmrr->segment == pdev->sbdf.seg &&
+                 PCI_BUS(bdf) == pdev->sbdf.bus &&
                  PCI_DEVFN2(bdf) == devfn )
             {
                 /*
@@ -2451,7 +2453,7 @@ static int reassign_device_ownership(
         return ret;
     }
 
-    if ( devfn == pdev->devfn )
+    if ( devfn == pdev->sbdf.extfunc )
     {
         list_move(&pdev->domain_list, &target->arch.pdev_list);
         pdev->domain = target;
@@ -2474,8 +2476,8 @@ static int intel_iommu_assign_device(
     if ( list_empty(&acpi_drhd_units) )
         return -ENODEV;
 
-    seg = pdev->seg;
-    bus = pdev->bus;
+    seg = pdev->sbdf.seg;
+    bus = pdev->sbdf.bus;
     /*
      * In rare cases one given rmrr is shared by multiple devices but
      * obviously this would put the security of a system at risk. So

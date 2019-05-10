@@ -525,8 +525,8 @@ int amd_iommu_msi_msg_update_ire(
     unsigned int i, nr = 1;
     u32 data;
 
-    bdf = pdev ? PCI_BDF2(pdev->bus, pdev->devfn) : hpet_sbdf.bdf;
-    seg = pdev ? pdev->seg : hpet_sbdf.seg;
+    bdf = pdev ? pdev->sbdf.bdf : hpet_sbdf.bdf;
+    seg = pdev ? pdev->sbdf.seg : hpet_sbdf.seg;
 
     iommu = _find_iommu_for_device(seg, bdf);
     if ( IS_ERR_OR_NULL(iommu) )
@@ -544,12 +544,12 @@ int amd_iommu_msi_msg_update_ire(
             if ( !pdev || !pdev->phantom_stride )
                 break;
             bdf += pdev->phantom_stride;
-        } while ( PCI_SLOT(bdf) == PCI_SLOT(pdev->devfn) );
+        } while ( PCI_SLOT(bdf) == pdev->sbdf.dev );
 
         for ( i = 0; i < nr; ++i )
             msi_desc[i].remap_index = -1;
         if ( pdev )
-            bdf = PCI_BDF2(pdev->bus, pdev->devfn);
+            bdf = pdev->sbdf.bdf;
     }
 
     if ( !msg )
@@ -562,7 +562,7 @@ int amd_iommu_msi_msg_update_ire(
         if ( rc || !pdev || !pdev->phantom_stride )
             break;
         bdf += pdev->phantom_stride;
-    } while ( PCI_SLOT(bdf) == PCI_SLOT(pdev->devfn) );
+    } while ( PCI_SLOT(bdf) == pdev->sbdf.dev );
 
     if ( !rc )
     {
@@ -579,8 +579,8 @@ void amd_iommu_read_msi_from_ire(
 {
     unsigned int offset = msg->data & (INTREMAP_ENTRIES - 1);
     const struct pci_dev *pdev = msi_desc->dev;
-    u16 bdf = pdev ? PCI_BDF2(pdev->bus, pdev->devfn) : hpet_sbdf.bdf;
-    u16 seg = pdev ? pdev->seg : hpet_sbdf.seg;
+    uint16_t bdf = pdev ? pdev->sbdf.bdf : hpet_sbdf.bdf;
+    uint16_t seg = pdev ? pdev->sbdf.seg : hpet_sbdf.seg;
     const u32 *entry;
 
     if ( IS_ERR_OR_NULL(_find_iommu_for_device(seg, bdf)) )

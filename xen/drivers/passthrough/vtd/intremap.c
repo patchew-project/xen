@@ -483,9 +483,9 @@ static void set_msi_source_id(struct pci_dev *pdev, struct iremap_entry *ire)
     if ( !pdev || !ire )
         return;
 
-    seg = pdev->seg;
-    bus = pdev->bus;
-    devfn = pdev->devfn;
+    seg = pdev->sbdf.seg;
+    bus = pdev->sbdf.bus;
+    devfn = pdev->sbdf.extfunc;
     switch ( pdev->type )
     {
         unsigned int sq;
@@ -517,7 +517,7 @@ static void set_msi_source_id(struct pci_dev *pdev, struct iremap_entry *ire)
         {
             if ( pdev_type(seg, bus, devfn) == DEV_TYPE_PCIe2PCI_BRIDGE )
                 set_ire_sid(ire, SVT_VERIFY_BUS, SQ_ALL_16,
-                            (bus << 8) | pdev->bus);
+                            (bus << 8) | pdev->sbdf.bus);
             else
                 set_ire_sid(ire, SVT_VERIFY_SID_SQ, SQ_ALL_16,
                             PCI_BDF2(bus, devfn));

@@ -57,8 +57,8 @@ int ats_device(const struct pci_dev *pdev, const struct acpi_drhd_unit *drhd)
         return 0;
 
     ats_drhd = find_ats_dev_drhd(drhd->iommu);
-    pos = pci_find_ext_capability(pdev->seg, pdev->bus, pdev->devfn,
-                                  PCI_EXT_CAP_ID_ATS);
+    pos = pci_find_ext_capability(pdev->sbdf.seg, pdev->sbdf.bus,
+                                  pdev->sbdf.extfunc, PCI_EXT_CAP_ID_ATS);
 
     if ( pos && (ats_drhd == NULL) )
     {
@@ -79,19 +79,19 @@ static int device_in_domain(const struct iommu *iommu,
     int tt, found = 0;
 
     root_entry = (struct root_entry *) map_vtd_domain_page(iommu->root_maddr);
-    if ( !root_entry || !root_present(root_entry[pdev->bus]) )
+    if ( !root_entry || !root_present(root_entry[pdev->sbdf.bus]) )
         goto out;
 
     ctxt_entry = (struct context_entry *)
-                 map_vtd_domain_page(root_entry[pdev->bus].val);
+                 map_vtd_domain_page(root_entry[pdev->sbdf.bus].val);
 
     if ( ctxt_entry == NULL )
         goto out;
 
-    if ( context_domain_id(ctxt_entry[pdev->devfn]) != did )
+    if ( context_domain_id(ctxt_entry[pdev->sbdf.extfunc]) != did )
         goto out;
 
-    tt = context_translation_type(ctxt_entry[pdev->devfn]);
+    tt = context_translation_type(ctxt_entry[pdev->sbdf.extfunc]);
     if ( tt != CONTEXT_TT_DEV_IOTLB )
         goto out;
 

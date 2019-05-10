@@ -289,23 +289,23 @@ void amd_iommu_flush_iotlb(u8 devfn, const struct pci_dev *pdev,
     if ( !ats_enabled )
         return;
 
-    if ( !pci_ats_enabled(pdev->seg, pdev->bus, pdev->devfn) )
+    if ( !pci_ats_enabled(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.extfunc) )
         return;
 
-    iommu = find_iommu_for_device(pdev->seg, PCI_BDF2(pdev->bus, pdev->devfn));
+    iommu = find_iommu_for_device(pdev->sbdf.seg, pdev->sbdf.bdf);
 
     if ( !iommu )
     {
         AMD_IOMMU_DEBUG("%s: Can't find iommu for %04x:%02x:%02x.%u\n",
-                        __func__, pdev->seg, pdev->bus,
-                        PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+                        __func__, pdev->sbdf.seg, pdev->sbdf.bus,
+                        pdev->sbdf.dev, pdev->sbdf.func);
         return;
     }
 
     if ( !iommu_has_cap(iommu, PCI_CAP_IOTLB_SHIFT) )
         return;
 
-    req_id = get_dma_requestor_id(iommu->seg, PCI_BDF2(pdev->bus, devfn));
+    req_id = get_dma_requestor_id(iommu->seg, PCI_BDF2(pdev->sbdf.bus, devfn));
     queueid = req_id;
     maxpend = pdev->ats.queue_depth & 0xff;
 
@@ -326,13 +326,13 @@ static void amd_iommu_flush_all_iotlbs(struct domain *d, daddr_t daddr,
 
     for_each_pdev( d, pdev )
     {
-        u8 devfn = pdev->devfn;
+        uint8_t devfn = pdev->sbdf.extfunc;
 
         do {
             amd_iommu_flush_iotlb(devfn, pdev, daddr, order);
             devfn += pdev->phantom_stride;
-        } while ( devfn != pdev->devfn &&
-                  PCI_SLOT(devfn) == PCI_SLOT(pdev->devfn) );
+        } while ( devfn != pdev->sbdf.extfunc &&
+                  PCI_SLOT(devfn) == pdev->sbdf.dev );
     }
 }
 

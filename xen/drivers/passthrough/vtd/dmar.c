@@ -219,18 +219,18 @@ struct acpi_drhd_unit *acpi_find_matched_drhd_unit(const struct pci_dev *pdev)
     }
     else if ( pdev->info.is_extfn )
     {
-        bus = pdev->bus;
+        bus = pdev->sbdf.bus;
         devfn = 0;
     }
     else
     {
-        bus = pdev->bus;
-        devfn = pdev->devfn;
+        bus = pdev->sbdf.bus;
+        devfn = pdev->sbdf.extfunc;
     }
 
     list_for_each_entry ( drhd, &acpi_drhd_units, list )
     {
-        if ( drhd->segment != pdev->seg )
+        if ( drhd->segment != pdev->sbdf.seg )
             continue;
 
         for (i = 0; i < drhd->scope.devices_cnt; i++)
@@ -253,10 +253,10 @@ struct acpi_atsr_unit *acpi_find_matched_atsr_unit(const struct pci_dev *pdev)
 
     list_for_each_entry ( atsr, &acpi_atsr_units, list )
     {
-        if ( atsr->segment != pdev->seg )
+        if ( atsr->segment != pdev->sbdf.seg )
             continue;
 
-        if ( test_bit(pdev->bus, atsr->scope.buses) )
+        if ( test_bit(pdev->sbdf.bus, atsr->scope.buses) )
             return atsr;
 
         if ( atsr->all_ports )

@@ -324,8 +324,8 @@ static int update_paging_mode(struct domain *d, unsigned long dfn)
             if ( pdev->type == DEV_TYPE_PCI_HOST_BRIDGE )
                 continue;
 
-            bdf = PCI_BDF2(pdev->bus, pdev->devfn);
-            iommu = find_iommu_for_device(pdev->seg, bdf);
+            bdf = pdev->sbdf.bdf;
+            iommu = find_iommu_for_device(pdev->sbdf.seg, bdf);
             if ( !iommu )
             {
                 AMD_IOMMU_DEBUG("%s Fail to find iommu.\n", __func__);
@@ -334,7 +334,7 @@ static int update_paging_mode(struct domain *d, unsigned long dfn)
 
             spin_lock_irqsave(&iommu->lock, flags);
             do {
-                req_id = get_dma_requestor_id(pdev->seg, bdf);
+                req_id = get_dma_requestor_id(pdev->sbdf.seg, bdf);
                 table = iommu->dev_table.buffer;
                 dte = &table[req_id];
 
@@ -346,8 +346,8 @@ static int update_paging_mode(struct domain *d, unsigned long dfn)
 
                 amd_iommu_flush_device(iommu, req_id);
                 bdf += pdev->phantom_stride;
-            } while ( PCI_DEVFN2(bdf) != pdev->devfn &&
-                      PCI_SLOT(bdf) == PCI_SLOT(pdev->devfn) );
+            } while ( PCI_DEVFN2(bdf) != pdev->sbdf.extfunc &&
+                      PCI_SLOT(bdf) == pdev->sbdf.dev );
             spin_unlock_irqrestore(&iommu->lock, flags);
         }
 

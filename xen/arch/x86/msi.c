@@ -124,13 +124,13 @@ static void msix_put_fixmap(struct arch_msix *msix, int idx)
 
 static bool memory_decoded(const struct pci_dev *dev)
 {
-    u8 bus, slot, func;
+    uint8_t bus, slot, func;
 
     if ( !dev->info.is_virtfn )
     {
-        bus = dev->bus;
-        slot = PCI_SLOT(dev->devfn);
-        func = PCI_FUNC(dev->devfn);
+        bus = dev->sbdf.bus;
+        slot = dev->sbdf.dev;
+        func = dev->sbdf.func;
     }
     else
     {
@@ -139,14 +139,14 @@ static bool memory_decoded(const struct pci_dev *dev)
         func = PCI_FUNC(dev->info.physfn.devfn);
     }
 
-    return !!(pci_conf_read16(dev->seg, bus, slot, func, PCI_COMMAND) &
+    return !!(pci_conf_read16(dev->sbdf.seg, bus, slot, func, PCI_COMMAND) &
               PCI_COMMAND_MEMORY);
 }
 
 static bool msix_memory_decoded(const struct pci_dev *dev, unsigned int pos)
 {
-    u16 control = pci_conf_read16(dev->seg, dev->bus, PCI_SLOT(dev->devfn),
-                                  PCI_FUNC(dev->devfn), msix_control_reg(pos));
+    u16 control = pci_conf_read16(dev->sbdf.seg, dev->sbdf.bus, dev->sbdf.dev,
+                                  dev->sbdf.func, msix_control_reg(pos));
 
     if ( !(control & PCI_MSIX_FLAGS_ENABLE) )
         return false;
@@ -200,10 +200,10 @@ static bool read_msi_msg(struct msi_desc *entry, struct msi_msg *msg)
     {
         struct pci_dev *dev = entry->dev;
         int pos = entry->msi_attrib.pos;
-        u16 data, seg = dev->seg;
-        u8 bus = dev->bus;
-        u8 slot = PCI_SLOT(dev->devfn);
-        u8 func = PCI_FUNC(dev->devfn);
+        uint16_t data, seg = dev->sbdf.seg;
+        uint8_t bus = dev->sbdf.bus;
+        uint8_t slot = dev->sbdf.dev;
+        uint8_t func = dev->sbdf.func;
 
         msg->address_lo = pci_conf_read32(seg, bus, slot, func,
                                           msi_lower_address_reg(pos));
@@ -265,10 +265,10 @@ static int write_msi_msg(struct msi_desc *entry, struct msi_msg *msg)
     {
         struct pci_dev *dev = entry->dev;
         int pos = entry->msi_attrib.pos;
-        u16 seg = dev->seg;
-        u8 bus = dev->bus;
-        u8 slot = PCI_SLOT(dev->devfn);
-        u8 func = PCI_FUNC(dev->devfn);
+        uint16_t seg = dev->sbdf.seg;
+        uint8_t bus = dev->sbdf.bus;
+        uint8_t slot = dev->sbdf.dev;
+        uint8_t func = dev->sbdf.func;
         int nr = entry->msi_attrib.entry_nr;
 
         ASSERT((msg->data & (entry[-nr].msi.nvec - 1)) == nr);
@@ -348,10 +348,10 @@ void __msi_set_enable(u16 seg, u8 bus, u8 slot, u8 func, int pos, int enable)
 static void msi_set_enable(struct pci_dev *dev, int enable)
 {
     int pos;
-    u16 seg = dev->seg;
-    u8 bus = dev->bus;
-    u8 slot = PCI_SLOT(dev->devfn);
-    u8 func = PCI_FUNC(dev->devfn);
+    uint16_t seg = dev->sbdf.seg;
+    uint8_t bus = dev->sbdf.bus;
+    uint8_t slot = dev->sbdf.dev;
+    uint8_t func = dev->sbdf.func;
 
     pos = pci_find_cap_offset(seg, bus, slot, func, PCI_CAP_ID_MSI);
     if ( pos )
@@ -361,10 +361,10 @@ static void msi_set_enable(struct pci_dev *dev, int enable)
 static void msix_set_enable(struct pci_dev *dev, int enable)
 {
     int pos;
-    u16 control, seg = dev->seg;
-    u8 bus = dev->bus;
-    u8 slot = PCI_SLOT(dev->devfn);
-    u8 func = PCI_FUNC(dev->devfn);
+    uint16_t control, seg = dev->sbdf.seg;
+    uint8_t bus = dev->sbdf.bus;
+    uint8_t slot = dev->sbdf.dev;
+    uint8_t func = dev->sbdf.func;
 
     pos = pci_find_cap_offset(seg, bus, slot, func, PCI_CAP_ID_MSIX);
     if ( pos )
@@ -388,17 +388,17 @@ static bool msi_set_mask_bit(struct irq_desc *desc, bool host, bool guest)
 {
     struct msi_desc *entry = desc->msi_desc;
     struct pci_dev *pdev;
-    u16 seg, control;
-    u8 bus, slot, func;
+    uint16_t seg, control;
+    uint8_t bus, slot, func;
     bool flag = host || guest, maskall;
 
     ASSERT(spin_is_locked(&desc->lock));
     BUG_ON(!entry || !entry->dev);
     pdev = entry->dev;
-    seg = pdev->seg;
-    bus = pdev->bus;
-    slot = PCI_SLOT(pdev->devfn);
-    func = PCI_FUNC(pdev->devfn);
+    seg = pdev->sbdf.seg;
+    bus = pdev->sbdf.bus;
+    slot = pdev->sbdf.dev;
+    func = pdev->sbdf.func;
     switch ( entry->msi_attrib.type )
     {
     case PCI_CAP_ID_MSI:
@@ -475,9 +475,8 @@ static int msi_get_mask_bit(const struct msi_desc *entry)
     case PCI_CAP_ID_MSI:
         if ( !entry->msi_attrib.maskbit )
             break;
-        return (pci_conf_read32(entry->dev->seg, entry->dev->bus,
-                                PCI_SLOT(entry->dev->devfn),
-                                PCI_FUNC(entry->dev->devfn),
+        return (pci_conf_read32(entry->dev->sbdf.seg, entry->dev->sbdf.bus,
+                                entry->dev->sbdf.dev, entry->dev->sbdf.func,
                                 entry->msi.mpos) >>
                 entry->msi_attrib.entry_nr) & 1;
     case PCI_CAP_ID_MSIX:
@@ -594,11 +593,11 @@ int setup_msi_irq(struct irq_desc *desc, struct msi_desc *msidesc)
 
     if ( msidesc->msi_attrib.type == PCI_CAP_ID_MSIX )
     {
-        control = pci_conf_read16(pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
-                                  PCI_FUNC(pdev->devfn), cpos);
+        control = pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus,
+                                  pdev->sbdf.dev, pdev->sbdf.func, cpos);
         if ( !(control & PCI_MSIX_FLAGS_ENABLE) )
-            pci_conf_write16(pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
-                             PCI_FUNC(pdev->devfn), cpos,
+            pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                             pdev->sbdf.func, cpos,
                              control | (PCI_MSIX_FLAGS_ENABLE |
                                         PCI_MSIX_FLAGS_MASKALL));
     }
@@ -608,8 +607,8 @@ int setup_msi_irq(struct irq_desc *desc, struct msi_desc *msidesc)
                                                    : &pci_msi_nonmaskable);
 
     if ( !(control & PCI_MSIX_FLAGS_ENABLE) )
-        pci_conf_write16(pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
-                         PCI_FUNC(pdev->devfn), cpos, control);
+        pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
+                         pdev->sbdf.func, cpos, control);
 
     return rc;
 }
@@ -689,10 +688,10 @@ static int msi_capability_init(struct pci_dev *dev,
     struct msi_desc *entry;
     int pos;
     unsigned int i, maxvec, mpos;
-    u16 control, seg = dev->seg;
-    u8 bus = dev->bus;
-    u8 slot = PCI_SLOT(dev->devfn);
-    u8 func = PCI_FUNC(dev->devfn);
+    uint16_t control, seg = dev->sbdf.seg;
+    uint8_t bus = dev->sbdf.bus;
+    uint8_t slot = dev->sbdf.dev;
+    uint8_t func = dev->sbdf.func;
 
     ASSERT(pcidevs_locked());
     pos = pci_find_cap_offset(seg, bus, slot, func, PCI_CAP_ID_MSI);
@@ -856,10 +855,10 @@ static int msix_capability_init(struct pci_dev *dev,
     u64 table_paddr;
     u32 table_offset;
     u8 bir, pbus, pslot, pfunc;
-    u16 seg = dev->seg;
-    u8 bus = dev->bus;
-    u8 slot = PCI_SLOT(dev->devfn);
-    u8 func = PCI_FUNC(dev->devfn);
+    uint16_t seg = dev->sbdf.seg;
+    uint8_t bus = dev->sbdf.bus;
+    uint8_t slot = dev->sbdf.dev;
+    uint8_t func = dev->sbdf.func;
     bool maskall = msix->host_maskall;
 
     ASSERT(pcidevs_locked());
@@ -913,7 +912,7 @@ static int msix_capability_init(struct pci_dev *dev,
         pbus = dev->info.physfn.bus;
         pslot = PCI_SLOT(dev->info.physfn.devfn);
         pfunc = PCI_FUNC(dev->info.physfn.devfn);
-        vf = PCI_BDF2(dev->bus, dev->devfn);
+        vf = dev->sbdf.bdf;
     }
 
     table_paddr = read_pci_mem_bar(seg, pbus, pslot, pfunc, bir, vf);
@@ -1172,10 +1171,10 @@ static void _pci_cleanup_msix(struct arch_msix *msix)
 static void __pci_disable_msix(struct msi_desc *entry)
 {
     struct pci_dev *dev = entry->dev;
-    u16 seg = dev->seg;
-    u8 bus = dev->bus;
-    u8 slot = PCI_SLOT(dev->devfn);
-    u8 func = PCI_FUNC(dev->devfn);
+    uint16_t seg = dev->sbdf.seg;
+    uint8_t bus = dev->sbdf.bus;
+    uint8_t slot = dev->sbdf.dev;
+    uint8_t func = dev->sbdf.func;
     unsigned int pos = pci_find_cap_offset(seg, bus, slot, func,
                                            PCI_CAP_ID_MSIX);
     u16 control = pci_conf_read16(seg, bus, slot, func,
@@ -1295,10 +1294,10 @@ void pci_cleanup_msi(struct pci_dev *pdev)
 int pci_msi_conf_write_intercept(struct pci_dev *pdev, unsigned int reg,
                                  unsigned int size, uint32_t *data)
 {
-    u16 seg = pdev->seg;
-    u8 bus = pdev->bus;
-    u8 slot = PCI_SLOT(pdev->devfn);
-    u8 func = PCI_FUNC(pdev->devfn);
+    uint16_t seg = pdev->sbdf.seg;
+    uint8_t bus = pdev->sbdf.bus;
+    uint8_t slot = pdev->sbdf.dev;
+    uint8_t func = pdev->sbdf.func;
     struct msi_desc *entry;
     unsigned int pos;
 
@@ -1365,7 +1364,7 @@ int pci_restore_msi_state(struct pci_dev *pdev)
     struct msi_desc *entry, *tmp;
     struct irq_desc *desc;
     struct msi_msg msg;
-    u8 slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
+    uint8_t slot = pdev->sbdf.dev, func = pdev->sbdf.func;
     unsigned int type = 0, pos = 0;
     u16 control = 0;
 
@@ -1374,9 +1373,7 @@ int pci_restore_msi_state(struct pci_dev *pdev)
     if ( !use_msi )
         return -EOPNOTSUPP;
 
-    ret = xsm_resource_setup_pci(XSM_PRIV,
-                                (pdev->seg << 16) | (pdev->bus << 8) |
-                                pdev->devfn);
+    ret = xsm_resource_setup_pci(XSM_PRIV, pdev->sbdf.sbdf);
     if ( ret )
         return ret;
 
@@ -1396,10 +1393,10 @@ int pci_restore_msi_state(struct pci_dev *pdev)
     bogus:
             dprintk(XENLOG_ERR,
                     "Restore MSI for %04x:%02x:%02x:%u entry %u not set?\n",
-                    pdev->seg, pdev->bus, slot, func, i);
+                    pdev->sbdf.seg, pdev->sbdf.bus, slot, func, i);
             spin_unlock_irqrestore(&desc->lock, flags);
             if ( type == PCI_CAP_ID_MSIX )
-                pci_conf_write16(pdev->seg, pdev->bus, slot, func,
+                pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, slot, func,
                                  msix_control_reg(pos),
                                  control & ~PCI_MSIX_FLAGS_ENABLE);
             return -EINVAL;
@@ -1414,16 +1411,16 @@ int pci_restore_msi_state(struct pci_dev *pdev)
         }
         else if ( !type && entry->msi_attrib.type == PCI_CAP_ID_MSIX )
         {
-            control = pci_conf_read16(pdev->seg, pdev->bus, slot, func,
-                                      msix_control_reg(pos));
-            pci_conf_write16(pdev->seg, pdev->bus, slot, func,
+            control = pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus, slot,
+                                      func, msix_control_reg(pos));
+            pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, slot, func,
                              msix_control_reg(pos),
                              control | (PCI_MSIX_FLAGS_ENABLE |
                                         PCI_MSIX_FLAGS_MASKALL));
             if ( unlikely(!memory_decoded(pdev)) )
             {
                 spin_unlock_irqrestore(&desc->lock, flags);
-                pci_conf_write16(pdev->seg, pdev->bus, slot, func,
+                pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, slot, func,
                                  msix_control_reg(pos),
                                  control & ~PCI_MSIX_FLAGS_ENABLE);
                 return -ENXIO;
@@ -1457,17 +1454,18 @@ int pci_restore_msi_state(struct pci_dev *pdev)
         {
             unsigned int cpos = msi_control_reg(pos);
 
-            control = pci_conf_read16(pdev->seg, pdev->bus, slot, func, cpos) &
-                      ~PCI_MSI_FLAGS_QSIZE;
+            control = pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus, slot,
+                                      func, cpos) & ~PCI_MSI_FLAGS_QSIZE;
             multi_msi_enable(control, entry->msi.nvec);
-            pci_conf_write16(pdev->seg, pdev->bus, slot, func, cpos, control);
+            pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, slot, func, cpos,
+                             control);
 
             msi_set_enable(pdev, 1);
         }
     }
 
     if ( type == PCI_CAP_ID_MSIX )
-        pci_conf_write16(pdev->seg, pdev->bus, slot, func,
+        pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, slot, func,
                          msix_control_reg(pos),
                          control | PCI_MSIX_FLAGS_ENABLE);
 
