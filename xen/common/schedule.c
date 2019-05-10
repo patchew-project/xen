@@ -1068,17 +1068,15 @@ static long domain_watchdog(struct domain *d, uint32_t id, uint32_t timeout)
     }
     else /* Allocate the next available timer. */
     {
-        for ( id = 0; id < NR_DOMAIN_WATCHDOG_TIMERS; id++ )
-        {
-            if ( test_and_set_bit(id, &d->watchdog_inuse_map) )
-                continue;
-            break;
-        }
-        if ( id == NR_DOMAIN_WATCHDOG_TIMERS )
+        id = ffs(~d->watchdog_inuse_map) - 1;
+
+        if ( unlikely(id >= NR_DOMAIN_WATCHDOG_TIMERS) )
         {
             rc = -ENOSPC;
             goto unlock;
         }
+
+        __set_bit(id, &d->watchdog_inuse_map);
         rc = id + 1;
     }
 
@@ -1086,7 +1084,7 @@ static long domain_watchdog(struct domain *d, uint32_t id, uint32_t timeout)
     if ( unlikely(timeout == 0) )
     {
         stop_timer(&d->watchdog_timer[id]);
-        clear_bit(id, &d->watchdog_inuse_map);
+        __clear_bit(id, &d->watchdog_inuse_map);
     }
     else
         set_timer(&d->watchdog_timer[id], NOW() + SECONDS(timeout));
