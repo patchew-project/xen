@@ -428,8 +428,6 @@ void pci_vtd_quirk(const struct pci_dev *pdev)
 {
     int seg = pdev->sbdf.seg;
     int bus = pdev->sbdf.bus;
-    int dev = pdev->sbdf.dev;
-    int func = pdev->sbdf.func;
     int pos;
     bool_t ff;
     u32 val, val2;
@@ -454,8 +452,7 @@ void pci_vtd_quirk(const struct pci_dev *pdev)
     case 0x3c28: /* Sandybridge */
         val = pci_conf_read32(pdev->sbdf, 0x1AC);
         pci_conf_write32(pdev->sbdf, 0x1AC, val | (1 << 31));
-        printk(XENLOG_INFO "Masked VT-d error signaling on %04x:%02x:%02x.%u\n",
-               seg, bus, dev, func);
+        printk(XENLOG_INFO "Masked VT-d error signaling on %pp\n", &pdev->sbdf);
         break;
 
     /* Tylersburg (EP)/Boxboro (MP) chipsets (NHM-EP/EX, WSM-EP/EX) */
@@ -490,8 +487,7 @@ void pci_vtd_quirk(const struct pci_dev *pdev)
             ff = pcie_aer_get_firmware_first(pdev);
         if ( !pos )
         {
-            printk(XENLOG_WARNING "%04x:%02x:%02x.%u without AER capability?\n",
-                   seg, bus, dev, func);
+            printk(XENLOG_WARNING "%pp without AER capability?\n", &pdev->sbdf);
             break;
         }
 
@@ -514,8 +510,7 @@ void pci_vtd_quirk(const struct pci_dev *pdev)
         val = pci_conf_read32(pdev->sbdf, 0x20c);
         pci_conf_write32(pdev->sbdf, 0x20c, val | (1 << 4));
 
-        printk(XENLOG_INFO "%s UR signaling on %04x:%02x:%02x.%u\n",
-               action, seg, bus, dev, func);
+        printk(XENLOG_INFO "%s UR signaling on %pp\n", action, &pdev->sbdf);
         break;
 
     case 0x0040: case 0x0044: case 0x0048: /* Nehalem/Westmere */
@@ -540,16 +535,16 @@ void pci_vtd_quirk(const struct pci_dev *pdev)
             {
                 __set_bit(0x1c8 * 8 + 20, va);
                 iounmap(va);
-                printk(XENLOG_INFO "Masked UR signaling on %04x:%02x:%02x.%u\n",
-                       seg, bus, dev, func);
+                printk(XENLOG_INFO "Masked UR signaling on %pp\n",
+                       &pdev->sbdf);
             }
             else
-                printk(XENLOG_ERR "Could not map %"PRIpaddr" for %04x:%02x:%02x.%u\n",
-                       pa, seg, bus, dev, func);
+                printk(XENLOG_ERR "Could not map %"PRIpaddr" for %pp\n",
+                       pa, &pdev->sbdf);
         }
         else
-            printk(XENLOG_WARNING "Bogus DMIBAR %#"PRIx64" on %04x:%02x:%02x.%u\n",
-                   bar, seg, bus, dev, func);
+            printk(XENLOG_WARNING "Bogus DMIBAR %#"PRIx64" on %pp\n",
+                   bar, &pdev->sbdf);
         break;
     }
 }

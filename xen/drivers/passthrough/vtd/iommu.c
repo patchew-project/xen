@@ -882,27 +882,24 @@ static int iommu_page_fault_do_one(struct iommu *iommu, int type,
     {
     case DMA_REMAP:
         printk(XENLOG_G_WARNING VTDPREFIX
-               "DMAR:[%s] Request device [%04x:%02x:%02x.%u] "
+               "DMAR:[%s] Request device [%pp] "
                "fault addr %"PRIx64", iommu reg = %p\n",
                (type ? "DMA Read" : "DMA Write"),
-               seg, PCI_BUS(source_id), PCI_SLOT(source_id),
-               PCI_FUNC(source_id), addr, iommu->reg);
+               &PCI_SBDF2_T(seg, source_id), addr, iommu->reg);
         kind = "DMAR";
         break;
     case INTR_REMAP:
         printk(XENLOG_G_WARNING VTDPREFIX
-               "INTR-REMAP: Request device [%04x:%02x:%02x.%u] "
+               "INTR-REMAP: Request device [%pp] "
                "fault index %"PRIx64", iommu reg = %p\n",
-               seg, PCI_BUS(source_id), PCI_SLOT(source_id),
-               PCI_FUNC(source_id), addr >> 48, iommu->reg);
+               &PCI_SBDF2_T(seg, source_id), addr >> 48, iommu->reg);
         kind = "INTR-REMAP";
         break;
     default:
         printk(XENLOG_G_WARNING VTDPREFIX
-               "UNKNOWN: Request device [%04x:%02x:%02x.%u] "
+               "UNKNOWN: Request device [%pp] "
                "fault addr %"PRIx64", iommu reg = %p\n",
-               seg, PCI_BUS(source_id), PCI_SLOT(source_id),
-               PCI_FUNC(source_id), addr, iommu->reg);
+               &PCI_SBDF2_T(seg, source_id), addr, iommu->reg);
         kind = "UNKNOWN";
         break;
     }
@@ -1354,10 +1351,8 @@ int domain_context_mapping_one(
         {
             if ( pdev->domain != domain )
             {
-                printk(XENLOG_G_INFO VTDPREFIX
-                       "d%d: %04x:%02x:%02x.%u owned by d%d!",
-                       domain->domain_id,
-                       seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
+                printk(XENLOG_G_INFO VTDPREFIX "d%d: %pp owned by d%d!",
+                       domain->domain_id, &PCI_SBDF3_T(seg, bus, devfn),
                        pdev->domain ? pdev->domain->domain_id : -1);
                 res = -EINVAL;
             }
@@ -1370,17 +1365,15 @@ int domain_context_mapping_one(
             if ( cdomain < 0 )
             {
                 printk(XENLOG_G_WARNING VTDPREFIX
-                       "d%d: %04x:%02x:%02x.%u mapped, but can't find owner!\n",
-                       domain->domain_id,
-                       seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn));
+                       "d%d: %pp mapped, but can't find owner!\n",
+                       domain->domain_id, &PCI_SBDF3_T(seg, bus, devfn));
                 res = -EINVAL;
             }
             else if ( cdomain != domain->domain_id )
             {
                 printk(XENLOG_G_INFO VTDPREFIX
-                       "d%d: %04x:%02x:%02x.%u already mapped to d%d!",
-                       domain->domain_id,
-                       seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
+                       "d%d: %pp already mapped to d%d!",
+                       domain->domain_id, &PCI_SBDF3_T(seg, bus, devfn),
                        cdomain);
                 res = -EINVAL;
             }
@@ -1496,9 +1489,8 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
     {
     case DEV_TYPE_PCI_HOST_BRIDGE:
         if ( iommu_debug )
-            printk(VTDPREFIX "d%d:Hostbridge: skip %04x:%02x:%02x.%u map\n",
-                   domain->domain_id, seg, bus,
-                   PCI_SLOT(devfn), PCI_FUNC(devfn));
+            printk(VTDPREFIX "d%d:Hostbridge: skip %pp map\n",
+                   domain->domain_id, &pdev->sbdf);
         if ( !is_hardware_domain(domain) )
             return -EPERM;
         break;
@@ -1510,9 +1502,8 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
 
     case DEV_TYPE_PCIe_ENDPOINT:
         if ( iommu_debug )
-            printk(VTDPREFIX "d%d:PCIe: map %04x:%02x:%02x.%u\n",
-                   domain->domain_id, seg, bus,
-                   PCI_SLOT(devfn), PCI_FUNC(devfn));
+            printk(VTDPREFIX "d%d:PCIe: map %pp\n",
+                   domain->domain_id, &PCI_SBDF3_T(seg, bus, devfn));
         ret = domain_context_mapping_one(domain, drhd->iommu, bus, devfn,
                                          pdev);
         if ( !ret && devfn == pdev->sbdf.extfunc && ats_device(pdev, drhd) > 0 )
@@ -1522,9 +1513,8 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
 
     case DEV_TYPE_PCI:
         if ( iommu_debug )
-            printk(VTDPREFIX "d%d:PCI: map %04x:%02x:%02x.%u\n",
-                   domain->domain_id, seg, bus,
-                   PCI_SLOT(devfn), PCI_FUNC(devfn));
+            printk(VTDPREFIX "d%d:PCI: map %pp\n",
+                   domain->domain_id, &PCI_SBDF3_T(seg, bus, devfn));
 
         ret = domain_context_mapping_one(domain, drhd->iommu, bus, devfn,
                                          pdev);
@@ -1550,9 +1540,8 @@ static int domain_context_mapping(struct domain *domain, u8 devfn,
         break;
 
     default:
-        dprintk(XENLOG_ERR VTDPREFIX, "d%d:unknown(%u): %04x:%02x:%02x.%u\n",
-                domain->domain_id, pdev->type,
-                seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn));
+        dprintk(XENLOG_ERR VTDPREFIX, "d%d:unknown(%u): %pp\n",
+                domain->domain_id, pdev->type, &PCI_SBDF3_T(seg, bus, devfn));
         ret = -EINVAL;
         break;
     }
@@ -1648,9 +1637,8 @@ static int domain_context_unmap(struct domain *domain, u8 devfn,
     {
     case DEV_TYPE_PCI_HOST_BRIDGE:
         if ( iommu_debug )
-            printk(VTDPREFIX "d%d:Hostbridge: skip %04x:%02x:%02x.%u unmap\n",
-                   domain->domain_id, seg, bus,
-                   PCI_SLOT(devfn), PCI_FUNC(devfn));
+            printk(VTDPREFIX "d%d:Hostbridge: skip %pp unmap\n",
+                   domain->domain_id, &pdev->sbdf);
         if ( !is_hardware_domain(domain) )
             return -EPERM;
         goto out;
@@ -1662,9 +1650,8 @@ static int domain_context_unmap(struct domain *domain, u8 devfn,
 
     case DEV_TYPE_PCIe_ENDPOINT:
         if ( iommu_debug )
-            printk(VTDPREFIX "d%d:PCIe: unmap %04x:%02x:%02x.%u\n",
-                   domain->domain_id, seg, bus,
-                   PCI_SLOT(devfn), PCI_FUNC(devfn));
+            printk(VTDPREFIX "d%d:PCIe: unmap %pp\n",
+                   domain->domain_id, &PCI_SBDF3_T(seg, bus, devfn));
         ret = domain_context_unmap_one(domain, iommu, bus, devfn);
         if ( !ret && devfn == pdev->sbdf.extfunc && ats_device(pdev, drhd) > 0 )
             disable_ats_device(pdev);
@@ -1673,8 +1660,8 @@ static int domain_context_unmap(struct domain *domain, u8 devfn,
 
     case DEV_TYPE_PCI:
         if ( iommu_debug )
-            printk(VTDPREFIX "d%d:PCI: unmap %04x:%02x:%02x.%u\n",
-                   domain->domain_id, seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn));
+            printk(VTDPREFIX "d%d:PCI: unmap %pp\n",
+                   domain->domain_id, &PCI_SBDF3_T(seg, bus, devfn));
         ret = domain_context_unmap_one(domain, iommu, bus, devfn);
         if ( ret )
             break;
@@ -1699,9 +1686,8 @@ static int domain_context_unmap(struct domain *domain, u8 devfn,
         break;
 
     default:
-        dprintk(XENLOG_ERR VTDPREFIX, "d%d:unknown(%u): %04x:%02x:%02x.%u\n",
-                domain->domain_id, pdev->type,
-                seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn));
+        dprintk(XENLOG_ERR VTDPREFIX, "d%d:unknown(%u): %pp\n",
+                domain->domain_id, pdev->type, &PCI_SBDF3_T(seg, bus, devfn));
         ret = -EINVAL;
         goto out;
     }
@@ -2499,11 +2485,11 @@ static int intel_iommu_assign_device(
             bool_t relaxed = !!(flag & XEN_DOMCTL_DEV_RDM_RELAXED);
 
             printk(XENLOG_GUEST "%s" VTDPREFIX
-                   " It's %s to assign %04x:%02x:%02x.%u"
+                   " It's %s to assign %pp"
                    " with shared RMRR at %"PRIx64" for Dom%d.\n",
                    relaxed ? XENLOG_WARNING : XENLOG_ERR,
                    relaxed ? "risky" : "disallowed",
-                   seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
+                   &PCI_SBDF3_T(seg, bus, devfn),
                    rmrr->base_address, d->domain_id);
             if ( !relaxed )
                 return -EPERM;

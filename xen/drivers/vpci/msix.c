@@ -48,9 +48,8 @@ static int update_entry(struct vpci_msix_entry *entry,
     if ( rc && rc != -ENOENT )
     {
         gprintk(XENLOG_WARNING,
-                "%04x:%02x:%02x.%u: unable to disable entry %u for update: %d\n",
-                pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev, pdev->sbdf.func,
-                nr, rc);
+                "%pp: unable to disable entry %u for update: %d\n",
+                &pdev->sbdf, nr, rc);
         return rc;
     }
 
@@ -59,10 +58,8 @@ static int update_entry(struct vpci_msix_entry *entry,
                                                       VPCI_MSIX_TABLE));
     if ( rc )
     {
-        gprintk(XENLOG_WARNING,
-                "%04x:%02x:%02x.%u: unable to enable entry %u: %d\n",
-                pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev, pdev->sbdf.func,
-                nr, rc);
+        gprintk(XENLOG_WARNING, "%pp: unable to enable entry %u: %d\n",
+                &pdev->sbdf, nr, rc);
         /* Entry is likely not properly configured. */
         return rc;
     }
@@ -133,10 +130,8 @@ static void control_write(const struct pci_dev *pdev, unsigned int reg,
                 /* Ignore non-present entry. */
                 break;
             default:
-                gprintk(XENLOG_WARNING,
-                        "%04x:%02x:%02x.%u: unable to disable entry %u: %d\n",
-                        pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                        pdev->sbdf.func, i, rc);
+                gprintk(XENLOG_WARNING, "%pp: unable to disable entry %u: %d\n",
+                        &pdev->sbdf, i, rc);
                 return;
             }
         }
@@ -181,8 +176,7 @@ static bool access_allowed(const struct pci_dev *pdev, unsigned long addr,
         return true;
 
     gprintk(XENLOG_WARNING,
-            "%04x:%02x:%02x.%u: unaligned or invalid size MSI-X table access\n",
-            pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev, pdev->sbdf.func);
+            "%pp: unaligned or invalid size MSI-X table access\n", &pdev->sbdf);
 
     return false;
 }
@@ -432,10 +426,9 @@ int vpci_make_msix_hole(const struct pci_dev *pdev)
             default:
                 put_gfn(d, start);
                 gprintk(XENLOG_WARNING,
-                        "%04x:%02x:%02x.%u: existing mapping (mfn: %" PRI_mfn
+                        "%pp: existing mapping (mfn: %" PRI_mfn
                         "type: %d) at %#lx clobbers MSIX MMIO area\n",
-                        pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                        pdev->sbdf.func, mfn_x(mfn), t, start);
+                        &pdev->sbdf, mfn_x(mfn), t, start);
                 return -EEXIST;
             }
             put_gfn(d, start);

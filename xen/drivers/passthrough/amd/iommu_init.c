@@ -793,9 +793,8 @@ static bool_t __init set_iommu_interrupt_handler(struct amd_iommu *iommu)
     pcidevs_unlock();
     if ( !iommu->msi.dev )
     {
-        AMD_IOMMU_DEBUG("IOMMU: no pdev for %04x:%02x:%02x.%u\n",
-                        iommu->seg, PCI_BUS(iommu->bdf),
-                        PCI_SLOT(iommu->bdf), PCI_FUNC(iommu->bdf));
+        AMD_IOMMU_DEBUG("IOMMU: no pdev for %pp\n",
+                        &PCI_SBDF2_T(iommu->seg, iommu->bdf));
         return 0;
     }
     control = pci_conf_read16(iommu->msi.dev->sbdf,
@@ -838,9 +837,6 @@ static void amd_iommu_erratum_746_workaround(struct amd_iommu *iommu)
         .seg = iommu->seg,
         .bdf = iommu->bdf,
     };
-    u8 bus = PCI_BUS(iommu->bdf);
-    u8 dev = PCI_SLOT(iommu->bdf);
-    u8 func = PCI_FUNC(iommu->bdf);
 
     if ( (boot_cpu_data.x86 != 0x15) ||
          (boot_cpu_data.x86_model < 0x10) ||
@@ -858,8 +854,7 @@ static void amd_iommu_erratum_746_workaround(struct amd_iommu *iommu)
 
     pci_conf_write32(sbdf, 0xf4, value | (1 << 2));
     printk(XENLOG_INFO
-           "AMD-Vi: Applying erratum 746 workaround for IOMMU at %04x:%02x:%02x.%u\n",
-           iommu->seg, bus, dev, func);
+           "AMD-Vi: Applying erratum 746 workaround for IOMMU at %pp\n", &sbdf);
 
     /* Clear the enable writing bit */
     pci_conf_write32(sbdf, 0xf0, 0x90);

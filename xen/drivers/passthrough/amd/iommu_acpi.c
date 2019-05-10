@@ -717,9 +717,8 @@ static u16 __init parse_ivhd_device_special(
         return 0;
     }
 
-    AMD_IOMMU_DEBUG("IVHD Special: %04x:%02x:%02x.%u variety %#x handle %#x\n",
-                    seg, PCI_BUS(bdf), PCI_SLOT(bdf), PCI_FUNC(bdf),
-                    special->variety, special->handle);
+    AMD_IOMMU_DEBUG("IVHD Special: %pp variety %#x handle %#x\n",
+                    &PCI_SBDF2_T(seg, bdf), special->variety, special->handle);
     add_ivrs_mapping_entry(bdf, bdf, special->header.data_setting, iommu);
 
     switch ( special->variety )
@@ -742,9 +741,9 @@ static u16 __init parse_ivhd_device_special(
         if ( idx < nr_ioapic_sbdf )
         {
             AMD_IOMMU_DEBUG("IVHD: Command line override present for IO-APIC %#x"
-                            "(IVRS: %#x devID %04x:%02x:%02x.%u)\n",
-                            ioapic_sbdf[idx].id, special->handle, seg,
-                            PCI_BUS(bdf), PCI_SLOT(bdf), PCI_FUNC(bdf));
+                            "(IVRS: %#x devID %pp)\n",
+                            ioapic_sbdf[idx].id, special->handle,
+                            &PCI_SBDF2_T(seg, bdf));
             break;
         }
 
@@ -814,9 +813,9 @@ static u16 __init parse_ivhd_device_special(
             break;
         case HPET_CMDL:
             AMD_IOMMU_DEBUG("IVHD: Command line override present for HPET %#x "
-                            "(IVRS: %#x devID %04x:%02x:%02x.%u)\n",
-                            hpet_sbdf.id, special->handle, seg, PCI_BUS(bdf),
-                            PCI_SLOT(bdf), PCI_FUNC(bdf));
+                            "(IVRS: %#x devID %pp)\n",
+                            hpet_sbdf.id, special->handle,
+                            &PCI_SBDF2_T(seg, bdf));
             break;
         case HPET_NONE:
             /* set device id of hpet */

@@ -392,6 +392,20 @@ static char *print_vcpu(char *str, char *end, const struct vcpu *v)
     return number(str + 1, end, v->vcpu_id, 10, -1, -1, 0);
 }
 
+static char *print_pci_addr(char *str, char *end, const pci_sbdf_t *sbdf)
+{
+    str = number(str, end, sbdf->seg, 16, 4, -1, ZEROPAD);
+    if ( str < end )
+        *str = ':';
+    str = number(str + 1, end, sbdf->bus, 16, 2, -1, ZEROPAD);
+    if ( str < end )
+        *str = ':';
+    str = number(str + 1, end, sbdf->dev, 16, 2, -1, ZEROPAD);
+    if ( str < end )
+        *str = '.';
+    return number(str + 1, end, sbdf->func, 10, -1, -1, 0);
+}
+
 static char *pointer(char *str, char *end, const char **fmt_ptr,
                      const void *arg, int field_width, int precision,
                      int flags)
@@ -519,6 +533,10 @@ static char *pointer(char *str, char *end, const char **fmt_ptr,
     case 'v': /* d<domain-id>v<vcpu-id> from a struct vcpu */
         ++*fmt_ptr;
         return print_vcpu(str, end, arg);
+
+    case 'p': /* PCI SBDF. */
+        ++*fmt_ptr;
+        return print_pci_addr(str, end, arg);
     }
 
     if ( field_width == -1 )

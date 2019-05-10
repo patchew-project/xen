@@ -60,6 +60,8 @@ typedef union {
 
 #define PCI_SBDF_T(s, b, d, f) \
     ((pci_sbdf_t) { .seg = (s), .bus = (b), .dev = (d), .func = (f) })
+#define PCI_SBDF2_T(s, b) \
+    ((pci_sbdf_t) { .seg = (s), .bdf = (b) })
 #define PCI_SBDF3_T(s, b, e) \
     ((pci_sbdf_t) { .seg = (s), .bus = (b), .extfunc = (e) })
 

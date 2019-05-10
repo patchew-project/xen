@@ -371,9 +371,8 @@ static void bar_write(const struct pci_dev *pdev, unsigned int reg,
         /* If the value written is the current one avoid printing a warning. */
         if ( val != (uint32_t)(bar->addr >> (hi ? 32 : 0)) )
             gprintk(XENLOG_WARNING,
-                    "%04x:%02x:%02x.%u: ignored BAR %lu write with memory decoding enabled\n",
-                    pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                    pdev->sbdf.func, bar - pdev->vpci->header.bars + hi);
+                    "%pp: ignored BAR %lu write with memory decoding enabled\n",
+                    &pdev->sbdf, bar - pdev->vpci->header.bars + hi);
         return;
     }
 
@@ -407,9 +406,8 @@ static void rom_write(const struct pci_dev *pdev, unsigned int reg,
     if ( (cmd & PCI_COMMAND_MEMORY) && header->rom_enabled && new_enabled )
     {
         gprintk(XENLOG_WARNING,
-                "%04x:%02x:%02x.%u: ignored ROM BAR write with memory decoding enabled\n",
-                pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                pdev->sbdf.func);
+                "%pp: ignored ROM BAR write with memory decoding enabled\n",
+                &pdev->sbdf);
         return;
     }
 

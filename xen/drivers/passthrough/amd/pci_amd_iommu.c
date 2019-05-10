@@ -52,9 +52,8 @@ struct amd_iommu *find_iommu_for_device(int seg, int bdf)
                 tmp.dte_requestor_id = bdf;
             ivrs_mappings[bdf] = tmp;
 
-            printk(XENLOG_WARNING "%04x:%02x:%02x.%u not found in ACPI tables;"
-                   " using same IOMMU as function 0\n",
-                   seg, PCI_BUS(bdf), PCI_SLOT(bdf), PCI_FUNC(bdf));
+            printk(XENLOG_WARNING "%pp not found in ACPI tables;"
+                   " using same IOMMU as function 0\n", &PCI_SBDF2_T(seg, bdf));
 
             /* write iommu field last */
             ivrs_mappings[bdf].iommu = ivrs_mappings[bd0].iommu;
@@ -306,9 +305,9 @@ static int reassign_device(struct domain *source, struct domain *target,
     if ( !iommu )
     {
         AMD_IOMMU_DEBUG("Fail to find iommu."
-                        " %04x:%02x:%x02.%x cannot be assigned to dom%d\n",
-                        pdev->sbdf.seg, pdev->sbdf.bus, PCI_SLOT(devfn),
-                        PCI_FUNC(devfn), target->domain_id);
+                        " %pp cannot be assigned to dom%d\n",
+                        &PCI_SBDF3_T(pdev->sbdf.seg, pdev->sbdf.bus, devfn),
+                        target->domain_id);
         return -ENODEV;
     }
 
@@ -325,9 +324,9 @@ static int reassign_device(struct domain *source, struct domain *target,
         return rc;
 
     amd_iommu_setup_domain_device(target, iommu, devfn, pdev);
-    AMD_IOMMU_DEBUG("Re-assign %04x:%02x:%02x.%u from dom%d to dom%d\n",
-                    pdev->sbdf.seg, pdev->sbdf.bus, PCI_SLOT(devfn),
-                    PCI_FUNC(devfn), source->domain_id, target->domain_id);
+    AMD_IOMMU_DEBUG("Re-assign %pp from dom%d to dom%d\n",
+                    &PCI_SBDF3_T(pdev->sbdf.seg, pdev->sbdf.bus, devfn),
+                    source->domain_id, target->domain_id);
 
     return 0;
 }
@@ -430,15 +429,12 @@ static int amd_iommu_add_device(u8 devfn, struct pci_dev *pdev)
         if ( pdev->type == DEV_TYPE_PCI_HOST_BRIDGE &&
              is_hardware_domain(pdev->domain) )
         {
-            AMD_IOMMU_DEBUG("Skipping host bridge %04x:%02x:%02x.%u\n",
-                            pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                            pdev->sbdf.func);
+            AMD_IOMMU_DEBUG("Skipping host bridge %pp\n", &pdev->sbdf);
             return 0;
         }
 
-        AMD_IOMMU_DEBUG("No iommu for %04x:%02x:%02x.%u; cannot be handed to d%d\n",
-                        pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                        pdev->sbdf.func, pdev->domain->domain_id);
+        AMD_IOMMU_DEBUG("No iommu for %pp; cannot be handed to d%d\n",
+                        &pdev->sbdf, pdev->domain->domain_id);
         return -ENODEV;
     }
 
@@ -457,9 +453,8 @@ static int amd_iommu_remove_device(u8 devfn, struct pci_dev *pdev)
     if ( !iommu )
     {
         AMD_IOMMU_DEBUG("Fail to find iommu."
-                        " %04x:%02x:%02x.%u cannot be removed from dom%d\n",
-                        pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                        pdev->sbdf.func, pdev->domain->domain_id);
+                        " %pp cannot be removed from dom%d\n",
+                        &pdev->sbdf, pdev->domain->domain_id);
         return -ENODEV;
     }
 
