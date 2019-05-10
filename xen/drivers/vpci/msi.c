@@ -77,8 +77,7 @@ static void control_write(const struct pci_dev *pdev, unsigned int reg,
     msi->vectors = vectors;
     msi->enabled = new_enabled;
 
-    pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                     pdev->sbdf.func, reg, control_read(pdev, reg, data));
+    pci_conf_write16(pdev->sbdf, reg, control_read(pdev, reg, data));
 }
 
 static void update_msi(const struct pci_dev *pdev, struct vpci_msi *msi)
@@ -210,8 +209,7 @@ static int init_msi(struct pci_dev *pdev)
         return ret;
 
     /* Get the maximum number of vectors the device supports. */
-    control = pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                              pdev->sbdf.func, msi_control_reg(pos));
+    control = pci_conf_read16(pdev->sbdf, msi_control_reg(pos));
 
     /*
      * FIXME: I've only been able to test this code with devices using a single

@@ -348,7 +348,7 @@ static int __init acpi_parse_dev_scope(
 
         while ( --depth > 0 )
         {
-            bus = pci_conf_read8(seg, bus, path->dev, path->fn,
+            bus = pci_conf_read8(PCI_SBDF_T(seg, bus, path->dev, path->fn),
                                  PCI_SECONDARY_BUS);
             path++;
         }
@@ -356,10 +356,16 @@ static int __init acpi_parse_dev_scope(
         switch ( acpi_scope->entry_type )
         {
         case ACPI_DMAR_SCOPE_TYPE_BRIDGE:
-            sec_bus = pci_conf_read8(seg, bus, path->dev, path->fn,
-                                     PCI_SECONDARY_BUS);
-            sub_bus = pci_conf_read8(seg, bus, path->dev, path->fn,
-                                     PCI_SUBORDINATE_BUS);
+        {
+            const pci_sbdf_t sbdf = {
+                .seg = seg,
+                .bus = bus,
+                .dev = path->dev,
+                .func = path->fn,
+            };
+
+            sec_bus = pci_conf_read8(sbdf, PCI_SECONDARY_BUS);
+            sub_bus = pci_conf_read8(sbdf, PCI_SUBORDINATE_BUS);
             if ( iommu_verbose )
                 printk(VTDPREFIX
                        " bridge: %04x:%02x:%02x.%u start=%x sec=%x sub=%x\n",
@@ -368,7 +374,7 @@ static int __init acpi_parse_dev_scope(
 
             dmar_scope_add_buses(scope, sec_bus, sub_bus);
             break;
-
+        }
         case ACPI_DMAR_SCOPE_TYPE_HPET:
             if ( iommu_verbose )
                 printk(VTDPREFIX " MSI HPET: %04x:%02x:%02x.%u\n",

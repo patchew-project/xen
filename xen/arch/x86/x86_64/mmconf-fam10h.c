@@ -38,21 +38,22 @@ static struct pci_hostbridge_probe pci_probes[] = {
 #define BASE_VALID(b) ((b) + SIZE <= (0xfdULL<<32) || (b) >= (1ULL<<40))
 static void __init get_fam10h_pci_mmconf_base(void)
 {
-	unsigned int i, j, bus, slot, hi_mmio_num;
+	unsigned int i, j, hi_mmio_num;
 	u32 address;
 	u64 val, tom2, start, end;
 	struct range {
 		u64 start, end;
 	} range[8];
+	pci_sbdf_t sbdf = { };
 
 	for (i = 0; i < ARRAY_SIZE(pci_probes); i++) {
 		u32 id;
 		u16 device;
 		u16 vendor;
 
-		bus = pci_probes[i].bus;
-		slot = pci_probes[i].slot;
-		id = pci_conf_read32(0, bus, slot, 0, PCI_VENDOR_ID);
+		sbdf.bus = pci_probes[i].bus;
+		sbdf.dev = pci_probes[i].slot;
+		id = pci_conf_read32(sbdf, PCI_VENDOR_ID);
 
 		vendor = id & 0xffff;
 		device = (id>>16) & 0xffff;
@@ -83,12 +84,12 @@ static void __init get_fam10h_pci_mmconf_base(void)
 	 * above 4G
 	 */
 	for (hi_mmio_num = i = 0; i < 8; i++) {
-		val = pci_conf_read32(0, bus, slot, 1, 0x80 + (i << 3));
+		val = pci_conf_read32(sbdf, 0x80 + (i << 3));
 		if (!(val & 3))
 			continue;
 
 		start = (val & 0xffffff00) << 8; /* 39:16 on 31:8*/
-		val = pci_conf_read32(0, bus, slot, 1, 0x84 + (i << 3));
+		val = pci_conf_read32(sbdf, 0x84 + (i << 3));
 		end = ((val & 0xffffff00) << 8) | 0xffff; /* 39:16 on 31:8*/
 
 		if (end < tom2)

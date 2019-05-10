@@ -114,15 +114,13 @@ static void vpci_ignored_write(const struct pci_dev *pdev, unsigned int reg,
 uint32_t vpci_hw_read16(const struct pci_dev *pdev, unsigned int reg,
                         void *data)
 {
-    return pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                           pdev->sbdf.func, reg);
+    return pci_conf_read16(pdev->sbdf, reg);
 }
 
 uint32_t vpci_hw_read32(const struct pci_dev *pdev, unsigned int reg,
                         void *data)
 {
-    return pci_conf_read32(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                           pdev->sbdf.func, reg);
+    return pci_conf_read32(pdev->sbdf, reg);
 }
 
 int vpci_add_register(struct vpci *vpci, vpci_read_t *read_handler,
@@ -212,7 +210,7 @@ static uint32_t vpci_read_hw(pci_sbdf_t sbdf, unsigned int reg,
     switch ( size )
     {
     case 4:
-        data = pci_conf_read32(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func, reg);
+        data = pci_conf_read32(sbdf, reg);
         break;
 
     case 3:
@@ -222,26 +220,22 @@ static uint32_t vpci_read_hw(pci_sbdf_t sbdf, unsigned int reg,
          */
         if ( reg & 1 )
         {
-            data = pci_conf_read8(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func,
-                                  reg);
-            data |= pci_conf_read16(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func,
-                                    reg + 1) << 8;
+            data = pci_conf_read8(sbdf, reg);
+            data |= pci_conf_read16(sbdf, reg + 1) << 8;
         }
         else
         {
-            data = pci_conf_read16(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func,
-                                   reg);
-            data |= pci_conf_read8(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func,
-                                   reg + 2) << 16;
+            data = pci_conf_read16(sbdf, reg);
+            data |= pci_conf_read8(sbdf, reg + 2) << 16;
         }
         break;
 
     case 2:
-        data = pci_conf_read16(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func, reg);
+        data = pci_conf_read16(sbdf, reg);
         break;
 
     case 1:
-        data = pci_conf_read8(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func, reg);
+        data = pci_conf_read8(sbdf, reg);
         break;
 
     default:
@@ -259,7 +253,7 @@ static void vpci_write_hw(pci_sbdf_t sbdf, unsigned int reg, unsigned int size,
     switch ( size )
     {
     case 4:
-        pci_conf_write32(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func, reg, data);
+        pci_conf_write32(sbdf, reg, data);
         break;
 
     case 3:
@@ -269,26 +263,22 @@ static void vpci_write_hw(pci_sbdf_t sbdf, unsigned int reg, unsigned int size,
          */
         if ( reg & 1 )
         {
-            pci_conf_write8(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func, reg,
-                            data);
-            pci_conf_write16(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func, reg + 1,
-                             data >> 8);
+            pci_conf_write8(sbdf, reg, data);
+            pci_conf_write16(sbdf, reg + 1, data >> 8);
         }
         else
         {
-            pci_conf_write16(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func, reg,
-                             data);
-            pci_conf_write8(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func, reg + 2,
-                            data >> 16);
+            pci_conf_write16(sbdf, reg, data);
+            pci_conf_write8(sbdf, reg + 2, data >> 16);
         }
         break;
 
     case 2:
-        pci_conf_write16(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func, reg, data);
+        pci_conf_write16(sbdf, reg, data);
         break;
 
     case 1:
-        pci_conf_write8(sbdf.seg, sbdf.bus, sbdf.dev, sbdf.func, reg, data);
+        pci_conf_write8(sbdf, reg, data);
         break;
 
     default:

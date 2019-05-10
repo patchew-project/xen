@@ -121,10 +121,8 @@ void __init video_endboot(void)
                 pcidevs_unlock();
 
                 if ( !pdev ||
-                     pci_conf_read16(0, bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
-                                     PCI_CLASS_DEVICE) != 0x0300 ||
-                     !(pci_conf_read16(0, bus, PCI_SLOT(devfn),
-                                       PCI_FUNC(devfn), PCI_COMMAND) &
+                     pci_conf_read16(pdev->sbdf, PCI_CLASS_DEVICE) != 0x0300 ||
+                     !(pci_conf_read16(pdev->sbdf, PCI_COMMAND) &
                        (PCI_COMMAND_IO | PCI_COMMAND_MEMORY)) )
                     continue;
 
@@ -136,20 +134,23 @@ void __init video_endboot(void)
                         b = 0;
                         break;
                     case 1:
-                        switch ( pci_conf_read8(0, b, PCI_SLOT(df),
-                                                PCI_FUNC(df),
-                                                PCI_HEADER_TYPE) )
+                    {
+                        const pci_sbdf_t sbdf = {
+                            .bus = b,
+                            .extfunc = df,
+                        };
+
+                        switch ( pci_conf_read8(sbdf, PCI_HEADER_TYPE) )
                         {
                         case PCI_HEADER_TYPE_BRIDGE:
                         case PCI_HEADER_TYPE_CARDBUS:
-                            if ( pci_conf_read16(0, b, PCI_SLOT(df),
-                                                 PCI_FUNC(df),
-                                                 PCI_BRIDGE_CONTROL) &
+                            if ( pci_conf_read16(sbdf, PCI_BRIDGE_CONTROL) &
                                  PCI_BRIDGE_CTL_VGA )
                                 continue;
                             break;
                         }
                         break;
+                    }
                     }
                     break;
                 }

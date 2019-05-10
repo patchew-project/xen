@@ -112,8 +112,7 @@ static void modify_decoding(const struct pci_dev *pdev, uint16_t cmd,
                            (map ? PCI_ROM_ADDRESS_ENABLE : 0);
 
             header->bars[i].enabled = header->rom_enabled = map;
-            pci_conf_write32(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                             pdev->sbdf.func, rom_pos, val);
+            pci_conf_write32(pdev->sbdf, rom_pos, val);
             return;
         }
 
@@ -123,8 +122,7 @@ static void modify_decoding(const struct pci_dev *pdev, uint16_t cmd,
     }
 
     if ( !rom_only )
-        pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                         pdev->sbdf.func, PCI_COMMAND, cmd);
+        pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd);
     else
         ASSERT_UNREACHABLE();
 }
@@ -335,9 +333,7 @@ static int modify_bars(const struct pci_dev *pdev, uint16_t cmd, bool rom_only)
 static void cmd_write(const struct pci_dev *pdev, unsigned int reg,
                       uint32_t cmd, void *data)
 {
-    uint16_t current_cmd = pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus,
-                                           pdev->sbdf.dev, pdev->sbdf.func,
-                                           reg);
+    uint16_t current_cmd = pci_conf_read16(pdev->sbdf, reg);
 
     /*
      * Let Dom0 play with all the bits directly except for the memory
@@ -352,8 +348,7 @@ static void cmd_write(const struct pci_dev *pdev, unsigned int reg,
          */
         modify_bars(pdev, cmd, false);
     else
-        pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                         pdev->sbdf.func, reg, cmd);
+        pci_conf_write16(pdev->sbdf, reg, cmd);
 }
 
 static void bar_write(const struct pci_dev *pdev, unsigned int reg,
@@ -371,8 +366,7 @@ static void bar_write(const struct pci_dev *pdev, unsigned int reg,
     else
         val &= PCI_BASE_ADDRESS_MEM_MASK;
 
-    if ( pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                         pdev->sbdf.func, PCI_COMMAND) & PCI_COMMAND_MEMORY )
+    if ( pci_conf_read16(pdev->sbdf, PCI_COMMAND) & PCI_COMMAND_MEMORY )
     {
         /* If the value written is the current one avoid printing a warning. */
         if ( val != (uint32_t)(bar->addr >> (hi ? 32 : 0)) )
@@ -399,8 +393,7 @@ static void bar_write(const struct pci_dev *pdev, unsigned int reg,
         val |= bar->prefetchable ? PCI_BASE_ADDRESS_MEM_PREFETCH : 0;
     }
 
-    pci_conf_write32(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                     pdev->sbdf.func, reg, val);
+    pci_conf_write32(pdev->sbdf, reg, val);
 }
 
 static void rom_write(const struct pci_dev *pdev, unsigned int reg,
@@ -408,9 +401,7 @@ static void rom_write(const struct pci_dev *pdev, unsigned int reg,
 {
     struct vpci_header *header = &pdev->vpci->header;
     struct vpci_bar *rom = data;
-    uint16_t cmd = pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus,
-                                   pdev->sbdf.dev, pdev->sbdf.func,
-                                   PCI_COMMAND);
+    uint16_t cmd = pci_conf_read16(pdev->sbdf, PCI_COMMAND);
     bool new_enabled = val & PCI_ROM_ADDRESS_ENABLE;
 
     if ( (cmd & PCI_COMMAND_MEMORY) && header->rom_enabled && new_enabled )
@@ -433,8 +424,7 @@ static void rom_write(const struct pci_dev *pdev, unsigned int reg,
     {
         /* Just update the ROM BAR field. */
         header->rom_enabled = new_enabled;
-        pci_conf_write32(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                         pdev->sbdf.func, reg, val);
+        pci_conf_write32(pdev->sbdf, reg, val);
     }
     /*
      * Pass PCI_COMMAND_MEMORY or 0 to signal a map/unmap request, note that
@@ -464,8 +454,7 @@ static int init_bars(struct pci_dev *pdev)
     struct vpci_bar *bars = header->bars;
     int rc;
 
-    switch ( pci_conf_read8(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                            pdev->sbdf.func, PCI_HEADER_TYPE) & 0x7f )
+    switch ( pci_conf_read8(pdev->sbdf, PCI_HEADER_TYPE) & 0x7f )
     {
     case PCI_HEADER_TYPE_NORMAL:
         num_bars = PCI_HEADER_NORMAL_NR_BARS;
@@ -491,12 +480,9 @@ static int init_bars(struct pci_dev *pdev)
         return 0;
 
     /* Disable memory decoding before sizing. */
-    cmd = pci_conf_read16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                          pdev->sbdf.func, PCI_COMMAND);
+    cmd = pci_conf_read16(pdev->sbdf, PCI_COMMAND);
     if ( cmd & PCI_COMMAND_MEMORY )
-        pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                         pdev->sbdf.func, PCI_COMMAND,
-                         cmd & ~PCI_COMMAND_MEMORY);
+        pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd & ~PCI_COMMAND_MEMORY);
 
     for ( i = 0; i < num_bars; i++ )
     {
@@ -510,16 +496,14 @@ static int init_bars(struct pci_dev *pdev)
                                    4, &bars[i]);
             if ( rc )
             {
-                pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                                 pdev->sbdf.func, PCI_COMMAND, cmd);
+                pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd);
                 return rc;
             }
 
             continue;
         }
 
-        val = pci_conf_read32(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                              pdev->sbdf.func, reg);
+        val = pci_conf_read32(pdev->sbdf, reg);
         if ( (val & PCI_BASE_ADDRESS_SPACE) == PCI_BASE_ADDRESS_SPACE_IO )
         {
             bars[i].type = VPCI_BAR_IO;
@@ -535,8 +519,7 @@ static int init_bars(struct pci_dev *pdev)
                               (i == num_bars - 1) ? PCI_BAR_LAST : 0);
         if ( rc < 0 )
         {
-            pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                             pdev->sbdf.func, PCI_COMMAND, cmd);
+            pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd);
             return rc;
         }
 
@@ -554,8 +537,7 @@ static int init_bars(struct pci_dev *pdev)
                                &bars[i]);
         if ( rc )
         {
-            pci_conf_write16(pdev->sbdf.seg, pdev->sbdf.bus, pdev->sbdf.dev,
-                             pdev->sbdf.func, PCI_COMMAND, cmd);
+            pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd);
             return rc;
         }
     }
@@ -569,9 +551,8 @@ static int init_bars(struct pci_dev *pdev)
         rom->type = VPCI_BAR_ROM;
         rom->size = size;
         rom->addr = addr;
-        header->rom_enabled = pci_conf_read32(pdev->sbdf.seg, pdev->sbdf.bus,
-                                              pdev->sbdf.dev, pdev->sbdf.func,
-                                              rom_reg) & PCI_ROM_ADDRESS_ENABLE;
+        header->rom_enabled = pci_conf_read32(pdev->sbdf, rom_reg) &
+                              PCI_ROM_ADDRESS_ENABLE;
 
         rc = vpci_add_register(pdev->vpci, vpci_hw_read32, rom_write, rom_reg,
                                4, rom);

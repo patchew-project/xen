@@ -63,10 +63,8 @@ custom_param("mmcfg", parse_mmcfg);
 
 static const char __init *pci_mmcfg_e7520(void)
 {
-    u32 win;
-    win = pci_conf_read16(0, 0, 0, 0, 0xce);
+    uint32_t win = pci_conf_read16(PCI_SBDF_T(0, 0, 0, 0), 0xce) & 0xf000;
 
-    win = win & 0xf000;
     if(win == 0x0000 || win == 0xf000)
         pci_mmcfg_config_num = 0;
     else {
@@ -89,7 +87,7 @@ static const char __init *pci_mmcfg_intel_945(void)
 
     pci_mmcfg_config_num = 1;
 
-    pciexbar = pci_conf_read32(0, 0, 0, 0, 0x48);
+    pciexbar = pci_conf_read32(PCI_SBDF_T(0, 0, 0, 0), 0x48);
 
     /* Enable bit */
     if (!(pciexbar & 1))
@@ -212,15 +210,18 @@ static const char __init *pci_mmcfg_nvidia_mcp55(void)
     for (i = bus = 0; bus < 256; bus++) {
         u32 l, extcfg;
         u16 vendor, device;
+        const pci_sbdf_t sbdf = {
+            .bus = bus,
+        };
 
-        l = pci_conf_read32(0, bus, 0, 0, 0);
+        l = pci_conf_read32(sbdf, 0);
         vendor = l & 0xffff;
         device = (l >> 16) & 0xffff;
 
         if (PCI_VENDOR_ID_NVIDIA != vendor || 0x0369 != device)
             continue;
 
-        extcfg = pci_conf_read32(0, bus, 0, 0, extcfg_regnum);
+        extcfg = pci_conf_read32(sbdf, extcfg_regnum);
 
         if (extcfg & extcfg_enable_mask)
             i++;
@@ -238,15 +239,18 @@ static const char __init *pci_mmcfg_nvidia_mcp55(void)
         u32 l, extcfg;
         u16 vendor, device;
         int size_index;
+        const pci_sbdf_t sbdf = {
+            .bus = bus,
+        };
 
-        l = pci_conf_read32(0, bus, 0, 0, 0);
+        l = pci_conf_read32(sbdf, 0);
         vendor = l & 0xffff;
         device = (l >> 16) & 0xffff;
 
         if (PCI_VENDOR_ID_NVIDIA != vendor || 0x0369 != device)
             continue;
 
-        extcfg = pci_conf_read32(0, bus, 0, 0, extcfg_regnum);
+        extcfg = pci_conf_read32(sbdf, extcfg_regnum);
 
         if (!(extcfg & extcfg_enable_mask))
             continue;
@@ -300,7 +304,6 @@ static struct pci_mmcfg_hostbridge_probe pci_mmcfg_probes[] __initdata = {
 static int __init pci_mmcfg_check_hostbridge(void)
 {
     u32 l;
-    u32 bus, devfn;
     u16 vendor, device;
     int i;
     const char *name;
@@ -310,9 +313,8 @@ static int __init pci_mmcfg_check_hostbridge(void)
     name = NULL;
 
     for (i = 0; !name && i < ARRAY_SIZE(pci_mmcfg_probes); i++) {
-        bus =  pci_mmcfg_probes[i].bus;
-        devfn = pci_mmcfg_probes[i].devfn;
-        l = pci_conf_read32(0, bus, PCI_SLOT(devfn), PCI_FUNC(devfn), 0);
+        l = pci_conf_read32(PCI_SBDF3_T(0, pci_mmcfg_probes[i].bus,
+                                        pci_mmcfg_probes[i].devfn), 0);
         vendor = l & 0xffff;
         device = (l >> 16) & 0xffff;
 

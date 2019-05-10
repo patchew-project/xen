@@ -417,15 +417,21 @@ static void disable_c1_ramping(void)
 	int node, nr_nodes;
 
 	/* Read the number of nodes from the first Northbridge. */
-	nr_nodes = ((pci_conf_read32(0, 0, 0x18, 0x0, 0x60)>>4)&0x07)+1;
+	nr_nodes = ((pci_conf_read32(PCI_SBDF_T(0, 0, 0x18, 0),
+				     0x60)>>4)&0x07)+1;
 	for (node = 0; node < nr_nodes; node++) {
+		const pci_sbdf_t sbdf = {
+			.dev = 0x18  + node,
+			.func = 0x3
+		};
+
 		/* PMM7: bus=0, dev=0x18+node, function=0x3, register=0x87. */
-		pmm7 = pci_conf_read8(0, 0, 0x18+node, 0x3, 0x87);
+		pmm7 = pci_conf_read8(sbdf, 0x87);
 		/* Invalid read means we've updated every Northbridge. */
 		if (pmm7 == 0xFF)
 			break;
 		pmm7 &= 0xFC; /* clear pmm7[1:0] */
-		pci_conf_write8(0, 0, 0x18+node, 0x3, 0x87, pmm7);
+		pci_conf_write8(sbdf, 0x87, pmm7);
 		printk ("AMD: Disabling C1 Clock Ramping Node #%x\n", node);
 	}
 }
@@ -696,8 +702,13 @@ static void init_amd(struct cpuinfo_x86 *c)
 
 	if (c->x86 == 0x16 && c->x86_model <= 0xf) {
 		if (c == &boot_cpu_data) {
-			l = pci_conf_read32(0, 0, 0x18, 0x3, 0x58);
-			h = pci_conf_read32(0, 0, 0x18, 0x3, 0x5c);
+			const pci_sbdf_t sbdf = {
+				.dev = 0x18,
+				.func = 0x3,
+			};
+
+			l = pci_conf_read32(sbdf, 0x58);
+			h = pci_conf_read32(sbdf, 0x5c);
 			if ((l & 0x1f) | (h & 0x1))
 				printk(KERN_WARNING
 				       "Applying workaround for erratum 792: %s%s%s\n",
@@ -706,12 +717,10 @@ static void init_amd(struct cpuinfo_x86 *c)
 				       (h & 0x1) ? "clearing D18F3x5C[0]" : "");
 
 			if (l & 0x1f)
-				pci_conf_write32(0, 0, 0x18, 0x3, 0x58,
-						 l & ~0x1f);
+				pci_conf_write32(sbdf, 0x58, l & ~0x1f);
 
 			if (h & 0x1)
-				pci_conf_write32(0, 0, 0x18, 0x3, 0x5c,
-						 h & ~0x1);
+				pci_conf_write32(sbdf, 0x5c, h & ~0x1);
 		}
 
 		rdmsrl(MSR_AMD64_LS_CFG, value);

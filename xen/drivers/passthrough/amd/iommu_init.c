@@ -798,8 +798,7 @@ static bool_t __init set_iommu_interrupt_handler(struct amd_iommu *iommu)
                         PCI_SLOT(iommu->bdf), PCI_FUNC(iommu->bdf));
         return 0;
     }
-    control = pci_conf_read16(iommu->seg, PCI_BUS(iommu->bdf),
-                              PCI_SLOT(iommu->bdf), PCI_FUNC(iommu->bdf),
+    control = pci_conf_read16(iommu->msi.dev->sbdf,
                               iommu->msi.msi_attrib.pos + PCI_MSI_FLAGS);
     iommu->msi.msi.nvec = 1;
     if ( is_mask_bit_support(control) )
@@ -835,6 +834,10 @@ static bool_t __init set_iommu_interrupt_handler(struct amd_iommu *iommu)
 static void amd_iommu_erratum_746_workaround(struct amd_iommu *iommu)
 {
     u32 value;
+    const pci_sbdf_t sbdf = {
+        .seg = iommu->seg,
+        .bdf = iommu->bdf,
+    };
     u8 bus = PCI_BUS(iommu->bdf);
     u8 dev = PCI_SLOT(iommu->bdf);
     u8 func = PCI_FUNC(iommu->bdf);
@@ -844,22 +847,22 @@ static void amd_iommu_erratum_746_workaround(struct amd_iommu *iommu)
          (boot_cpu_data.x86_model > 0x1f) )
         return;
 
-    pci_conf_write32(iommu->seg, bus, dev, func, 0xf0, 0x90);
-    value = pci_conf_read32(iommu->seg, bus, dev, func, 0xf4);
+    pci_conf_write32(sbdf, 0xf0, 0x90);
+    value = pci_conf_read32(sbdf, 0xf4);
 
     if ( value & (1 << 2) )
         return;
 
     /* Select NB indirect register 0x90 and enable writing */
-    pci_conf_write32(iommu->seg, bus, dev, func, 0xf0, 0x90 | (1 << 8));
+    pci_conf_write32(sbdf, 0xf0, 0x90 | (1 << 8));
 
-    pci_conf_write32(iommu->seg, bus, dev, func, 0xf4, value | (1 << 2));
+    pci_conf_write32(sbdf, 0xf4, value | (1 << 2));
     printk(XENLOG_INFO
            "AMD-Vi: Applying erratum 746 workaround for IOMMU at %04x:%02x:%02x.%u\n",
            iommu->seg, bus, dev, func);
 
     /* Clear the enable writing bit */
-    pci_conf_write32(iommu->seg, bus, dev, func, 0xf0, 0x90);
+    pci_conf_write32(sbdf, 0xf0, 0x90);
 }
 
 static void enable_iommu(struct amd_iommu *iommu)
@@ -1203,7 +1206,12 @@ static bool_t __init amd_sp5100_erratum28(void)
 
     for (bus = 0; bus < 256; bus++)
     {
-        id = pci_conf_read32(0, bus, 0x14, 0, PCI_VENDOR_ID);
+        const pci_sbdf_t sbdf = {
+            .bus = bus,
+            .dev = 0x14,
+        };
+
+        id = pci_conf_read32(sbdf, PCI_VENDOR_ID);
 
         vendor_id = id & 0xffff;
         dev_id = (id >> 16) & 0xffff;
@@ -1212,7 +1220,7 @@ static bool_t __init amd_sp5100_erratum28(void)
         if (vendor_id != 0x1002 || dev_id != 0x4385)
             continue;
 
-        byte = pci_conf_read8(0, bus, 0x14, 0, 0xad);
+        byte = pci_conf_read8(sbdf, 0xad);
         if ( (byte >> 3) & 1 )
         {
             printk(XENLOG_WARNING "AMD-Vi: SP5100 erratum 28 detected, disabling IOMMU.\n"

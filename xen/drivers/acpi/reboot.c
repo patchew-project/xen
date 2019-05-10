@@ -23,11 +23,9 @@ void acpi_reboot(void)
 	case ACPI_ADR_SPACE_PCI_CONFIG:
 		printk("Resetting with ACPI PCI RESET_REG.\n");
 		/* Write the value that resets us. */
-		pci_conf_write8(0, 0,
-				(rr->address >> 32) & 31,
-				(rr->address >> 16) & 7,
-				(rr->address & 255),
-				reset_value);
+		pci_conf_write8(PCI_SBDF_T(0, 0, (rr->address >> 32) & 31,
+					   (rr->address >> 16) & 7),
+				(rr->address & 255), reset_value);
 		break;
 	case ACPI_ADR_SPACE_SYSTEM_MEMORY:
 	case ACPI_ADR_SPACE_SYSTEM_IO:

@@ -58,6 +58,11 @@ typedef union {
     };
 } pci_sbdf_t;
 
+#define PCI_SBDF_T(s, b, d, f) \
+    ((pci_sbdf_t) { .seg = (s), .bus = (b), .dev = (d), .func = (f) })
+#define PCI_SBDF3_T(s, b, e) \
+    ((pci_sbdf_t) { .seg = (s), .bus = (b), .extfunc = (e) })
+
 struct pci_dev_info {
     /*
      * VF's 'is_extfn' field is used to indicate whether its PF is an extended
@@ -159,24 +164,12 @@ struct pci_dev *pci_get_pdev_by_domain(const struct domain *, int seg,
                                        int bus, int devfn);
 void pci_check_disable_device(u16 seg, u8 bus, u8 devfn);
 
-uint8_t pci_conf_read8(
-    unsigned int seg, unsigned int bus, unsigned int dev, unsigned int func,
-    unsigned int reg);
-uint16_t pci_conf_read16(
-    unsigned int seg, unsigned int bus, unsigned int dev, unsigned int func,
-    unsigned int reg);
-uint32_t pci_conf_read32(
-    unsigned int seg, unsigned int bus, unsigned int dev, unsigned int func,
-    unsigned int reg);
-void pci_conf_write8(
-    unsigned int seg, unsigned int bus, unsigned int dev, unsigned int func,
-    unsigned int reg, uint8_t data);
-void pci_conf_write16(
-    unsigned int seg, unsigned int bus, unsigned int dev, unsigned int func,
-    unsigned int reg, uint16_t data);
-void pci_conf_write32(
-    unsigned int seg, unsigned int bus, unsigned int dev, unsigned int func,
-    unsigned int reg, uint32_t data);
+uint8_t pci_conf_read8(pci_sbdf_t sbdf, unsigned int reg);
+uint16_t pci_conf_read16(pci_sbdf_t sbdf, unsigned int reg);
+uint32_t pci_conf_read32(pci_sbdf_t sbdf, unsigned int reg);
+void pci_conf_write8(pci_sbdf_t sbdf, unsigned int reg, uint8_t data);
+void pci_conf_write16(pci_sbdf_t sbdf, unsigned int reg, uint16_t data);
+void pci_conf_write32(pci_sbdf_t sbdf, unsigned int reg, uint32_t data);
 uint32_t pci_conf_read(uint32_t cf8, uint8_t offset, uint8_t bytes);
 void pci_conf_write(uint32_t cf8, uint8_t offset, uint8_t bytes, uint32_t data);
 int pci_mmcfg_read(unsigned int seg, unsigned int bus,
