@@ -1057,35 +1057,39 @@ static long domain_watchdog(struct domain *d, uint32_t id, uint32_t timeout)
 
     spin_lock(&d->watchdog_lock);
 
-    if ( id == 0 )
+    if ( likely(id != 0) ) /* Operate on a specific timer. */
+    {
+        id -= 1;
+        if ( !test_bit(id, &d->watchdog_inuse_map) )
+        {
+            rc = -EINVAL;
+            goto unlock;
+        }
+    }
+    else /* Allocate the next available timer. */
     {
         for ( id = 0; id < NR_DOMAIN_WATCHDOG_TIMERS; id++ )
         {
             if ( test_and_set_bit(id, &d->watchdog_inuse_map) )
                 continue;
-            set_timer(&d->watchdog_timer[id], NOW() + SECONDS(timeout));
             break;
         }
-        rc = id == NR_DOMAIN_WATCHDOG_TIMERS ? -ENOSPC : id + 1;
-        goto unlock;
+        if ( id == NR_DOMAIN_WATCHDOG_TIMERS )
+        {
+            rc = -ENOSPC;
+            goto unlock;
+        }
+        rc = id + 1;
     }
 
-    id -= 1;
-    if ( !test_bit(id, &d->watchdog_inuse_map) )
-    {
-        rc = -EINVAL;
-        goto unlock;
-    }
-
-    if ( timeout == 0 )
+    /* (re-)arm, or clear a specific timer. */
+    if ( unlikely(timeout == 0) )
     {
         stop_timer(&d->watchdog_timer[id]);
         clear_bit(id, &d->watchdog_inuse_map);
     }
     else
-    {
         set_timer(&d->watchdog_timer[id], NOW() + SECONDS(timeout));
-    }
 
  unlock:
     spin_unlock(&d->watchdog_lock);
