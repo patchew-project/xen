@@ -1066,7 +1066,7 @@ static long domain_watchdog(struct domain *d, uint32_t id, uint32_t timeout)
             goto unlock;
         }
     }
-    else /* Allocate the next available timer. */
+    else if ( timeout ) /* Allocate the next available timer. */
     {
         id = ffs(~d->watchdog_inuse_map) - 1;
 
@@ -1078,6 +1078,13 @@ static long domain_watchdog(struct domain *d, uint32_t id, uint32_t timeout)
 
         __set_bit(id, &d->watchdog_inuse_map);
         rc = id + 1;
+    }
+    else /* id 0, timeout 0 => disable all timers. */
+    {
+        d->watchdog_inuse_map = 0;
+        for ( ; id < NR_DOMAIN_WATCHDOG_TIMERS; ++id )
+            stop_timer(&d->watchdog_timer[id]);
+        goto unlock;
     }
 
     /* (re-)arm, or clear a specific timer. */

@@ -112,8 +112,10 @@
 /*
  * Setup, poke and destroy a domain watchdog timer.
  * @arg == pointer to sched_watchdog_t structure.
- * With id == 0, setup a domain watchdog timer to cause domain shutdown
- *               after timeout, returns watchdog id.
+ * With id == 0 and timeout != 0, setup a domain watchdog timer to cause
+ *                                domain shutdown after timeout, returns
+ *                                watchdog id.
+ * With id == 0 and timeout == 0, destroy all watchdog timers.
  * With id != 0 and timeout == 0, destroy domain watchdog timer.
  * With id != 0 and timeout != 0, poke watchdog timer and set new timeout.
  */
