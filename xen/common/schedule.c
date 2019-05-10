@@ -1050,6 +1050,8 @@ static void domain_watchdog_timeout(void *data)
 
 static long domain_watchdog(struct domain *d, uint32_t id, uint32_t timeout)
 {
+    long rc = 0;
+
     if ( id > NR_DOMAIN_WATCHDOG_TIMERS )
         return -EINVAL;
 
@@ -1064,15 +1066,15 @@ static long domain_watchdog(struct domain *d, uint32_t id, uint32_t timeout)
             set_timer(&d->watchdog_timer[id], NOW() + SECONDS(timeout));
             break;
         }
-        spin_unlock(&d->watchdog_lock);
-        return id == NR_DOMAIN_WATCHDOG_TIMERS ? -ENOSPC : id + 1;
+        rc = id == NR_DOMAIN_WATCHDOG_TIMERS ? -ENOSPC : id + 1;
+        goto unlock;
     }
 
     id -= 1;
     if ( !test_bit(id, &d->watchdog_inuse_map) )
     {
-        spin_unlock(&d->watchdog_lock);
-        return -EINVAL;
+        rc = -EINVAL;
+        goto unlock;
     }
 
     if ( timeout == 0 )
@@ -1085,8 +1087,10 @@ static long domain_watchdog(struct domain *d, uint32_t id, uint32_t timeout)
         set_timer(&d->watchdog_timer[id], NOW() + SECONDS(timeout));
     }
 
+ unlock:
     spin_unlock(&d->watchdog_lock);
-    return 0;
+
+    return rc;
 }
 
 void watchdog_domain_init(struct domain *d)
