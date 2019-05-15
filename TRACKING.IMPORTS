@@ -1,0 +1,40 @@
+# This file contains information about source files that have been
+# copied from other sources and need to be tracked
+#
+# The file may contain lines starting with ...
+# --------------------------------------------
+# version: of file format
+# repo: repository definition
+# auto|manual: a mapping to track files
+#
+# Repository Definitions are of the following format
+# --------------------------------------------------
+# repo name-of-source-repo git|svn https-url-of-source-repo
+#
+# For example:
+#   repo linux-torvalds git https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+#
+# Mappings to track files are of the following format
+# ---------------------------------------------------
+# manual|auto xen-file name-of-original-repo original-file commit-id
+#
+# auto:
+#   The xen-file needs to track the the original-file exactly
+#   In other words, we can automatically update the file using a script
+#
+# manual:
+#   A developer needs to make a decision whether a
+#   specific change is applied or ignored and update the last commit id
+#   accordingly
+#
+# name-of-original-repo:
+#   A reference to a source repository defined by *repo* keyword
+#
+# commit id:
+#   Last commit id of source file that was deemed to be ok
+#   and either imported into the tree or rejected
+#
+# For example:
+#   manual xen/drivers/passthrough/arm/smmu.c linux-torvalds linux/drivers/iommu/arm-smmu.c b77cf11f094136
+
+version 1
