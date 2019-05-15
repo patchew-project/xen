@@ -1,5 +1,5 @@
 [Unit]
-Description=The Xen xenstore
+Description=The xenstore daemon in dom0
 Requires=proc-xen.mount var-lib-xenstored.mount
 After=proc-xen.mount var-lib-xenstored.mount
 Before=libvirtd.service libvirt-guests.service
@@ -7,10 +7,9 @@ RefuseManualStop=true
 ConditionPathExists=/proc/xen/capabilities
 
 [Service]
-Type=oneshot
-RemainAfterExit=true
+PIDFile=@XEN_RUN_DIR@/xenstored.pid
 ExecStartPre=/bin/grep -q control_d /proc/xen/capabilities
-ExecStart=@XEN_SCRIPT_DIR@/launch-xenstore 'systemd' ''
+ExecStart=@XEN_SCRIPT_DIR@/launch-xenstore 'systemd' 'supervised-by-systemd'
 
 [Install]
 WantedBy=multi-user.target
