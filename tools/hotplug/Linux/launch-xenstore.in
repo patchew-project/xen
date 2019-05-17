@@ -15,6 +15,16 @@
 # License along with this library; If not, see <http://www.gnu.org/licenses/>.
 #
 
+initd=$1
+
+case "$initd" in
+	sysv|systemd) ;;
+	*)
+	echo "first argument must be 'sysv' or 'systemd'"
+	exit 1
+	;;
+esac
+
 XENSTORED=@XENSTORED@
 
 . @XEN_SCRIPT_DIR@/hotplugpath.sh
@@ -44,7 +54,22 @@ timeout_xenstore () {
 	return 0
 }
 
-test_xenstore && exit 0
+run_xenstored () {
+	local maybe_exec=$1
+
+	[ -z "$XENSTORED_ROOTDIR" ] && XENSTORED_ROOTDIR="@XEN_LIB_STORED@"
+	[ -z "$XENSTORED_TRACE" ] || XENSTORED_ARGS="$XENSTORED_ARGS -T @XEN_LOG_DIR@/xenstored-trace.log"
+	[ -z "$XENSTORED" ] && XENSTORED=@XENSTORED@
+	[ -x "$XENSTORED" ] || {
+		echo "No xenstored found"
+		exit 1
+	}
+	$maybe_exec $XENSTORED --pid-file @XEN_RUN_DIR@/xenstored.pid $XENSTORED_ARGS
+}
+
+if test "$initd" = 'sysv' ; then
+	test_xenstore && exit 0
+fi
 
 test -f @CONFIG_DIR@/@CONFIG_LEAF_DIR@/xencommons && . @CONFIG_DIR@/@CONFIG_LEAF_DIR@/xencommons
 
@@ -53,20 +78,16 @@ test -f @CONFIG_DIR@/@CONFIG_LEAF_DIR@/xencommons && . @CONFIG_DIR@/@CONFIG_LEAF
 /bin/mkdir -p @XEN_RUN_DIR@
 
 [ "$XENSTORETYPE" = "daemon" ] && {
-	[ -z "$XENSTORED_ROOTDIR" ] && XENSTORED_ROOTDIR="@XEN_LIB_STORED@"
-	[ -z "$XENSTORED_TRACE" ] || XENSTORED_ARGS="$XENSTORED_ARGS -T @XEN_LOG_DIR@/xenstored-trace.log"
-	[ -z "$XENSTORED" ] && XENSTORED=@XENSTORED@
-	[ -x "$XENSTORED" ] || {
-		echo "No xenstored found"
+	if test "$initd" = 'sysv' ; then
+		echo -n Starting $XENSTORED...
+		run_xenstored ''
+		timeout_xenstore $XENSTORED || exit 1
+		exit 0
+	else
+		XENSTORED_ARGS="$XENSTORED_ARGS -N"
+		run_xenstored 'exec'
 		exit 1
-	}
-
-	echo -n Starting $XENSTORED...
-	$XENSTORED --pid-file @XEN_RUN_DIR@/xenstored.pid $XENSTORED_ARGS
-
-	systemd-notify --booted 2>/dev/null || timeout_xenstore $XENSTORED || exit 1
-
-	exit 0
+	fi
 }
 
 [ "$XENSTORETYPE" = "domain" ] && {
@@ -76,9 +97,16 @@ test -f @CONFIG_DIR@/@CONFIG_LEAF_DIR@/xencommons && . @CONFIG_DIR@/@CONFIG_LEAF
 	XENSTORE_DOMAIN_ARGS="$XENSTORE_DOMAIN_ARGS --memory $XENSTORE_DOMAIN_SIZE"
 	[ -z "$XENSTORE_MAX_DOMAIN_SIZE" ] || XENSTORE_DOMAIN_ARGS="$XENSTORE_DOMAIN_ARGS --maxmem $XENSTORE_MAX_DOMAIN_SIZE"
 
-	echo -n Starting $XENSTORE_DOMAIN_KERNEL...
+	if test "$initd" = 'sysv' ; then
+		echo -n Starting $XENSTORE_DOMAIN_KERNEL...
+	else
+		echo Starting $XENSTORE_DOMAIN_KERNEL...
+	fi
 	${LIBEXEC_BIN}/init-xenstore-domain $XENSTORE_DOMAIN_ARGS || exit 1
-	systemd-notify --ready 2>/dev/null
+	if test "$initd" = 'systemd' ; then
+		systemd-notify --ready
+		sleep 9
+	fi
 
 	exit 0
 }
