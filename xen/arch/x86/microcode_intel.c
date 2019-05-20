@@ -99,6 +99,7 @@ static DEFINE_SPINLOCK(microcode_update_lock);
 static int collect_cpu_info(unsigned int cpu_num, struct cpu_signature *csig)
 {
     struct cpuinfo_x86 *c = &cpu_data[cpu_num];
+    unsigned long tmp;
     uint64_t msr_content;
 
     BUG_ON(cpu_num != smp_processor_id());
@@ -122,8 +123,9 @@ static int collect_cpu_info(unsigned int cpu_num, struct cpu_signature *csig)
     }
 
     wrmsrl(MSR_IA32_UCODE_REV, 0x0ULL);
-    /* As documented in the SDM: Do a CPUID 1 here */
-    cpuid_eax(1);
+    /* As documented in the SDM: Do a CPUID here. */
+    asm volatile ( "cpuid" : "=a" (tmp) : "a" (0)
+                   : "bx", "cx", "dx", "memory" );
 
     /* get the current revision from MSR 0x8B */
     rdmsrl(MSR_IA32_UCODE_REV, msr_content);
@@ -286,7 +288,7 @@ static int get_matching_microcode(const void *mc, unsigned int cpu)
 
 static int apply_microcode(unsigned int cpu)
 {
-    unsigned long flags;
+    unsigned long flags, tmp;
     uint64_t msr_content;
     unsigned int val[2];
     unsigned int cpu_num = raw_smp_processor_id();
@@ -305,8 +307,9 @@ static int apply_microcode(unsigned int cpu)
     wrmsrl(MSR_IA32_UCODE_WRITE, (unsigned long)uci->mc.mc_intel->bits);
     wrmsrl(MSR_IA32_UCODE_REV, 0x0ULL);
 
-    /* As documented in the SDM: Do a CPUID 1 here */
-    cpuid_eax(1);
+    /* As documented in the SDM: Do a CPUID here. */
+    asm volatile ( "cpuid" : "=a" (tmp) : "a" (0)
+                   : "bx", "cx", "dx", "memory" );
 
     /* get the current revision from MSR 0x8B */
     rdmsrl(MSR_IA32_UCODE_REV, msr_content);

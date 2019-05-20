@@ -185,7 +185,7 @@ unsigned int apicid_to_socket(unsigned int);
  * resulting in stale register contents being returned.
  */
 #define cpuid(_op,_eax,_ebx,_ecx,_edx)          \
-    asm volatile ( "cpuid"                      \
+    asm ( "cpuid"                               \
           : "=a" (*(int *)(_eax)),              \
             "=b" (*(int *)(_ebx)),              \
             "=c" (*(int *)(_ecx)),              \
@@ -201,7 +201,7 @@ static inline void cpuid_count(
     unsigned int *ecx,
     unsigned int *edx)
 {
-    asm volatile ( "cpuid"
+    asm ( "cpuid"
           : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
           : "0" (op), "c" (count) );
 }
@@ -213,7 +213,7 @@ static always_inline unsigned int cpuid_eax(unsigned int op)
 {
     unsigned int eax;
 
-    asm volatile ( "cpuid"
+    asm ( "cpuid"
           : "=a" (eax)
           : "0" (op)
           : "bx", "cx", "dx" );
@@ -224,7 +224,7 @@ static always_inline unsigned int cpuid_ebx(unsigned int op)
 {
     unsigned int eax, ebx;
 
-    asm volatile ( "cpuid"
+    asm ( "cpuid"
           : "=a" (eax), "=b" (ebx)
           : "0" (op)
           : "cx", "dx" );
@@ -235,7 +235,7 @@ static always_inline unsigned int cpuid_ecx(unsigned int op)
 {
     unsigned int eax, ecx;
 
-    asm volatile ( "cpuid"
+    asm ( "cpuid"
           : "=a" (eax), "=c" (ecx)
           : "0" (op)
           : "bx", "dx" );
@@ -246,7 +246,7 @@ static always_inline unsigned int cpuid_edx(unsigned int op)
 {
     unsigned int eax, edx;
 
-    asm volatile ( "cpuid"
+    asm ( "cpuid"
           : "=a" (eax), "=d" (edx)
           : "0" (op)
           : "bx", "cx" );
