@@ -12,6 +12,8 @@
 #include <xen/types.h>
 #include <xen/percpu.h>
 
+#ifndef NDEBUG
+
 DECLARE_PER_CPU(unsigned int, __preempt_count);
 
 #define preempt_count() (this_cpu(__preempt_count))
@@ -26,9 +28,11 @@ DECLARE_PER_CPU(unsigned int, __preempt_count);
     preempt_count()--;                          \
 } while (0)
 
-#ifndef NDEBUG
 void ASSERT_NOT_IN_ATOMIC(void);
+
 #else
+#define preempt_disable()    barrier();
+#define preempt_enable()     barrier();
 #define ASSERT_NOT_IN_ATOMIC() ((void)0)
 #endif
 

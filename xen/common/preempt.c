@@ -23,9 +23,9 @@
 #include <xen/irq.h>
 #include <asm/system.h>
 
+#ifndef NDEBUG
 DEFINE_PER_CPU(unsigned int, __preempt_count);
 
-#ifndef NDEBUG
 void ASSERT_NOT_IN_ATOMIC(void)
 {
     ASSERT(!preempt_count());
