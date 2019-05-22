@@ -23,7 +23,6 @@
 #include <xen/irq.h>
 #include <asm/system.h>
 
-#ifndef NDEBUG
 DEFINE_PER_CPU(unsigned int, __preempt_count);
 
 void ASSERT_NOT_IN_ATOMIC(void)
@@ -32,4 +31,3 @@ void ASSERT_NOT_IN_ATOMIC(void)
     ASSERT(!in_irq());
     ASSERT(local_irq_is_enabled());
 }
-#endif
