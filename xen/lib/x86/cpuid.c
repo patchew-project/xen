@@ -242,7 +242,12 @@ int x86_cpuid_copy_to_buffer(const struct cpuid_policy *p,
         {
         case 0x4:
             for ( subleaf = 0; subleaf < ARRAY_SIZE(p->cache.raw); ++subleaf )
+            {
                 COPY_LEAF(leaf, subleaf, &p->cache.raw[subleaf]);
+
+                if ( p->cache.subleaf[subleaf].type == 0 )
+                    break;
+            }
             break;
 
         case 0x7:
@@ -254,13 +259,30 @@ int x86_cpuid_copy_to_buffer(const struct cpuid_policy *p,
 
         case 0xb:
             for ( subleaf = 0; subleaf < ARRAY_SIZE(p->topo.raw); ++subleaf )
+            {
                 COPY_LEAF(leaf, subleaf, &p->topo.raw[subleaf]);
+
+                if ( p->topo.subleaf[subleaf].type == 0 )
+                    break;
+            }
             break;
 
         case 0xd:
-            for ( subleaf = 0; subleaf < ARRAY_SIZE(p->xstate.raw); ++subleaf )
+        {
+            uint64_t xstates;
+
+            COPY_LEAF(leaf, 0, &p->xstate.raw[0]);
+            COPY_LEAF(leaf, 1, &p->xstate.raw[1]);
+
+            xstates  = ((uint64_t)(p->xstate.xcr0_high | p->xstate.xss_high) << 32);
+            xstates |=            (p->xstate.xcr0_low  | p->xstate.xss_low);
+
+            for ( xstates >>= 2, subleaf = 2;
+                  xstates && subleaf < ARRAY_SIZE(p->xstate.raw);
+                  xstates >>= 1, ++subleaf )
                 COPY_LEAF(leaf, subleaf, &p->xstate.raw[subleaf]);
             break;
+        }
 
         default:
             COPY_LEAF(leaf, XEN_CPUID_NO_SUBLEAF, &p->basic.raw[leaf]);
