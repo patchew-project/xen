@@ -25,11 +25,6 @@
 
 DEFINE_PER_CPU(unsigned int, __preempt_count);
 
-bool_t in_atomic(void)
-{
-    return preempt_count() || in_irq() || !local_irq_is_enabled();
-}
-
 #ifndef NDEBUG
 void ASSERT_NOT_IN_ATOMIC(void)
 {
