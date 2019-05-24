@@ -274,17 +274,15 @@ static void ctxt_switch_to(struct vcpu *n)
     virt_timer_restore(n);
 }
 
-/* Update per-VCPU guest runstate shared memory area (if registered). */
-static void update_runstate_area(struct vcpu *v)
+static void update_runstate_by_gvaddr(struct vcpu *v)
 {
     void __user *guest_handle = NULL;
 
-    if ( guest_handle_is_null(runstate_guest(v)) )
-        return;
+    ASSERT(!guest_handle_is_null(runstate_guest_virt(v)));
 
     if ( VM_ASSIST(v->domain, runstate_update_flag) )
     {
-        guest_handle = &v->runstate_guest.p->state_entry_time + 1;
+        guest_handle = &v->runstate_guest.virt.p->state_entry_time + 1;
         guest_handle--;
         v->runstate.state_entry_time |= XEN_RUNSTATE_UPDATE;
         __raw_copy_to_guest(guest_handle,
@@ -292,7 +290,7 @@ static void update_runstate_area(struct vcpu *v)
         smp_wmb();
     }
 
-    __copy_to_guest(runstate_guest(v), &v->runstate, 1);
+    __copy_to_guest(runstate_guest_virt(v), &v->runstate, 1);
 
     if ( guest_handle )
     {
@@ -301,6 +299,58 @@ static void update_runstate_area(struct vcpu *v)
         __raw_copy_to_guest(guest_handle,
                             (void *)(&v->runstate.state_entry_time + 1) - 1, 1);
     }
+}
+
+extern int map_runstate_area(struct vcpu *v, struct vcpu_runstate_info **area);
+extern void unmap_runstate_area(struct vcpu_runstate_info *area);
+
+static void update_runstate_by_gpaddr(struct vcpu *v)
+{
+    struct domain *d = v->domain;
+    paddr_t gpaddr = 0;
+
+
+    if ( VM_ASSIST(v->domain, runstate_update_flag) )
+    {
+        gpaddr = v->runstate_guest.phys + offsetof(struct vcpu_runstate_info, state_entry_time) + sizeof(uint64_t) - 1;
+        v->runstate.state_entry_time |= XEN_RUNSTATE_UPDATE;
+        copy_to_guest_phys_flush_dcache (d, gpaddr,
+                                         (void *)(&v->runstate.state_entry_time + 1) - 1, 1);
+        smp_wmb();
+    }
+
+    copy_to_guest_phys_flush_dcache (d, v->runstate_guest.phys, &v->runstate, sizeof(struct vcpu_runstate_info));
+
+    if ( gpaddr )
+    {
+        v->runstate.state_entry_time &= ~XEN_RUNSTATE_UPDATE;
+        smp_wmb();
+        copy_to_guest_phys_flush_dcache (d, gpaddr,
+                                         (void *)(&v->runstate.state_entry_time + 1) - 1, 1);
+    }
+}
+
+/* Update per-VCPU guest runstate shared memory area (if registered). */
+static void update_runstate_area(struct vcpu *v)
+{
+    if ( xchg(&v->runstate_in_use, 1) )
+        return;
+
+    switch ( v->runstate_guest_type )
+    {
+    case RUNSTATE_NONE:
+       break;
+
+    case RUNSTATE_VADDR:
+       update_runstate_by_gvaddr(v);
+       break;
+
+    case RUNSTATE_PADDR:
+       update_runstate_by_gpaddr(v);
+       break;
+    }
+
+    xchg(&v->runstate_in_use, 0);
 }
 
 static void schedule_tail(struct vcpu *prev)
@@ -998,6 +1048,7 @@ long do_arm_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) a
     {
         case VCPUOP_register_vcpu_info:
         case VCPUOP_register_runstate_memory_area:
+        case VCPUOP_register_runstate_phys_memory_area:
             return do_vcpu_op(cmd, vcpuid, arg);
         default:
             return -EINVAL;

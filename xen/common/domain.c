@@ -699,6 +699,18 @@ int rcu_lock_live_remote_domain_by_id(domid_t dom, struct domain **d)
     return 0;
 }
 
+static void discard_runstate_area(struct vcpu *v)
+{
+    v->runstate_guest_type = RUNSTATE_NONE;
+}
+
+static void discard_runstate_area_locked(struct vcpu *v)
+{
+    while ( xchg(&v->runstate_in_use, 1) );
+    discard_runstate_area(v);
+    xchg(&v->runstate_in_use, 0);
+}
+
 int domain_kill(struct domain *d)
 {
     int rc = 0;
@@ -737,7 +749,10 @@ int domain_kill(struct domain *d)
         if ( cpupool_move_domain(d, cpupool0) )
             return -ERESTART;
         for_each_vcpu ( d, v )
+        {
+            discard_runstate_area_locked(v);
             unmap_vcpu_info(v);
+        }
         d->is_dying = DOMDYING_dead;
         /* Mem event cleanup has to go here because the rings 
          * have to be put before we call put_domain. */
@@ -1191,7 +1206,7 @@ int domain_soft_reset(struct domain *d)
 
     for_each_vcpu ( d, v )
     {
-        set_xen_guest_handle(runstate_guest(v), NULL);
+        discard_runstate_area_locked(v);
         unmap_vcpu_info(v);
     }
 
@@ -1521,17 +1536,45 @@ long do_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) arg)
             break;
 
         rc = 0;
-        runstate_guest(v) = area.addr.h;
+
+        while( xchg(&v->runstate_in_use, 1) == 0);
+
+        discard_runstate_area(v);
+
+        runstate_guest_virt(v) = area.addr.h;
+        v->runstate_guest_type = RUNSTATE_VADDR;
 
         if ( v == current )
         {
-            __copy_to_guest(runstate_guest(v), &v->runstate, 1);
+            __copy_to_guest(runstate_guest_virt(v), &v->runstate, 1);
         }
         else
         {
             vcpu_runstate_get(v, &runstate);
-            __copy_to_guest(runstate_guest(v), &runstate, 1);
+            __copy_to_guest(runstate_guest_virt(v), &runstate, 1);
         }
+
+        xchg(&v->runstate_in_use, 0);
+
+        break;
+    }
+
+    case VCPUOP_register_runstate_phys_memory_area:
+    {
+        struct vcpu_register_runstate_memory_area area;
+
+        rc = -EFAULT;
+        if ( copy_from_guest(&area, arg, 1) )
+             break;
+
+        while( xchg(&v->runstate_in_use, 1) == 0);
+
+        discard_runstate_area(v);
+        v->runstate_guest.phys = area.addr.p;
+        v->runstate_guest_type = RUNSTATE_PADDR;
+
+        xchg(&v->runstate_in_use, 0);
+        rc = 0;
 
         break;
     }
