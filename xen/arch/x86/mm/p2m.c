@@ -1691,7 +1691,7 @@ void p2m_mem_paging_populate(struct domain *d, unsigned long gfn_l)
 
     /* We're paging. There should be a ring */
     int rc = vm_event_claim_slot(d, d->vm_event_paging);
-    if ( rc == -ENOSYS )
+    if ( rc == -EOPNOTSUPP )
     {
         gdprintk(XENLOG_ERR, "Domain %hu paging gfn %lx yet no ring "
                              "in place\n", d->domain_id, gfn_l);

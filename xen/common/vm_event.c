@@ -513,7 +513,7 @@ bool vm_event_check_ring(struct vm_event_domain *ved)
  * this function will always return 0 for a guest.  For a non-guest, we check
  * for space and return -EBUSY if the ring is not available.
  *
- * Return codes: -ENOSYS: the ring is not yet configured
+ * Return codes: -EOPNOTSUPP: the ring is not yet configured
  *               -EBUSY: the ring is busy
  *               0: a spot has been reserved
  *
