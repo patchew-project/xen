@@ -1,0 +1,44 @@
+# This file contains information about source files that have been
+# copied from other sources and need to be tracked
+#
+# The file may contain lines starting with ...
+# --------------------------------------------
+# version: of file format
+# repo: repository definition
+# file: a mapping to track files
+#
+# Note that repo: entries must come *before* file: entries
+#
+# Repository Definitions are of the following format
+# --------------------------------------------------
+# repo: name-of-source-repo git|svn url-of-source-repo
+#
+# name-of-source-repo
+#   Name of source repository. The name will be used as reference in file:
+#   statements
+#
+# git|svn
+#   Type of source repository
+#
+# url-of-source-repo
+#   URL of source repository
+#
+# Mappings to track files are of the following format
+# ---------------------------------------------------
+# file: xen-file name-of-original-repo original-file commit-id
+#
+# xen-file
+#   Xen file that needs to be tracked
+#
+# name-of-original-repo
+#   A reference to a source repository defined by *repo* keyword
+#
+# original-file
+#   File in original-repo from which we regularly want to merge changes
+#   into xen-file
+#
+# commit id
+#   Last commit id of original-file that was deemed to be ok
+#   and either imported into the tree or rejected
+
+version: 1
