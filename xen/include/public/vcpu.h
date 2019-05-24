@@ -235,6 +235,21 @@ struct vcpu_register_time_memory_area {
 typedef struct vcpu_register_time_memory_area vcpu_register_time_memory_area_t;
 DEFINE_XEN_GUEST_HANDLE(vcpu_register_time_memory_area_t);
 
+/*
+ * Register a shared memory area from which the guest may obtain its own
+ * runstate information without needing to execute a hypercall.
+ * Notes:
+ *  1. The registered address must be guest's physical address.
+ *  2. The registered runstate area should not cross page boundary.
+ *  3. Only one shared area may be registered per VCPU. The shared area is
+ *     updated by the hypervisor each time the VCPU is scheduled. Thus
+ *     runstate.state will always be RUNSTATE_running and
+ *     runstate.state_entry_time will indicate the system time at which the
+ *     VCPU was last scheduled to run.
+ * @extra_arg == pointer to vcpu_register_runstate_memory_area structure.
+ */
+#define VCPUOP_register_runstate_phys_memory_area 14
+
 #endif /* __XEN_PUBLIC_VCPU_H__ */
 
 /*
