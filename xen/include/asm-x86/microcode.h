@@ -19,9 +19,10 @@ struct microcode_patch {
 };
 
 struct microcode_ops {
-    int (*cpu_request_microcode)(const void *buf, size_t size);
+    struct microcode_patch *(*cpu_request_microcode)(const void *buf,
+                                                     size_t size);
     int (*collect_cpu_info)(struct cpu_signature *csig);
-    int (*apply_microcode)(void);
+    int (*apply_microcode)(const struct microcode_patch *patch);
     int (*start_update)(void);
     void (*free_patch)(struct microcode_patch *patch);
     bool (*match_cpu)(const struct microcode_patch *patch);
@@ -38,8 +39,5 @@ struct cpu_signature {
 
 DECLARE_PER_CPU(struct cpu_signature, cpu_sig);
 extern const struct microcode_ops *microcode_ops;
-
-const struct microcode_patch *microcode_get_cache(void);
-bool microcode_update_cache(struct microcode_patch *patch);
 
 #endif /* ASM_X86__MICROCODE_H */

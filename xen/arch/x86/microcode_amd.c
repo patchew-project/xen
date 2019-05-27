@@ -249,7 +249,7 @@ static enum microcode_match_result compare_patch(
     return MIS_UCODE;
 }
 
-static int apply_microcode(void)
+static int apply_microcode(const struct microcode_patch *patch)
 {
     unsigned long flags;
     uint32_t rev;
@@ -257,7 +257,6 @@ static int apply_microcode(void)
     unsigned int cpu = smp_processor_id();
     struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
     const struct microcode_header_amd *hdr;
-    const struct microcode_patch *patch = microcode_get_cache();
 
     if ( !match_cpu(patch) )
         return -EINVAL;
@@ -291,6 +290,10 @@ static int apply_microcode(void)
            cpu, sig->rev, hdr->patch_id);
 
     sig->rev = rev;
+
+#ifdef CONFIG_HVM
+    svm_host_osvw_init();
+#endif
 
     return 0;
 }
@@ -449,9 +452,11 @@ static bool check_final_patch_levels(void)
     return 0;
 }
 
-static int cpu_request_microcode(const void *buf, size_t bufsize)
+static struct microcode_patch *cpu_request_microcode(const void *buf,
+                                                     size_t bufsize)
 {
     struct microcode_amd *mc_amd;
+    struct microcode_patch *patch = NULL;
     size_t offset = 0;
     int error = 0;
     unsigned int current_cpu_id;
@@ -551,17 +556,16 @@ static int cpu_request_microcode(const void *buf, size_t bufsize)
             break;
         }
 
-        if ( match_cpu(new_patch) )
-            microcode_update_cache(new_patch);
+        /* Compare patches and store the one with higher revision */
+        if ( !patch && match_cpu(new_patch) )
+            patch = new_patch;
+        else if ( patch && (compare_patch(new_patch, patch) == NEW_UCODE) )
+        {
+            free_patch(patch);
+            patch = new_patch;
+        }
         else
             free_patch(new_patch);
-
-        if ( match_cpu(microcode_get_cache()) )
-        {
-            error = apply_microcode();
-            if ( error )
-                break;
-        }
 
         if ( offset >= bufsize )
             break;
@@ -592,17 +596,10 @@ static int cpu_request_microcode(const void *buf, size_t bufsize)
     }
 
   out:
-#if CONFIG_HVM
-    svm_host_osvw_init();
-#endif
+    if ( error && !patch )
+        patch = ERR_PTR(error);
 
-    /*
-     * In some cases we may return an error even if processor's microcode has
-     * been updated. For example, the first patch in a container file is loaded
-     * successfully but subsequent container file processing encounters a
-     * failure.
-     */
-    return error;
+    return patch;
 }
 
 static int start_update(void)

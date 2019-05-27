@@ -273,46 +273,27 @@ static enum microcode_match_result compare_patch(
                                   old_header->pf, old_header->rev);
 }
 
-/*
- * return 0 - no update found
- * return 1 - found update
- * return < 0 - error
- */
-static int get_matching_microcode(const void *mc)
+static struct microcode_patch *allow_microcode_patch(
+    const struct microcode_header_intel *mc_header)
 {
-    const struct microcode_header_intel *mc_header = mc;
     unsigned long total_size = get_totalsize(mc_header);
     void *new_mc = xmalloc_bytes(total_size);
     struct microcode_patch *new_patch = xmalloc(struct microcode_patch);
-    unsigned int __maybe_unused cpu = smp_processor_id();
 
     if ( !new_patch || !new_mc )
     {
         xfree(new_patch);
         xfree(new_mc);
         printk(XENLOG_ERR "microcode: Can not allocate memory\n");
-        return -ENOMEM;
+        return ERR_PTR(-ENOMEM);
     }
-    memcpy(new_mc, mc, total_size);
+    memcpy(new_mc, mc_header, total_size);
     new_patch->mc_intel = new_mc;
 
-    if ( !match_cpu(new_patch) )
-    {
-        free_patch(new_patch);
-        return 0;
-    }
-
-    if ( !microcode_update_cache(new_patch) )
-        return 0;
-
-    pr_debug("microcode: CPU%d found a matching microcode update with"
-             " version %#x (current=%#x)\n",
-             cpu, mc_header->rev, this_cpu(cpu_sig).rev);
-
-    return 1;
+    return new_patch;
 }
 
-static int apply_microcode(void)
+static int apply_microcode(const struct microcode_patch *patch)
 {
     unsigned long flags;
     uint64_t msr_content;
@@ -320,7 +301,6 @@ static int apply_microcode(void)
     unsigned int cpu_num = raw_smp_processor_id();
     struct cpu_signature *sig = &this_cpu(cpu_sig);
     const struct microcode_intel *mc_intel;
-    const struct microcode_patch *patch = microcode_get_cache();
 
     if ( !match_cpu(patch) )
         return -EINVAL;
@@ -388,26 +368,39 @@ static long get_next_ucode_from_buffer(void **mc, const u8 *buf,
     return offset + total_size;
 }
 
-static int cpu_request_microcode(const void *buf, size_t size)
+static struct microcode_patch *cpu_request_microcode(const void *buf,
+                                                     size_t size)
 {
     long offset = 0;
     int error = 0;
     void *mc;
+    struct microcode_patch *patch = NULL;
 
     while ( (offset = get_next_ucode_from_buffer(&mc, buf, size, offset)) > 0 )
     {
+        struct microcode_patch *new_patch;
+
         error = microcode_sanity_check(mc);
         if ( error )
             break;
-        error = get_matching_microcode(mc);
-        if ( error < 0 )
+
+        new_patch = allow_microcode_patch(mc);
+        if ( IS_ERR(new_patch) )
+        {
+            error = PTR_ERR(new_patch);
             break;
-        /*
-         * It's possible the data file has multiple matching ucode,
-         * lets keep searching till the latest version
-         */
-        if ( error == 1 )
-            error = 0;
+        }
+
+        /* Compare patches and store the one with higher revision */
+        if ( !patch && match_cpu(new_patch) )
+            patch = new_patch;
+        else if ( patch && (compare_patch(new_patch, patch) == NEW_UCODE) )
+        {
+            free_patch(patch);
+            patch = new_patch;
+        }
+        else
+            free_patch(new_patch);
 
         xfree(mc);
     }
@@ -416,10 +409,10 @@ static int cpu_request_microcode(const void *buf, size_t size)
     if ( offset < 0 )
         error = offset;
 
-    if ( !error && match_cpu(microcode_get_cache()) )
-        error = apply_microcode();
+    if ( error && !patch )
+        patch = ERR_PTR(error);
 
-    return error;
+    return patch;
 }
 
 static const struct microcode_ops microcode_intel_ops = {
