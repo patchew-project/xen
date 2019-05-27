@@ -22,6 +22,7 @@
  */
 
 #include <xen/cpu.h>
+#include <xen/cpumask.h>
 #include <xen/lib.h>
 #include <xen/kernel.h>
 #include <xen/init.h>
@@ -30,14 +31,33 @@
 #include <xen/smp.h>
 #include <xen/softirq.h>
 #include <xen/spinlock.h>
+#include <xen/stop_machine.h>
 #include <xen/tasklet.h>
 #include <xen/guest_access.h>
 #include <xen/earlycpio.h>
+#include <xen/watchdog.h>
 
+#include <asm/delay.h>
 #include <asm/msr.h>
 #include <asm/processor.h>
 #include <asm/setup.h>
 #include <asm/microcode.h>
+
+/*
+ * Before performing a late microcode update on any thread, we
+ * rendezvous all cpus in stop_machine context. The timeout for
+ * waiting for cpu rendezvous is 30ms. It is the timeout used by
+ * live patching
+ */
+#define MICROCODE_CALLIN_TIMEOUT_US 30000
+
+/*
+ * Timeout for each thread to complete update is set to 1s. It is a
+ * conservative choice considering all possible interference (for
+ * instance, sometimes wbinvd takes relative long time). And a perfect
+ * timeout doesn't help a lot except an early shutdown.
+ */
+#define MICROCODE_UPDATE_TIMEOUT_US 1000000
 
 static module_t __initdata ucode_mod;
 static signed int __initdata ucode_mod_idx;
@@ -190,6 +210,12 @@ static DEFINE_SPINLOCK(microcode_mutex);
 DEFINE_PER_CPU(struct cpu_signature, cpu_sig);
 
 /*
+ * Count the CPUs that have entered, exited the rendezvous and succeeded in
+ * microcode update during late microcode update respectively.
+ */
+static atomic_t cpu_in, cpu_out, cpu_updated;
+
+/*
  * Return the patch with the highest revision id among all matching
  * patches in the blob. Return NULL if no suitable patch.
  */
@@ -270,31 +296,90 @@ bool microcode_update_cache(struct microcode_patch *patch)
     return true;
 }
 
-static long do_microcode_update(void *patch)
+/* Wait for CPUs to rendezvous with a timeout (us) */
+static int wait_for_cpus(atomic_t *cnt, unsigned int expect,
+                         unsigned int timeout)
 {
-    int error, cpu;
-
-    error = microcode_update_cpu(patch);
-    if ( error )
+    while ( atomic_read(cnt) < expect )
     {
-        microcode_ops->free_patch(microcode_cache);
-        return error;
+        if ( !timeout )
+        {
+            printk("CPU%d: Timeout when waiting for CPUs calling in\n",
+                   smp_processor_id());
+            return -EBUSY;
+        }
+        udelay(1);
+        timeout--;
     }
 
+    return 0;
+}
 
-    cpu = cpumask_next(smp_processor_id(), &cpu_online_map);
-    if ( cpu < nr_cpu_ids )
-        return continue_hypercall_on_cpu(cpu, do_microcode_update, patch);
+static int do_microcode_update(void *patch)
+{
+    unsigned int cpu = smp_processor_id();
+    unsigned int cpu_nr = num_online_cpus();
+    unsigned int finished;
+    int ret;
+    static bool error;
 
-    microcode_update_cache(patch);
+    atomic_inc(&cpu_in);
+    ret = wait_for_cpus(&cpu_in, cpu_nr, MICROCODE_CALLIN_TIMEOUT_US);
+    if ( ret )
+        return ret;
 
-    return error;
+    ret = microcode_ops->collect_cpu_info(&this_cpu(cpu_sig));
+    /*
+     * Load microcode update on only one logical processor per core.
+     * Here, among logical processors of a core, the one with the
+     * lowest thread id is chosen to perform the loading.
+     */
+    if ( !ret && (cpu == cpumask_first(per_cpu(cpu_sibling_mask, cpu))) )
+    {
+        ret = microcode_ops->apply_microcode(patch);
+        if ( !ret )
+            atomic_inc(&cpu_updated);
+    }
+    /*
+     * Increase the wait timeout to a safe value here since we're serializing
+     * the microcode update and that could take a while on a large number of
+     * CPUs. And that is fine as the *actual* timeout will be determined by
+     * the last CPU finished updating and thus cut short
+     */
+    atomic_inc(&cpu_out);
+    finished = atomic_read(&cpu_out);
+    while ( !error && finished != cpu_nr )
+    {
+        /*
+         * During each timeout interval, at least a CPU is expected to
+         * finish its update. Otherwise, something goes wrong.
+         */
+        if ( wait_for_cpus(&cpu_out, finished + 1,
+                           MICROCODE_UPDATE_TIMEOUT_US) && !error )
+        {
+            error = true;
+            panic("Timeout when finishing updating microcode (finished %d/%d)",
+                  finished, cpu_nr);
+        }
+
+        finished = atomic_read(&cpu_out);
+    }
+
+    /*
+     * Refresh CPU signature (revision) on threads which didn't call
+     * apply_microcode().
+     */
+    if ( cpu != cpumask_first(per_cpu(cpu_sibling_mask, cpu)) )
+        ret = microcode_ops->collect_cpu_info(&this_cpu(cpu_sig));
+
+    return ret;
 }
 
 int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void) buf, unsigned long len)
 {
     int ret;
     void *buffer;
+    unsigned int cpu, nr_cores;
     struct microcode_patch *patch;
 
     if ( len != (uint32_t)len )
@@ -316,11 +401,18 @@ int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void) buf, unsigned long len)
         goto free;
     }
 
+    /* cpu_online_map must not change during update */
+    if ( !get_cpu_maps() )
+    {
+        ret = -EBUSY;
+        goto free;
+    }
+
     if ( microcode_ops->start_update )
     {
         ret = microcode_ops->start_update();
         if ( ret != 0 )
-            goto free;
+            goto put;
     }
 
     patch = microcode_parse_blob(buffer, len);
@@ -337,12 +429,59 @@ int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void) buf, unsigned long len)
         if ( patch )
             microcode_ops->free_patch(patch);
         ret = -EINVAL;
-        goto free;
+        goto put;
     }
 
-    ret = continue_hypercall_on_cpu(cpumask_first(&cpu_online_map),
-                                    do_microcode_update, patch);
+    atomic_set(&cpu_in, 0);
+    atomic_set(&cpu_out, 0);
+    atomic_set(&cpu_updated, 0);
 
+    /* Calculate the number of online CPU core */
+    nr_cores = 0;
+    for_each_online_cpu(cpu)
+        if ( cpu == cpumask_first(per_cpu(cpu_sibling_mask, cpu)) )
+            nr_cores++;
+
+    printk(XENLOG_INFO "%d cores are to update their microcode\n", nr_cores);
+
+    /*
+     * We intend to disable interrupt for long time, which may lead to
+     * watchdog timeout.
+     */
+    watchdog_disable();
+    /*
+     * Late loading dance. Why the heavy-handed stop_machine effort?
+     *
+     * - HT siblings must be idle and not execute other code while the other
+     *   sibling is loading microcode in order to avoid any negative
+     *   interactions cause by the loading.
+     *
+     * - In addition, microcode update on the cores must be serialized until
+     *   this requirement can be relaxed in the future. Right now, this is
+     *   conservative and good.
+     */
+    ret = stop_machine_run(do_microcode_update, patch, NR_CPUS);
+    watchdog_enable();
+
+    if ( atomic_read(&cpu_updated) == nr_cores )
+    {
+        spin_lock(&microcode_mutex);
+        microcode_update_cache(patch);
+        spin_unlock(&microcode_mutex);
+    }
+    else if ( atomic_read(&cpu_updated) == 0 )
+        microcode_ops->free_patch(patch);
+    else
+    {
+        printk("Updating microcode succeeded on part of CPUs and failed on\n"
+               "others due to an unknown reason. A system with different\n"
+               "microcode revisions is considered unstable. Please reboot and\n"
+               "do not load the microcode that triggers this warning\n");
+        microcode_ops->free_patch(patch);
+    }
+
+ put:
+    put_cpu_maps();
  free:
     xfree(buffer);
     return ret;
