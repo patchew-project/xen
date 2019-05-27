@@ -190,24 +190,85 @@ static bool_t microcode_fits(const struct microcode_amd *mc_amd,
     return 1;
 }
 
+static bool match_cpu(const struct microcode_patch *patch)
+{
+    if ( !patch )
+        return false;
+    return microcode_fits(patch->mc_amd, smp_processor_id());
+}
+
+static struct microcode_patch *alloc_microcode_patch(
+    const struct microcode_amd *mc_amd)
+{
+    struct microcode_patch *microcode_patch = xmalloc(struct microcode_patch);
+    struct microcode_amd *cache = xmalloc(struct microcode_amd);
+    void *mpb = xmalloc_bytes(mc_amd->mpb_size);
+    struct equiv_cpu_entry *equiv_cpu_table =
+                                xmalloc_bytes(mc_amd->equiv_cpu_table_size);
+
+    if ( !microcode_patch || !cache || !mpb || !equiv_cpu_table )
+    {
+        xfree(microcode_patch);
+        xfree(cache);
+        xfree(mpb);
+        xfree(equiv_cpu_table);
+        printk(XENLOG_ERR "microcode: Can not allocate memory\n");
+        return ERR_PTR(-ENOMEM);
+    }
+
+    cache->equiv_cpu_table = equiv_cpu_table;
+    cache->mpb = mpb;
+    memcpy(cache->equiv_cpu_table, mc_amd->equiv_cpu_table,
+           mc_amd->equiv_cpu_table_size);
+    memcpy(cache->mpb, mc_amd->mpb, mc_amd->mpb_size);
+    cache->equiv_cpu_table_size = mc_amd->equiv_cpu_table_size;
+    cache->mpb_size = mc_amd->mpb_size;
+    microcode_patch->mc_amd = cache;
+
+    return microcode_patch;
+}
+
+static void free_patch(struct microcode_patch *microcode_patch)
+{
+    struct microcode_amd *mc_amd = microcode_patch->mc_amd;
+
+    xfree(mc_amd->equiv_cpu_table);
+    xfree(mc_amd->mpb);
+    xfree(mc_amd);
+    xfree(microcode_patch);
+}
+
+static enum microcode_match_result compare_patch(
+    const struct microcode_patch *new, const struct microcode_patch *old)
+{
+    const struct microcode_amd *new_mc = new->mc_amd;
+    const struct microcode_header_amd *new_header = new_mc->mpb;
+    const struct microcode_amd *old_mc = old->mc_amd;
+    const struct microcode_header_amd *old_header = old_mc->mpb;
+
+    if ( new_header->processor_rev_id == old_header->processor_rev_id )
+        return (new_header->patch_id > old_header->patch_id) ?
+                NEW_UCODE : OLD_UCODE;
+
+    return MIS_UCODE;
+}
+
 static int apply_microcode(unsigned int cpu)
 {
     unsigned long flags;
     struct ucode_cpu_info *uci = &per_cpu(ucode_cpu_info, cpu);
     uint32_t rev;
-    struct microcode_amd *mc_amd = uci->mc.mc_amd;
-    struct microcode_header_amd *hdr;
     int hw_err;
+    const struct microcode_header_amd *hdr;
+    const struct microcode_patch *patch = microcode_get_cache();
 
     /* We should bind the task to the CPU */
     BUG_ON(raw_smp_processor_id() != cpu);
 
-    if ( mc_amd == NULL )
+    if ( !match_cpu(patch) )
         return -EINVAL;
 
-    hdr = mc_amd->mpb;
-    if ( hdr == NULL )
-        return -EINVAL;
+    hdr = patch->mc_amd->mpb;
 
     spin_lock_irqsave(&microcode_update_lock, flags);
 
@@ -497,7 +558,20 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
     while ( (error = get_ucode_from_buffer_amd(mc_amd, buf, bufsize,
                                                &offset)) == 0 )
     {
-        if ( microcode_fits(mc_amd, cpu) )
+        struct microcode_patch *new_patch = alloc_microcode_patch(mc_amd);
+
+        if ( IS_ERR(new_patch) )
+        {
+            error = PTR_ERR(new_patch);
+            break;
+        }
+
+        if ( match_cpu(new_patch) )
+            microcode_update_cache(new_patch);
+        else
+            free_patch(new_patch);
+
+        if ( match_cpu(microcode_get_cache()) )
         {
             error = apply_microcode(cpu);
             if ( error )
@@ -639,6 +713,9 @@ static const struct microcode_ops microcode_amd_ops = {
     .collect_cpu_info                 = collect_cpu_info,
     .apply_microcode                  = apply_microcode,
     .start_update                     = start_update,
+    .free_patch                       = free_patch,
+    .compare_patch                    = compare_patch,
+    .match_cpu                        = match_cpu,
 };
 
 int __init microcode_init_amd(void)
