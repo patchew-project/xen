@@ -310,6 +310,12 @@ static int apply_microcode(const struct microcode_patch *patch)
     /* serialize access to the physical write to MSR 0x79 */
     spin_lock_irqsave(&microcode_update_lock, flags);
 
+    /*
+     * Writeback and invalidate caches before updating microcode to avoid
+     * internal issues depending on what the microcode is updating.
+     */
+    wbinvd();
+
     /* write microcode via MSR 0x79 */
     wrmsrl(MSR_IA32_UCODE_WRITE, (unsigned long)mc_intel->bits);
     wrmsrl(MSR_IA32_UCODE_REV, 0x0ULL);
