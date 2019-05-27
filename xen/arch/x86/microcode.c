@@ -590,6 +590,10 @@ int __init early_microcode_init(void)
 
     if ( microcode_ops )
     {
+        rc = microcode_ops->collect_cpu_info(&this_cpu(cpu_sig));
+        if ( rc )
+            return rc;
+
         if ( ucode_mod.mod_end || ucode_blob.size )
             rc = early_microcode_parse_and_update_cpu();
     }
