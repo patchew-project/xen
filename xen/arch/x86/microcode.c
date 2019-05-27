@@ -196,19 +196,19 @@ struct microcode_info {
     char buffer[1];
 };
 
-int microcode_resume_cpu(unsigned int cpu)
+int microcode_resume_cpu(void)
 {
     int err;
-    struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
+    struct cpu_signature *sig = &this_cpu(cpu_sig);
 
     if ( !microcode_ops )
         return 0;
 
     spin_lock(&microcode_mutex);
 
-    err = microcode_ops->collect_cpu_info(cpu, sig);
+    err = microcode_ops->collect_cpu_info(sig);
     if ( likely(!err) )
-        err = microcode_ops->apply_microcode(cpu);
+        err = microcode_ops->apply_microcode();
     spin_unlock(&microcode_mutex);
 
     return err;
@@ -255,9 +255,9 @@ static int microcode_update_cpu(const void *buf, size_t size)
 
     spin_lock(&microcode_mutex);
 
-    err = microcode_ops->collect_cpu_info(cpu, sig);
+    err = microcode_ops->collect_cpu_info(sig);
     if ( likely(!err) )
-        err = microcode_ops->cpu_request_microcode(cpu, buf, size);
+        err = microcode_ops->cpu_request_microcode(buf, size);
     spin_unlock(&microcode_mutex);
 
     return err;

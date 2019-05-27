@@ -78,8 +78,9 @@ struct mpbhdr {
 static DEFINE_SPINLOCK(microcode_update_lock);
 
 /* See comment in start_update() for cases when this routine fails */
-static int collect_cpu_info(unsigned int cpu, struct cpu_signature *csig)
+static int collect_cpu_info(struct cpu_signature *csig)
 {
+    unsigned int cpu = smp_processor_id();
     struct cpuinfo_x86 *c = &cpu_data[cpu];
 
     memset(csig, 0, sizeof(*csig));
@@ -152,17 +153,14 @@ static bool_t find_equiv_cpu_id(const struct equiv_cpu_entry *equiv_cpu_table,
     return 0;
 }
 
-static bool_t microcode_fits(const struct microcode_amd *mc_amd,
-                             unsigned int cpu)
+static bool microcode_fits(const struct microcode_amd *mc_amd)
 {
+    unsigned int cpu = smp_processor_id();
     const struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
     const struct microcode_header_amd *mc_header = mc_amd->mpb;
     const struct equiv_cpu_entry *equiv_cpu_table = mc_amd->equiv_cpu_table;
     unsigned int current_cpu_id;
     unsigned int equiv_cpu_id;
-
-    /* We should bind the task to the CPU */
-    BUG_ON(cpu != raw_smp_processor_id());
 
     current_cpu_id = cpuid_eax(0x00000001);
 
@@ -192,9 +190,7 @@ static bool_t microcode_fits(const struct microcode_amd *mc_amd,
 
 static bool match_cpu(const struct microcode_patch *patch)
 {
-    if ( !patch )
-        return false;
-    return microcode_fits(patch->mc_amd, smp_processor_id());
+    return patch ? microcode_fits(patch->mc_amd) : false;
 }
 
 static struct microcode_patch *alloc_microcode_patch(
@@ -253,17 +249,15 @@ static enum microcode_match_result compare_patch(
     return MIS_UCODE;
 }
 
-static int apply_microcode(unsigned int cpu)
+static int apply_microcode(void)
 {
     unsigned long flags;
     uint32_t rev;
     int hw_err;
+    unsigned int cpu = smp_processor_id();
     struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
     const struct microcode_header_amd *hdr;
     const struct microcode_patch *patch = microcode_get_cache();
-
-    /* We should bind the task to the CPU */
-    BUG_ON(raw_smp_processor_id() != cpu);
 
     if ( !match_cpu(patch) )
         return -EINVAL;
@@ -435,14 +429,14 @@ static const unsigned int final_levels[] = {
     0x010000af
 };
 
-static bool_t check_final_patch_levels(unsigned int cpu)
+static bool check_final_patch_levels(void)
 {
     /*
      * Check the current patch levels on the cpu. If they are equal to
      * any of the 'final_levels', then we should not update the microcode
      * patch on the cpu as system will hang otherwise.
      */
-    const struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
+    const struct cpu_signature *sig = &this_cpu(cpu_sig);
     unsigned int i;
 
     if ( boot_cpu_data.x86 != 0x10 )
@@ -455,18 +449,15 @@ static bool_t check_final_patch_levels(unsigned int cpu)
     return 0;
 }
 
-static int cpu_request_microcode(unsigned int cpu, const void *buf,
-                                 size_t bufsize)
+static int cpu_request_microcode(const void *buf, size_t bufsize)
 {
     struct microcode_amd *mc_amd;
     size_t offset = 0;
     int error = 0;
     unsigned int current_cpu_id;
     unsigned int equiv_cpu_id;
+    unsigned int cpu = smp_processor_id();
     const struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
-
-    /* We should bind the task to the CPU */
-    BUG_ON(cpu != raw_smp_processor_id());
 
     current_cpu_id = cpuid_eax(0x00000001);
 
@@ -477,7 +468,7 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
         goto out;
     }
 
-    if ( check_final_patch_levels(cpu) )
+    if ( check_final_patch_levels() )
     {
         printk(XENLOG_INFO
                "microcode: Cannot update microcode patch on the cpu as we hit a final level\n");
@@ -567,7 +558,7 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
 
         if ( match_cpu(microcode_get_cache()) )
         {
-            error = apply_microcode(cpu);
+            error = apply_microcode();
             if ( error )
                 break;
         }

@@ -96,12 +96,11 @@ struct extended_sigtable {
 /* serialize access to the physical write to MSR 0x79 */
 static DEFINE_SPINLOCK(microcode_update_lock);
 
-static int collect_cpu_info(unsigned int cpu_num, struct cpu_signature *csig)
+static int collect_cpu_info(struct cpu_signature *csig)
 {
+    unsigned int cpu_num = smp_processor_id();
     struct cpuinfo_x86 *c = &cpu_data[cpu_num];
     uint64_t msr_content;
-
-    BUG_ON(cpu_num != smp_processor_id());
 
     memset(csig, 0, sizeof(*csig));
 
@@ -279,12 +278,13 @@ static enum microcode_match_result compare_patch(
  * return 1 - found update
  * return < 0 - error
  */
-static int get_matching_microcode(const void *mc, unsigned int cpu)
+static int get_matching_microcode(const void *mc)
 {
     const struct microcode_header_intel *mc_header = mc;
     unsigned long total_size = get_totalsize(mc_header);
     void *new_mc = xmalloc_bytes(total_size);
     struct microcode_patch *new_patch = xmalloc(struct microcode_patch);
+    unsigned int __maybe_unused cpu = smp_processor_id();
 
     if ( !new_patch || !new_mc )
     {
@@ -312,18 +312,15 @@ static int get_matching_microcode(const void *mc, unsigned int cpu)
     return 1;
 }
 
-static int apply_microcode(unsigned int cpu)
+static int apply_microcode(void)
 {
     unsigned long flags;
     uint64_t msr_content;
     unsigned int val[2];
     unsigned int cpu_num = raw_smp_processor_id();
-    struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
+    struct cpu_signature *sig = &this_cpu(cpu_sig);
     const struct microcode_intel *mc_intel;
     const struct microcode_patch *patch = microcode_get_cache();
-
-    /* We should bind the task to the CPU */
-    BUG_ON(cpu_num != cpu);
 
     if ( !match_cpu(patch) )
         return -EINVAL;
@@ -391,22 +388,18 @@ static long get_next_ucode_from_buffer(void **mc, const u8 *buf,
     return offset + total_size;
 }
 
-static int cpu_request_microcode(unsigned int cpu, const void *buf,
-                                 size_t size)
+static int cpu_request_microcode(const void *buf, size_t size)
 {
     long offset = 0;
     int error = 0;
     void *mc;
-
-    /* We should bind the task to the CPU */
-    BUG_ON(cpu != raw_smp_processor_id());
 
     while ( (offset = get_next_ucode_from_buffer(&mc, buf, size, offset)) > 0 )
     {
         error = microcode_sanity_check(mc);
         if ( error )
             break;
-        error = get_matching_microcode(mc, cpu);
+        error = get_matching_microcode(mc);
         if ( error < 0 )
             break;
         /*
@@ -424,7 +417,7 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
         error = offset;
 
     if ( !error && match_cpu(microcode_get_cache()) )
-        error = apply_microcode(cpu);
+        error = apply_microcode();
 
     return error;
 }
