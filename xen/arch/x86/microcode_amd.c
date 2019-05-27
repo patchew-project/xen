@@ -155,7 +155,7 @@ static bool_t find_equiv_cpu_id(const struct equiv_cpu_entry *equiv_cpu_table,
 static bool_t microcode_fits(const struct microcode_amd *mc_amd,
                              unsigned int cpu)
 {
-    struct ucode_cpu_info *uci = &per_cpu(ucode_cpu_info, cpu);
+    const struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
     const struct microcode_header_amd *mc_header = mc_amd->mpb;
     const struct equiv_cpu_entry *equiv_cpu_table = mc_amd->equiv_cpu_table;
     unsigned int current_cpu_id;
@@ -178,14 +178,14 @@ static bool_t microcode_fits(const struct microcode_amd *mc_amd,
         return 0;
     }
 
-    if ( mc_header->patch_id <= uci->cpu_sig.rev )
+    if ( mc_header->patch_id <= sig->rev )
     {
         pr_debug("microcode: patch is already at required level or greater.\n");
         return 0;
     }
 
     pr_debug("microcode: CPU%d found a matching microcode update with version %#x (current=%#x)\n",
-             cpu, mc_header->patch_id, uci->cpu_sig.rev);
+             cpu, mc_header->patch_id, sig->rev);
 
     return 1;
 }
@@ -256,9 +256,9 @@ static enum microcode_match_result compare_patch(
 static int apply_microcode(unsigned int cpu)
 {
     unsigned long flags;
-    struct ucode_cpu_info *uci = &per_cpu(ucode_cpu_info, cpu);
     uint32_t rev;
     int hw_err;
+    struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
     const struct microcode_header_amd *hdr;
     const struct microcode_patch *patch = microcode_get_cache();
 
@@ -294,9 +294,9 @@ static int apply_microcode(unsigned int cpu)
     }
 
     printk(KERN_WARNING "microcode: CPU%d updated from revision %#x to %#x\n",
-           cpu, uci->cpu_sig.rev, hdr->patch_id);
+           cpu, sig->rev, hdr->patch_id);
 
-    uci->cpu_sig.rev = rev;
+    sig->rev = rev;
 
     return 0;
 }
@@ -442,14 +442,14 @@ static bool_t check_final_patch_levels(unsigned int cpu)
      * any of the 'final_levels', then we should not update the microcode
      * patch on the cpu as system will hang otherwise.
      */
-    struct ucode_cpu_info *uci = &per_cpu(ucode_cpu_info, cpu);
+    const struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
     unsigned int i;
 
     if ( boot_cpu_data.x86 != 0x10 )
         return 0;
 
     for ( i = 0; i < ARRAY_SIZE(final_levels); i++ )
-        if ( uci->cpu_sig.rev == final_levels[i] )
+        if ( sig->rev == final_levels[i] )
             return 1;
 
     return 0;
@@ -458,13 +458,12 @@ static bool_t check_final_patch_levels(unsigned int cpu)
 static int cpu_request_microcode(unsigned int cpu, const void *buf,
                                  size_t bufsize)
 {
-    struct microcode_amd *mc_amd, *mc_old;
+    struct microcode_amd *mc_amd;
     size_t offset = 0;
-    size_t last_offset, applied_offset = 0;
-    int error = 0, save_error = 1;
-    struct ucode_cpu_info *uci = &per_cpu(ucode_cpu_info, cpu);
+    int error = 0;
     unsigned int current_cpu_id;
     unsigned int equiv_cpu_id;
+    const struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
 
     /* We should bind the task to the CPU */
     BUG_ON(cpu != raw_smp_processor_id());
@@ -533,7 +532,7 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
         {
             printk(KERN_ERR "microcode: CPU%d incorrect or corrupt container file\n"
                    "microcode: Failed to update patch level. "
-                   "Current lvl:%#x\n", cpu, uci->cpu_sig.rev);
+                   "Current lvl:%#x\n", cpu, sig->rev);
             break;
         }
     }
@@ -544,17 +543,12 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
         goto out;
     }
 
-    mc_old = uci->mc.mc_amd;
-    /* implicitely validates uci->mc.mc_valid */
-    uci->mc.mc_amd = mc_amd;
-
     /*
      * It's possible the data file has multiple matching ucode,
      * lets keep searching till the latest version
      */
     mc_amd->mpb = NULL;
     mc_amd->mpb_size = 0;
-    last_offset = offset;
     while ( (error = get_ucode_from_buffer_amd(mc_amd, buf, bufsize,
                                                &offset)) == 0 )
     {
@@ -576,10 +570,7 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
             error = apply_microcode(cpu);
             if ( error )
                 break;
-            applied_offset = last_offset;
         }
-
-        last_offset = offset;
 
         if ( offset >= bufsize )
             break;
@@ -609,26 +600,6 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
             break;
     }
 
-    /* On success keep the microcode patch for
-     * re-apply on resume.
-     */
-    if ( applied_offset )
-    {
-        save_error = get_ucode_from_buffer_amd(
-            mc_amd, buf, bufsize, &applied_offset);
-
-        if ( save_error )
-            error = save_error;
-    }
-
-    if ( save_error )
-    {
-        xfree(mc_amd);
-        uci->mc.mc_amd = mc_old;
-    }
-    else
-        xfree(mc_old);
-
   out:
 #if CONFIG_HVM
     svm_host_osvw_init();
@@ -641,52 +612,6 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
      * failure.
      */
     return error;
-}
-
-static int microcode_resume_match(unsigned int cpu, const void *mc)
-{
-    struct ucode_cpu_info *uci = &per_cpu(ucode_cpu_info, cpu);
-    struct microcode_amd *mc_amd = uci->mc.mc_amd;
-    const struct microcode_amd *src = mc;
-
-    if ( !microcode_fits(src, cpu) )
-        return 0;
-
-    if ( src != mc_amd )
-    {
-        if ( mc_amd )
-        {
-            xfree(mc_amd->equiv_cpu_table);
-            xfree(mc_amd->mpb);
-            xfree(mc_amd);
-        }
-
-        mc_amd = xmalloc(struct microcode_amd);
-        uci->mc.mc_amd = mc_amd;
-        if ( !mc_amd )
-            return -ENOMEM;
-        mc_amd->equiv_cpu_table = xmalloc_bytes(src->equiv_cpu_table_size);
-        if ( !mc_amd->equiv_cpu_table )
-            goto err1;
-        mc_amd->mpb = xmalloc_bytes(src->mpb_size);
-        if ( !mc_amd->mpb )
-            goto err2;
-
-        mc_amd->equiv_cpu_table_size = src->equiv_cpu_table_size;
-        mc_amd->mpb_size = src->mpb_size;
-        memcpy(mc_amd->mpb, src->mpb, src->mpb_size);
-        memcpy(mc_amd->equiv_cpu_table, src->equiv_cpu_table,
-               src->equiv_cpu_table_size);
-    }
-
-    return 1;
-
-err2:
-    xfree(mc_amd->equiv_cpu_table);
-err1:
-    xfree(mc_amd);
-    uci->mc.mc_amd = NULL;
-    return -ENOMEM;
 }
 
 static int start_update(void)
@@ -708,7 +633,6 @@ static int start_update(void)
 }
 
 static const struct microcode_ops microcode_amd_ops = {
-    .microcode_resume_match           = microcode_resume_match,
     .cpu_request_microcode            = cpu_request_microcode,
     .collect_cpu_info                 = collect_cpu_info,
     .apply_microcode                  = apply_microcode,
