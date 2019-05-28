@@ -213,6 +213,7 @@ int main_psr_mba_set(int argc, char **argv);
 int main_psr_mba_show(int argc, char **argv);
 #endif
 int main_qemu_monitor_command(int argc, char **argv);
+int main_get_parameters(int argc, char **argv);
 
 void help(const char *command);
 

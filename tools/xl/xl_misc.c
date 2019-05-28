@@ -364,6 +364,31 @@ int main_config_update(int argc, char **argv)
     return 0;
 }
 
+int main_get_parameters(int argc, char **argv)
+{
+    int opt, ret;
+    char *params;
+    char values[1023];
+
+    SWITCH_FOREACH_OPT(opt, "", NULL, "get-parameters", 1) {
+        /* No options */
+    }
+
+    params = argv[optind];
+
+    if (!params) {
+	fprintf(stderr, "no parameter specified\n");
+	return EXIT_FAILURE;
+    }
+    else if ((ret = libxl_get_parameters(ctx, params, values))) {
+        fprintf(stderr, "cannot get parameters: %s : %d\n", params, ret);
+        fprintf(stderr, "Use \"xl dmesg\" to look for possible reason.\n");
+        return EXIT_FAILURE;
+    }
+    fprintf(stderr, "%s : %s\n", params, values);
+
+    return EXIT_SUCCESS;
+}
 /*
  * Local variables:
  * mode: C

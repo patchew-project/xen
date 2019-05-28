@@ -622,6 +622,11 @@ struct cmd_spec cmd_table[] = {
       "Issue a qemu monitor command to the device model of a domain",
       "<Domain> <Command>",
     },
+    { "get-parameters",
+      &main_get_parameters, 0, 1,
+      "Get hypervisor parameters",
+      "<Params>",
+    },
 };
 
 int cmdtable_len = sizeof(cmd_table)/sizeof(struct cmd_spec);
