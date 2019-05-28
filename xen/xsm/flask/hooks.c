@@ -827,6 +827,9 @@ static int flask_sysctl(int cmd)
     case XEN_SYSCTL_set_parameter:
         return avc_current_has_perm(SECINITSID_XEN, SECCLASS_XEN2,
                                     XEN2__SET_PARAMETER, NULL);
+    case XEN_SYSCTL_get_parameter:
+        return avc_current_has_perm(SECINITSID_XEN, SECCLASS_XEN2,
+                                    XEN2__GET_PARAMETER, NULL);
 
     default:
         return avc_unknown_permission("sysctl", cmd);

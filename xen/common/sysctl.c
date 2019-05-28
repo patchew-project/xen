@@ -461,9 +461,9 @@ long do_sysctl(XEN_GUEST_HANDLE_PARAM(xen_sysctl_t) u_sysctl)
             copyback = 1;
         break;
 
+#define XEN_PARAMETER_MAX_SIZE 1023
     case XEN_SYSCTL_set_parameter:
     {
-#define XEN_SET_PARAMETER_MAX_SIZE 1023
         char *params;
 
         if ( op->u.set_parameter.pad[0] || op->u.set_parameter.pad[1] ||
@@ -472,7 +472,7 @@ long do_sysctl(XEN_GUEST_HANDLE_PARAM(xen_sysctl_t) u_sysctl)
             ret = -EINVAL;
             break;
         }
-        if ( op->u.set_parameter.size > XEN_SET_PARAMETER_MAX_SIZE )
+        if ( op->u.set_parameter.size > XEN_PARAMETER_MAX_SIZE )
         {
             ret = -E2BIG;
             break;
@@ -493,6 +493,54 @@ long do_sysctl(XEN_GUEST_HANDLE_PARAM(xen_sysctl_t) u_sysctl)
         }
 
         xfree(params);
+
+        break;
+    }
+    case XEN_SYSCTL_get_parameter:
+    {
+        char *params, *values;
+
+        if ( op->u.get_parameter.pad[0] || op->u.get_parameter.pad[1] ||
+             op->u.get_parameter.pad[2] )
+        {
+            ret = -EINVAL;
+            break;
+        }
+        if ( op->u.get_parameter.size > XEN_PARAMETER_MAX_SIZE )
+        {
+            ret = -E2BIG;
+            break;
+        }
+        params = xmalloc_bytes(op->u.get_parameter.size + 1);
+        if ( !params )
+        {
+            ret = -ENOMEM;
+            break;
+        }
+
+        values = xmalloc_bytes(XEN_PARAMETER_MAX_SIZE);
+        if ( !values )
+        {
+            xfree(params);
+            ret = -ENOMEM;
+            break;
+        }
+
+        if ( copy_from_guest(params, op->u.get_parameter.params,
+                             op->u.get_parameter.size) )
+            ret = -EFAULT;
+        else
+        {
+            params[op->u.set_parameter.size] = 0;
+            ret = runtime_get_params(params, values, XEN_PARAMETER_MAX_SIZE);
+
+            if ( !ret && copy_to_guest(op->u.get_parameter.values, values,
+                                       strlen(values)) )
+                ret = -EFAULT;
+        }
+
+        xfree(params);
+        xfree(values);
 
         break;
     }

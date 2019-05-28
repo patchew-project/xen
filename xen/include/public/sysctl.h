@@ -1014,6 +1014,22 @@ typedef struct xen_sysctl_cpu_policy xen_sysctl_cpu_policy_t;
 DEFINE_XEN_GUEST_HANDLE(xen_sysctl_cpu_policy_t);
 #endif
 
+/*
+ * XEN_SYSCTL_get_parameter
+ *
+ * Read hypervisor parameters at runtime.
+ * Parameters are a single string terminated by a NUL byte of max. size
+ * characters. Multiple settings can be specified by separating them
+ * with blanks.
+ */
+
+struct xen_sysctl_get_parameter {
+    XEN_GUEST_HANDLE_64(char) params;       /* IN: pointer to parameters. */
+    XEN_GUEST_HANDLE_64(char) values;       /* OUT: pointer to output values. */
+    uint16_t size;                          /* IN: size of parameters. */
+    uint16_t pad[3];                        /* IN: MUST be zero. */
+};
+
 struct xen_sysctl {
     uint32_t cmd;
 #define XEN_SYSCTL_readconsole                    1
@@ -1044,6 +1060,7 @@ struct xen_sysctl {
 #define XEN_SYSCTL_livepatch_op                  27
 #define XEN_SYSCTL_set_parameter                 28
 #define XEN_SYSCTL_get_cpu_policy                29
+#define XEN_SYSCTL_get_parameter                 30
     uint32_t interface_version; /* XEN_SYSCTL_INTERFACE_VERSION */
     union {
         struct xen_sysctl_readconsole       readconsole;
@@ -1075,6 +1092,7 @@ struct xen_sysctl {
 #if defined(__i386__) || defined(__x86_64__)
         struct xen_sysctl_cpu_policy        cpu_policy;
 #endif
+        struct xen_sysctl_get_parameter     get_parameter;
         uint8_t                             pad[128];
     } u;
 };

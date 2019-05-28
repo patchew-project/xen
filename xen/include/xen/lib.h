@@ -75,6 +75,7 @@ struct domain;
 void cmdline_parse(const char *cmdline);
 int runtime_parse(const char *line);
 int parse_bool(const char *s, const char *e);
+int runtime_get_params(const char *cmdline, char *values, size_t maxlen);
 
 /**
  * Given a specific name, parses a string of the form:

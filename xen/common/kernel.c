@@ -12,6 +12,7 @@
 #include <xen/paging.h>
 #include <xen/guest_access.h>
 #include <xen/hypercall.h>
+#include <xen/ctype.h>
 #include <xsm/xsm.h>
 #include <asm/current.h>
 #include <public/version.h>
@@ -50,6 +51,123 @@ static int assign_integer_param(const struct kernel_param *param, uint64_t val)
     }
 
     return 0;
+}
+
+static int get_integer_param(const struct kernel_param *param, uint64_t *val)
+{
+    switch ( param->len )
+    {
+    case sizeof(uint8_t):
+        *val = *(uint8_t *)param->par.var;
+        break;
+
+    case sizeof(uint16_t):
+        *val = *(uint16_t *)param->par.var;
+        break;
+
+    case sizeof(uint32_t):
+        *val = *(uint32_t *)param->par.var;
+        break;
+
+    case sizeof(uint64_t):
+        *val = *(uint64_t *)param->par.var;
+        break;
+
+    default:
+        BUG();
+        break;
+    }
+
+    return 0;
+}
+
+int runtime_get_params(const char *cmdline, char *values,
+                      size_t maxlen)
+{
+    char opt[128], *optkey, *q, *val = values;
+    const char *p = cmdline;
+    const struct kernel_param *param;
+    int rc = 0, len = 0;
+    size_t bufpos = 0;
+    uint64_t param_int;
+
+    while ( !rc )
+    {
+        /* Skip whitespace. */
+        while ( isspace(*p) )
+            p++;
+        if ( *p == '\0' )
+            break;
+
+        /* Grab the next whitespace-delimited option. */
+        q = optkey = opt;
+        while ( !isspace(*p) && (*p != '\0') )
+        {
+            if ( (q - opt) < (sizeof(opt) - 1) ) /* avoid overflow */
+                *q++ = *p;
+            else return -ENOMEM;
+            p++;
+        }
+        *q = '\0';
+
+        for ( param = __param_start; param < __param_end; param++ )
+        {
+            if ( strcmp(param->name, optkey) )
+                continue;
+
+            switch ( param->type )
+            {
+            case OPT_STR:
+                len = snprintf(val + bufpos, maxlen - bufpos, "%s ",
+                               (char*)param->par.var);
+                break;
+
+            case OPT_UINT:
+            case OPT_SIZE:
+                /* Signed integer parameters are not supported yet.
+                 * While there are no runtime signed integer parameters
+                 * at the moment, adding one and trying to get its value
+                 * with the current implementation will output the wrong
+                 * value.
+                 */
+                get_integer_param(param, &param_int);
+                len = snprintf(val + bufpos, maxlen - bufpos,
+                               "%"PRIu64" ", param_int);
+                break;
+
+            case OPT_BOOL:
+                get_integer_param(param, &param_int);
+                len = snprintf(val + bufpos, maxlen - bufpos, "%s ",
+                               param_int ? "true" : "false");
+                break;
+
+            case OPT_CUSTOM:
+                /* Custom parameters are not supported yet. */
+                rc = -EINVAL;
+                break;
+
+            default:
+                BUG();
+                break;
+            }
+
+            if ( len < 0 )
+                rc = len;
+            else if ( len < maxlen - bufpos )
+                /* if output was not truncated update buffer position. */
+                bufpos += len;
+            else if ( len > 0 )
+                rc = -ENOMEM;
+
+            break;
+        }
+
+        /* no parameter was matched */
+        if ( param >= __param_end )
+            rc = -EINVAL;
+    }
+
+    return rc;
 }
 
 static int parse_params(const char *cmdline, const struct kernel_param *start,

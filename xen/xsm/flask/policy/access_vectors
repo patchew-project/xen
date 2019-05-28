@@ -99,6 +99,8 @@ class xen2
     coverage_op
 # XEN_SYSCTL_set_parameter
     set_parameter
+# XEN_SYSCTL_get_parameter
+    get_parameter
 }
 
 # Classes domain and domain2 consist of operations that a domain performs on
