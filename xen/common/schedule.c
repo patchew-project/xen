@@ -59,7 +59,7 @@ integer_param("sched_ratelimit_us", sched_ratelimit_us);
 enum sched_gran opt_sched_granularity = SCHED_GRAN_cpu;
 unsigned int sched_granularity = 1;
 bool sched_disable_smt_switching;
-const cpumask_t *sched_res_mask = &cpumask_all;
+cpumask_var_t sched_res_mask;
 
 /* Common lock for free cpus. */
 static DEFINE_SPINLOCK(sched_free_cpu_lock);
@@ -2289,8 +2289,14 @@ static int cpu_schedule_up(unsigned int cpu)
     sd = xzalloc(struct sched_resource);
     if ( sd == NULL )
         return -ENOMEM;
+    if ( !zalloc_cpumask_var(&sd->cpus) )
+    {
+        xfree(sd);
+        return -ENOMEM;
+    }
+
     sd->processor = cpu;
-    sd->cpus = cpumask_of(cpu);
+    cpumask_copy(sd->cpus, cpumask_of(cpu));
     set_sched_res(cpu, sd);
 
     sd->scheduler = &sched_idle_ops;
@@ -2301,6 +2307,8 @@ static int cpu_schedule_up(unsigned int cpu)
 
     /* We start with cpu granularity. */
     sd->granularity = 1;
+
+    cpumask_set_cpu(cpu, sched_res_mask);
 
     /* Boot CPU is dealt with later in schedule_init(). */
     if ( cpu == 0 )
@@ -2337,6 +2345,7 @@ static void sched_res_free(struct rcu_head *head)
 {
     struct sched_resource *sd = container_of(head, struct sched_resource, rcu);
 
+    free_cpumask_var(sd->cpus);
     xfree(sd);
 }
 
@@ -2484,6 +2493,9 @@ void __init scheduler_init(void)
         BUG_ON(!ops.name);
         printk("Using '%s' (%s)\n", ops.name, ops.opt_name);
     }
+
+    if ( !zalloc_cpumask_var(&sched_res_mask) )
+        BUG();
 
     if ( cpu_schedule_up(0) )
         BUG();
