@@ -2334,6 +2334,7 @@ int libxl_send_trigger(libxl_ctx *ctx, uint32_t domid,
 int libxl_send_sysrq(libxl_ctx *ctx, uint32_t domid, char sysrq);
 int libxl_send_debug_keys(libxl_ctx *ctx, char *keys);
 int libxl_set_parameters(libxl_ctx *ctx, char *params);
+int libxl_get_parameters(libxl_ctx *ctx, char *params, char *values);
 
 typedef struct libxl__xen_console_reader libxl_xen_console_reader;
 
