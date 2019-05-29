@@ -233,7 +233,7 @@ static void hpet_timer_fired(struct vcpu *v, void *data)
 #define  HPET_TINY_TIME_SPAN  ((h->stime_freq >> 10) / STIME_PER_HPET_TICK)
 
 static void hpet_set_timer(HPETState *h, unsigned int tn,
-                           uint64_t guest_time)
+                           uint64_t guest_time, bool resume)
 {
     uint64_t tn_cmp, cur_tick, diff;
     unsigned int irq;
@@ -273,10 +273,13 @@ static void hpet_set_timer(HPETState *h, unsigned int tn,
      * Detect time values set in the past. This is hard to do for 32-bit
      * comparators as the timer does not have to be set that far in the future
      * for the counter difference to wrap a 32-bit signed integer. We fudge
-     * by looking for a 'small' time value in the past.
+     * by looking for a 'small' time value in the past. However, if we
+     * are resuming from suspend, treat any wrap as past since the value
+     * is unlikely to be 'small'.
      */
     if ( (int64_t)diff < 0 )
-        diff = (timer_is_32bit(h, tn) && (-diff > HPET_TINY_TIME_SPAN))
+        diff = (timer_is_32bit(h, tn) && (-diff > HPET_TINY_TIME_SPAN) &&
+                !resume)
             ? (uint32_t)diff : 0;
 
     destroy_periodic_time(&h->pt[tn]);
@@ -547,7 +550,7 @@ static int hpet_write(
     {
         i = find_first_set_bit(start_timers);
         __clear_bit(i, &start_timers);
-        hpet_set_timer(h, i, guest_time);
+        hpet_set_timer(h, i, guest_time, false);
     }
 
 #undef set_stop_timer
@@ -692,7 +695,7 @@ static int hpet_load(struct domain *d, hvm_domain_context_t *h)
     if ( hpet_enabled(hp) )
         for ( i = 0; i < HPET_TIMER_NUM; i++ )
             if ( timer_enabled(hp, i) )
-                hpet_set_timer(hp, i, guest_time);
+                hpet_set_timer(hp, i, guest_time, true);
 
     write_unlock(&hp->lock);
 
