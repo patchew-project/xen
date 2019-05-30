@@ -39,6 +39,33 @@
 #define vm_event_ring_lock(_ved)       spin_lock(&(_ved)->ring_lock)
 #define vm_event_ring_unlock(_ved)     spin_unlock(&(_ved)->ring_lock)
 
+/* VM event */
+struct vm_event_domain
+{
+    /* Domain reference */
+    struct domain *d;
+    /* ring lock */
+    spinlock_t ring_lock;
+    /* The ring has 64 entries */
+    unsigned char foreign_producers;
+    unsigned char target_producers;
+    /* shared ring page */
+    void *ring_page;
+    struct page_info *ring_pg_struct;
+    /* front-end ring */
+    vm_event_front_ring_t front_ring;
+    /* event channel port (vcpu0 only) */
+    int xen_port;
+    /* vm_event bit for vcpu->pause_flags */
+    int pause_flag;
+    /* list of vcpus waiting for room in the ring */
+    struct waitqueue_head wq;
+    /* the number of vCPUs blocked */
+    unsigned int blocked;
+    /* The last vcpu woken up */
+    unsigned int last_vcpu_wake_up;
+};
+
 static int vm_event_enable(
     struct domain *d,
     struct xen_domctl_vm_event_op *vec,
