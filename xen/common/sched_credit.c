@@ -175,6 +175,9 @@ struct csched_vcpu {
     atomic_t credit;
     unsigned int residual;
 
+    /* last time when vCPU is scheduled out */
+    s_time_t last_run_time;
+
 #ifdef CSCHED_STATS
     struct {
         int credit_last;
@@ -701,10 +704,11 @@ static unsigned int vcpu_migration_delay_us;
 integer_param("vcpu_migration_delay", vcpu_migration_delay_us);
 
 static inline bool
-__csched_vcpu_is_cache_hot(const struct csched_private *prv, struct vcpu *v)
+__csched_vcpu_is_cache_hot(const struct csched_private *prv,
+                           const struct csched_vcpu *svc)
 {
     bool hot = prv->vcpu_migr_delay &&
-               (NOW() - v->last_run_time) < prv->vcpu_migr_delay;
+               (NOW() - svc->last_run_time) < prv->vcpu_migr_delay;
 
     if ( hot )
         SCHED_STAT_CRANK(vcpu_hot);
@@ -716,6 +720,7 @@ static inline int
 __csched_vcpu_is_migrateable(const struct csched_private *prv, struct vcpu *vc,
                              int dest_cpu, cpumask_t *mask)
 {
+    const struct csched_vcpu *svc = CSCHED_VCPU(vc);
     /*
      * Don't pick up work that's hot on peer PCPU, or that can't (or
      * would prefer not to) run on cpu.
@@ -725,7 +730,7 @@ __csched_vcpu_is_migrateable(const struct csched_private *prv, struct vcpu *vc,
      */
     ASSERT(!vc->is_running);
 
-    return !__csched_vcpu_is_cache_hot(prv, vc) &&
+    return !__csched_vcpu_is_cache_hot(prv, svc) &&
            cpumask_test_cpu(dest_cpu, mask);
 }
 
@@ -1870,6 +1875,7 @@ csched_schedule(
         /* Update credits of a non-idle VCPU. */
         burn_credits(scurr, now);
         scurr->start_time -= now;
+        scurr->last_run_time = now;
     }
     else
     {
