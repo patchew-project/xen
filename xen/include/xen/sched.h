@@ -282,6 +282,8 @@ struct vcpu
 /* VM event */
 struct vm_event_domain
 {
+    /* Domain reference */
+    struct domain *d;
     /* ring lock */
     spinlock_t ring_lock;
     /* The ring has 64 entries */
