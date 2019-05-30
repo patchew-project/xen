@@ -1993,6 +1993,7 @@ int xc_get_mem_access(xc_interface *xch, uint32_t domain_id,
  * Returns the VM_EVENT_INTERFACE version.
  */
 int xc_vm_event_get_version(xc_interface *xch);
+int xc_vm_event_ng_get_version(xc_interface *xch);
 
 /***
  * Monitor control operations.
@@ -2007,6 +2008,11 @@ int xc_vm_event_get_version(xc_interface *xch);
 void *xc_monitor_enable(xc_interface *xch, uint32_t domain_id, uint32_t *port);
 int xc_monitor_disable(xc_interface *xch, uint32_t domain_id);
 int xc_monitor_resume(xc_interface *xch, uint32_t domain_id);
+
+/* Monitor NG interface */
+int xc_monitor_ng_create(xc_interface *xch, uint32_t domain_id);
+int xc_monitor_ng_destroy(xc_interface *xch, uint32_t domain_id);
+int xc_monitor_ng_set_state(xc_interface *xch, uint32_t domain_id, bool enabled);
 /*
  * Get a bitmap of supported monitor events in the form
  * (1 << XEN_DOMCTL_MONITOR_EVENT_*).

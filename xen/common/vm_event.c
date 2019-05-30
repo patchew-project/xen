@@ -380,6 +380,51 @@ static int vm_event_ring_get_response(struct vm_event_ring_domain *impl,
     return 1;
 }
 
+void vm_event_handle_response(struct domain *d, struct vcpu *v,
+                              vm_event_response_t *rsp)
+{
+    /* Check flags which apply only when the vCPU is paused */
+    if ( atomic_read(&v->vm_event_pause_count) )
+    {
+#ifdef CONFIG_HAS_MEM_PAGING
+        if ( rsp->reason == VM_EVENT_REASON_MEM_PAGING )
+            p2m_mem_paging_resume(d, rsp);
+#endif
+
+        /*
+         * Check emulation flags in the arch-specific handler only, as it
+         * has to set arch-specific flags when supported, and to avoid
+         * bitmask overhead when it isn't supported.
+         */
+        vm_event_emulate_check(v, rsp);
+
+        /*
+         * Check in arch-specific handler to avoid bitmask overhead when
+         * not supported.
+         */
+        vm_event_register_write_resume(v, rsp);
+
+        /*
+         * Check in arch-specific handler to avoid bitmask overhead when
+         * not supported.
+         */
+        vm_event_toggle_singlestep(d, v, rsp);
+
+        /* Check for altp2m switch */
+        if ( rsp->flags & VM_EVENT_FLAG_ALTERNATE_P2M )
+            p2m_altp2m_check(v, rsp->altp2m_idx);
+
+        if ( rsp->flags & VM_EVENT_FLAG_SET_REGISTERS )
+            vm_event_set_registers(v, rsp);
+
+        if ( rsp->flags & VM_EVENT_FLAG_GET_NEXT_INTERRUPT )
+            vm_event_monitor_next_interrupt(v);
+
+        if ( rsp->flags & VM_EVENT_FLAG_VCPU_PAUSED )
+            vm_event_vcpu_unpause(v);
+    }
+}
+
 /*
  * Pull all responses from the given ring and unpause the corresponding vCPU
  * if required. Based on the response type, here we can also call custom
@@ -427,47 +472,7 @@ static int vm_event_ring_resume(struct vm_event_ring_domain *impl)
          * In some cases the response type needs extra handling, so here
          * we call the appropriate handlers.
          */
-
-        /* Check flags which apply only when the vCPU is paused */
-        if ( atomic_read(&v->vm_event_pause_count) )
-        {
-#ifdef CONFIG_HAS_MEM_PAGING
-            if ( rsp.reason == VM_EVENT_REASON_MEM_PAGING )
-                p2m_mem_paging_resume(impl->ved.d, &rsp);
-#endif
-
-            /*
-             * Check emulation flags in the arch-specific handler only, as it
-             * has to set arch-specific flags when supported, and to avoid
-             * bitmask overhead when it isn't supported.
-             */
-            vm_event_emulate_check(v, &rsp);
-
-            /*
-             * Check in arch-specific handler to avoid bitmask overhead when
-             * not supported.
-             */
-            vm_event_register_write_resume(v, &rsp);
-
-            /*
-             * Check in arch-specific handler to avoid bitmask overhead when
-             * not supported.
-             */
-            vm_event_toggle_singlestep(impl->ved.d, v, &rsp);
-
-            /* Check for altp2m switch */
-            if ( rsp.flags & VM_EVENT_FLAG_ALTERNATE_P2M )
-                p2m_altp2m_check(v, rsp.altp2m_idx);
-
-            if ( rsp.flags & VM_EVENT_FLAG_SET_REGISTERS )
-                vm_event_set_registers(v, &rsp);
-
-            if ( rsp.flags & VM_EVENT_FLAG_GET_NEXT_INTERRUPT )
-                vm_event_monitor_next_interrupt(v);
-
-            if ( rsp.flags & VM_EVENT_FLAG_VCPU_PAUSED )
-                vm_event_vcpu_unpause(v);
-        }
+        vm_event_handle_response(impl->ved.d, v, &rsp);
     }
 
     return 0;
@@ -709,9 +714,10 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec,
             rc = arch_monitor_init_domain(d);
             if ( rc )
                 break;
-            rc = vm_event_ring_enable(d, vec, &d->vm_event_monitor, _VPF_mem_access,
-                                 HVM_PARAM_MONITOR_RING_PFN,
-                                 monitor_notification);
+            rc = vm_event_ring_enable(d, vec, &d->vm_event_monitor,
+                                      _VPF_mem_access,
+                                      HVM_PARAM_MONITOR_RING_PFN,
+                                      monitor_notification);
             break;
 
         case XEN_VM_EVENT_DISABLE:

@@ -154,6 +154,59 @@ int xc_vm_event_get_version(xc_interface *xch)
     return rc;
 }
 
+int xc_vm_event_ng_get_version(xc_interface *xch)
+{
+    DECLARE_DOMCTL;
+    int rc;
+
+    domctl.cmd = XEN_DOMCTL_vm_event_ng_op;
+    domctl.domain = DOMID_INVALID;
+    domctl.u.vm_event_op.op = XEN_VM_EVENT_NG_GET_VERSION;
+    domctl.u.vm_event_op.type = XEN_VM_EVENT_TYPE_MONITOR;
+
+    rc = do_domctl(xch, &domctl);
+    if ( !rc )
+        rc = domctl.u.vm_event_ng_op.u.version;
+    return rc;
+}
+
+int xc_vm_event_ng_create(xc_interface *xch, uint32_t domain_id, int type)
+{
+    DECLARE_DOMCTL;
+
+    domctl.cmd = XEN_DOMCTL_vm_event_ng_op;
+    domctl.domain = domain_id;
+    domctl.u.vm_event_ng_op.op = XEN_VM_EVENT_NG_CREATE;
+    domctl.u.vm_event_ng_op.type = type;
+
+    return do_domctl(xch, &domctl);
+}
+
+int xc_vm_event_ng_destroy(xc_interface *xch, uint32_t domain_id, int type)
+{
+    DECLARE_DOMCTL;
+
+    domctl.cmd = XEN_DOMCTL_vm_event_ng_op;
+    domctl.domain = domain_id;
+    domctl.u.vm_event_ng_op.op = XEN_VM_EVENT_NG_DESTROY;
+    domctl.u.vm_event_ng_op.type = type;
+
+    return do_domctl(xch, &domctl);
+}
+
+int xc_vm_event_ng_set_state(xc_interface *xch, uint32_t domain_id, int type, bool enabled)
+{
+    DECLARE_DOMCTL;
+
+    domctl.cmd = XEN_DOMCTL_vm_event_ng_op;
+    domctl.domain = domain_id;
+    domctl.u.vm_event_ng_op.op = XEN_VM_EVENT_NG_SET_STATE;
+    domctl.u.vm_event_ng_op.type = type;
+    domctl.u.vm_event_ng_op.u.enabled = enabled;
+
+    return do_domctl(xch, &domctl);
+}
+
 /*
  * Local variables:
  * mode: C

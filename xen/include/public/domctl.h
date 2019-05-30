@@ -792,6 +792,24 @@ struct xen_domctl_vm_event_op {
 };
 
 /*
+ * XEN_DOMCTL_vm_event_ng_op.
+ * Next Generation vm_event operations.
+ */
+#define XEN_VM_EVENT_NG_CREATE            0
+#define XEN_VM_EVENT_NG_DESTROY           1
+#define XEN_VM_EVENT_NG_SET_STATE         2
+#define XEN_VM_EVENT_NG_GET_VERSION       3
+
+struct xen_domctl_vm_event_ng_op {
+    uint32_t        op;             /* XEN_VM_EVENT_NG_* */
+    uint32_t        type;           /* XEN_VM_EVENT_TYPE_* */
+    union {
+        uint32_t version;           /* OUT: version number */
+        uint8_t  enabled;           /* IN: state */
+    } u;
+};
+
+/*
  * Memory sharing operations
  */
 /* XEN_DOMCTL_mem_sharing_op.
@@ -1142,6 +1160,7 @@ struct xen_domctl {
 /* #define XEN_DOMCTL_set_gnttab_limits          80 - Moved into XEN_DOMCTL_createdomain */
 #define XEN_DOMCTL_vuart_op                      81
 #define XEN_DOMCTL_get_cpu_policy                82
+#define XEN_DOMCTL_vm_event_ng_op                83
 #define XEN_DOMCTL_gdbsx_guestmemio            1000
 #define XEN_DOMCTL_gdbsx_pausevcpu             1001
 #define XEN_DOMCTL_gdbsx_unpausevcpu           1002
@@ -1183,6 +1202,7 @@ struct xen_domctl {
         struct xen_domctl_subscribe         subscribe;
         struct xen_domctl_debug_op          debug_op;
         struct xen_domctl_vm_event_op       vm_event_op;
+        struct xen_domctl_vm_event_ng_op    vm_event_ng_op;
         struct xen_domctl_mem_sharing_op    mem_sharing_op;
 #if defined(__i386__) || defined(__x86_64__)
         struct xen_domctl_cpuid             cpuid;

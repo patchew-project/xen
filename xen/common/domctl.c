@@ -393,6 +393,7 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
     {
     case XEN_DOMCTL_test_assign_device:
     case XEN_DOMCTL_vm_event_op:
+    case XEN_DOMCTL_vm_event_ng_op:
         if ( op->domain == DOMID_INVALID )
         {
     case XEN_DOMCTL_createdomain:
@@ -1020,6 +1021,12 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
     case XEN_DOMCTL_vm_event_op:
         ret = vm_event_domctl(d, &op->u.vm_event_op,
                               guest_handle_cast(u_domctl, void));
+        copyback = 1;
+        break;
+
+    case XEN_DOMCTL_vm_event_ng_op:
+        ret = vm_event_ng_domctl(d, &op->u.vm_event_ng_op,
+                                 guest_handle_cast(u_domctl, void));
         copyback = 1;
         break;
 

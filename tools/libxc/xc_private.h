@@ -420,6 +420,14 @@ int xc_vm_event_control(xc_interface *xch, uint32_t domain_id, unsigned int op,
 void *xc_vm_event_enable(xc_interface *xch, uint32_t domain_id, int type,
                          uint32_t *port);
 
+/**
+ * VM_EVENT NG operations. Internal use only.
+ */
+int xc_vm_event_ng_create(xc_interface *xch, uint32_t domain_id, int type);
+int xc_vm_event_ng_destroy(xc_interface *xch, uint32_t domain_id, int type);
+int xc_vm_event_ng_set_state(xc_interface *xch, uint32_t domain_id, int type, bool enabled);
+
+
 int do_dm_op(xc_interface *xch, uint32_t domid, unsigned int nr_bufs, ...);
 
 #endif /* __XC_PRIVATE_H__ */
