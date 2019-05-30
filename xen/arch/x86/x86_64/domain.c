@@ -12,6 +12,8 @@
 CHECK_vcpu_get_physid;
 #undef xen_vcpu_get_physid
 
+extern void discard_runstate_area(struct vcpu *v);
+
 int
 arch_compat_vcpu_op(
     int cmd, struct vcpu *v, XEN_GUEST_HANDLE_PARAM(void) arg)
@@ -35,8 +37,16 @@ arch_compat_vcpu_op(
              !compat_handle_okay(area.addr.h, 1) )
             break;
 
+        while( xchg(&v->runstate_in_use, 1) == 0);
+
+        discard_runstate_area(v);
+
         rc = 0;
-        guest_from_compat_handle(v->runstate_guest.compat, area.addr.h);
+
+        guest_from_compat_handle(v->runstate_guest.virt.compat,
+                                 area.addr.h);
+
+        v->runstate_guest_type = RUNSTATE_VADDR;
 
         if ( v == current )
         {
@@ -49,7 +59,9 @@ arch_compat_vcpu_op(
             vcpu_runstate_get(v, &runstate);
             XLAT_vcpu_runstate_info(&info, &runstate);
         }
-        __copy_to_guest(v->runstate_guest.compat, &info, 1);
+        __copy_to_guest(v->runstate_guest.virt.compat, &info, 1);
+
+        xchg(&v->runstate_in_use, 0);
 
         break;
     }

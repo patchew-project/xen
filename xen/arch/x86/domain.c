@@ -1566,22 +1566,21 @@ void paravirt_ctxt_switch_to(struct vcpu *v)
 }
 
 /* Update per-VCPU guest runstate shared memory area (if registered). */
-bool update_runstate_area(struct vcpu *v)
+static bool update_runstate_by_gvaddr(struct vcpu *v)
 {
     bool rc;
     struct guest_memory_policy policy = { .nested_guest_mode = false };
     void __user *guest_handle = NULL;
 
-    if ( guest_handle_is_null(runstate_guest(v)) )
-        return true;
+    ASSERT(!guest_handle_is_null(runstate_guest_virt(v)));
 
     update_guest_memory_policy(v, &policy);
 
     if ( VM_ASSIST(v->domain, runstate_update_flag) )
     {
         guest_handle = has_32bit_shinfo(v->domain)
-            ? &v->runstate_guest.compat.p->state_entry_time + 1
-            : &v->runstate_guest.native.p->state_entry_time + 1;
+            ? &v->runstate_guest.virt.compat.p->state_entry_time + 1
+            : &v->runstate_guest.virt.native.p->state_entry_time + 1;
         guest_handle--;
         v->runstate.state_entry_time |= XEN_RUNSTATE_UPDATE;
         __raw_copy_to_guest(guest_handle,
@@ -1594,11 +1593,11 @@ bool update_runstate_area(struct vcpu *v)
         struct compat_vcpu_runstate_info info;
 
         XLAT_vcpu_runstate_info(&info, &v->runstate);
-        __copy_to_guest(v->runstate_guest.compat, &info, 1);
+        __copy_to_guest(v->runstate_guest.virt.compat, &info, 1);
         rc = true;
     }
     else
-        rc = __copy_to_guest(runstate_guest(v), &v->runstate, 1) !=
+        rc = __copy_to_guest(runstate_guest_virt(v), &v->runstate, 1) !=
              sizeof(v->runstate);
 
     if ( guest_handle )
@@ -1611,6 +1610,92 @@ bool update_runstate_area(struct vcpu *v)
 
     update_guest_memory_policy(v, &policy);
 
+    return rc;
+}
+
+static bool update_runstate_by_gpaddr_native(struct vcpu *v)
+{
+    struct vcpu_runstate_info *runstate =
+            (struct vcpu_runstate_info *)v->runstate_guest.phys;
+
+    ASSERT(runstate != NULL);
+
+    if ( VM_ASSIST(v->domain, runstate_update_flag) )
+    {
+        runstate->state_entry_time |= XEN_RUNSTATE_UPDATE;
+        smp_wmb();
+        v->runstate.state_entry_time |= XEN_RUNSTATE_UPDATE;
+    }
+
+    memcpy(v->runstate_guest.phys, &v->runstate, sizeof(v->runstate));
+
+    if ( VM_ASSIST(v->domain, runstate_update_flag) )
+    {
+        runstate->state_entry_time &= ~XEN_RUNSTATE_UPDATE;
+        smp_wmb();
+        v->runstate.state_entry_time &= ~XEN_RUNSTATE_UPDATE;
+    }
+
+    return true;
+}
+
+static bool update_runstate_by_gpaddr_compat(struct vcpu *v)
+{
+    struct compat_vcpu_runstate_info *runstate =
+            (struct compat_vcpu_runstate_info *)v->runstate_guest.phys;
+
+    ASSERT(runstate != NULL);
+
+    if ( VM_ASSIST(v->domain, runstate_update_flag) )
+    {
+        runstate->state_entry_time |= XEN_RUNSTATE_UPDATE;
+        smp_wmb();
+        v->runstate.state_entry_time |= XEN_RUNSTATE_UPDATE;
+    }
+
+    {
+        struct compat_vcpu_runstate_info info;
+        XLAT_vcpu_runstate_info(&info, &v->runstate);
+        memcpy(v->runstate_guest.phys, &info, sizeof(info));
+    }
+    else
+        memcpy(v->runstate_guest.phys, &v->runstate, sizeof(v->runstate));
+
+    if ( VM_ASSIST(v->domain, runstate_update_flag) )
+    {
+        runstate->state_entry_time &= ~XEN_RUNSTATE_UPDATE;
+        smp_wmb();
+        v->runstate.state_entry_time &= ~XEN_RUNSTATE_UPDATE;
+    }
+
+    return true;
+}
+
+bool update_runstate_area(struct vcpu *v)
+{
+    bool rc = true;
+
+    if ( xchg(&v->runstate_in_use, 1) )
+        return rc;
+
+    switch ( v->runstate_guest_type )
+    {
+    case RUNSTATE_NONE:
+        break;
+
+    case RUNSTATE_VADDR:
+        rc = update_runstate_by_gvaddr(v);
+        break;
+
+    case RUNSTATE_PADDR:
+        if ( has_32bit_shinfo(v->domain) )
+            rc = update_runstate_by_gpaddr_compat(v);
+        else
+            rc = update_runstate_by_gpaddr_native(v);
+        break;
+    }
+
+    xchg(&v->runstate_in_use, 0);
     return rc;
 }
 
