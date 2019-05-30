@@ -21,12 +21,14 @@
 #ifndef __XEN_TRACE_H__
 #define __XEN_TRACE_H__
 
-extern int tb_init_done;
 
 #include <public/sysctl.h>
 #include <public/trace.h>
 #include <asm/trace.h>
 
+#ifdef CONFIG_HAS_TRACEBUFFER
+
+extern int tb_init_done;
 /* Used to initialise trace buffer functionality */
 void init_trace_bufs(void);
 
@@ -46,6 +48,20 @@ static inline void trace_var(u32 event, int cycles, int extra,
 
 void __trace_hypercall(uint32_t event, unsigned long op,
                        const xen_ulong_t *args);
+
+#else
+#define tb_init_done (0)
+static inline void init_trace_bufs(void) {}
+static inline int tb_control(struct xen_sysctl_tbuf_op *tbc) { return -ENOSYS; }
+
+static inline int trace_will_trace_event(u32 event) { return 0; }
+static inline void trace_var(u32 event, int cycles, int extra,
+                             const void *extra_data) {}
+static inline void __trace_var(u32 event, bool_t cycles, unsigned int extra,
+                               const void *extra_data) {}
+static inline void __trace_hypercall(uint32_t event, unsigned long op,
+                                     const xen_ulong_t *args) {}
+#endif
 
 /* Convenience macros for calling the trace function. */
 #define TRACE_0D(_e)                            \

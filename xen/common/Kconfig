@@ -353,4 +353,10 @@ config DOM0_MEM
 
 	  Leave empty if you are not sure what to specify.
 
+config HAS_TRACEBUFFER
+	bool "Enable/Disable tracebuffer"
+	default y
+	---help---
+	  Enable or disable tracebuffer function.
+
 endmenu
