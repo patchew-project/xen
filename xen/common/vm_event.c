@@ -35,17 +35,13 @@
 #define xen_rmb()  smp_rmb()
 #define xen_wmb()  smp_wmb()
 
-#define vm_event_ring_lock_init(_ved)  spin_lock_init(&(_ved)->ring_lock)
-#define vm_event_ring_lock(_ved)       spin_lock(&(_ved)->ring_lock)
-#define vm_event_ring_unlock(_ved)     spin_unlock(&(_ved)->ring_lock)
+#define to_ring(_ved) container_of((_ved), struct vm_event_ring_domain, ved)
 
-/* VM event */
-struct vm_event_domain
+/* VM event ring implementation */
+struct vm_event_ring_domain
 {
-    /* Domain reference */
-    struct domain *d;
-    /* ring lock */
-    spinlock_t ring_lock;
+    /* VM event domain */
+    struct vm_event_domain ved;
     /* The ring has 64 entries */
     unsigned char foreign_producers;
     unsigned char target_producers;
@@ -56,8 +52,6 @@ struct vm_event_domain
     vm_event_front_ring_t front_ring;
     /* event channel port (vcpu0 only) */
     int xen_port;
-    /* vm_event bit for vcpu->pause_flags */
-    int pause_flag;
     /* list of vcpus waiting for room in the ring */
     struct waitqueue_head wq;
     /* the number of vCPUs blocked */
@@ -66,48 +60,54 @@ struct vm_event_domain
     unsigned int last_vcpu_wake_up;
 };
 
-static int vm_event_enable(
+static const struct vm_event_ops vm_event_ring_ops;
+
+static int vm_event_ring_enable(
     struct domain *d,
     struct xen_domctl_vm_event_op *vec,
-    struct vm_event_domain **ved,
+    struct vm_event_domain **_ved,
     int pause_flag,
     int param,
     xen_event_channel_notification_t notification_fn)
 {
     int rc;
     unsigned long ring_gfn = d->arch.hvm.params[param];
+    struct vm_event_ring_domain *impl;
 
-    if ( !*ved )
-        *ved = xzalloc(struct vm_event_domain);
-    if ( !*ved )
+    impl = (*_ved) ? to_ring(*_ved) :
+            xzalloc(struct vm_event_ring_domain);
+    if ( !impl )
         return -ENOMEM;
 
     /* Only one helper at a time. If the helper crashed,
      * the ring is in an undefined state and so is the guest.
      */
-    if ( (*ved)->ring_page )
-        return -EBUSY;;
+    if ( impl->ring_page )
+        return -EBUSY;
 
     /* The parameter defaults to zero, and it should be
      * set to something */
     if ( ring_gfn == 0 )
         return -EOPNOTSUPP;
 
-    vm_event_ring_lock_init(*ved);
-    vm_event_ring_lock(*ved);
+    spin_lock_init(&impl->ved.lock);
+    spin_lock(&impl->ved.lock);
 
     rc = vm_event_init_domain(d);
 
     if ( rc < 0 )
         goto err;
 
-    rc = prepare_ring_for_helper(d, ring_gfn, &(*ved)->ring_pg_struct,
-                                 &(*ved)->ring_page);
+    impl->ved.d = d;
+    impl->ved.ops = &vm_event_ring_ops;
+
+    rc = prepare_ring_for_helper(d, ring_gfn, &impl->ring_pg_struct,
+                                 &impl->ring_page);
     if ( rc < 0 )
         goto err;
 
     /* Set the number of currently blocked vCPUs to 0. */
-    (*ved)->blocked = 0;
+    impl->blocked = 0;
 
     /* Allocate event channel */
     rc = alloc_unbound_xen_event_channel(d, 0, current->domain->domain_id,
@@ -115,37 +115,37 @@ static int vm_event_enable(
     if ( rc < 0 )
         goto err;
 
-    (*ved)->xen_port = vec->u.enable.port = rc;
+    impl->xen_port = vec->u.enable.port = rc;
 
     /* Prepare ring buffer */
-    FRONT_RING_INIT(&(*ved)->front_ring,
-                    (vm_event_sring_t *)(*ved)->ring_page,
+    FRONT_RING_INIT(&impl->front_ring,
+                    (vm_event_sring_t *)impl->ring_page,
                     PAGE_SIZE);
 
     /* Save the pause flag for this particular ring. */
-    (*ved)->pause_flag = pause_flag;
+    impl->ved.pause_flag = pause_flag;
 
     /* Initialize the last-chance wait queue. */
-    init_waitqueue_head(&(*ved)->wq);
+    init_waitqueue_head(&impl->wq);
 
-    vm_event_ring_unlock(*ved);
+    spin_unlock(&impl->ved.lock);
+    *_ved = &impl->ved;
     return 0;
 
  err:
-    destroy_ring_for_helper(&(*ved)->ring_page,
-                            (*ved)->ring_pg_struct);
-    vm_event_ring_unlock(*ved);
-    xfree(*ved);
-    *ved = NULL;
+    destroy_ring_for_helper(&impl->ring_page,
+                            impl->ring_pg_struct);
+    spin_unlock(&impl->ved.lock);
+    XFREE(impl);
 
     return rc;
 }
 
-static unsigned int vm_event_ring_available(struct vm_event_domain *ved)
+static unsigned int vm_event_ring_available(struct vm_event_ring_domain *impl)
 {
-    int avail_req = RING_FREE_REQUESTS(&ved->front_ring);
-    avail_req -= ved->target_producers;
-    avail_req -= ved->foreign_producers;
+    int avail_req = RING_FREE_REQUESTS(&impl->front_ring);
+    avail_req -= impl->target_producers;
+    avail_req -= impl->foreign_producers;
 
     BUG_ON(avail_req < 0);
 
@@ -153,42 +153,42 @@ static unsigned int vm_event_ring_available(struct vm_event_domain *ved)
 }
 
 /*
- * vm_event_wake_blocked() will wakeup vcpus waiting for room in the
+ * vm_event_ring_wake_blocked() will wakeup vcpus waiting for room in the
  * ring. These vCPUs were paused on their way out after placing an event,
  * but need to be resumed where the ring is capable of processing at least
  * one event from them.
  */
-static void vm_event_wake_blocked(struct vm_event_domain *ved)
+static void vm_event_ring_wake_blocked(struct vm_event_ring_domain *impl)
 {
     struct vcpu *v;
-    unsigned int avail_req = vm_event_ring_available(ved);
-    struct domain *d = ved->d;
+    unsigned int avail_req = vm_event_ring_available(impl);
 
-    if ( avail_req == 0 || ved->blocked == 0 )
+    if ( avail_req == 0 || impl->blocked == 0 )
         return;
 
     /* We remember which vcpu last woke up to avoid scanning always linearly
      * from zero and starving higher-numbered vcpus under high load */
-    if ( d->vcpu )
+    if ( impl->ved.d->vcpu )
     {
         int i, j, k;
 
-        for (i = ved->last_vcpu_wake_up + 1, j = 0; j < d->max_vcpus; i++, j++)
+        for ( i = impl->last_vcpu_wake_up + 1, j = 0;
+              j < impl->ved.d->max_vcpus; i++, j++)
         {
-            k = i % d->max_vcpus;
-            v = d->vcpu[k];
+            k = i % impl->ved.d->max_vcpus;
+            v = impl->ved.d->vcpu[k];
             if ( !v )
                 continue;
 
-            if ( !(ved->blocked) || avail_req == 0 )
+            if ( !(impl->blocked) || avail_req == 0 )
                break;
 
-            if ( test_and_clear_bit(ved->pause_flag, &v->pause_flags) )
+            if ( test_and_clear_bit(impl->ved.pause_flag, &v->pause_flags) )
             {
                 vcpu_unpause(v);
                 avail_req--;
-                ved->blocked--;
-                ved->last_vcpu_wake_up = k;
+                impl->blocked--;
+                impl->last_vcpu_wake_up = k;
             }
         }
     }
@@ -199,92 +199,90 @@ static void vm_event_wake_blocked(struct vm_event_domain *ved)
  * was unable to do so, it is queued on a wait queue.  These are woken as
  * needed, and take precedence over the blocked vCPUs.
  */
-static void vm_event_wake_queued(struct vm_event_domain *ved)
+static void vm_event_ring_wake_queued(struct vm_event_ring_domain *impl)
 {
-    unsigned int avail_req = vm_event_ring_available(ved);
+    unsigned int avail_req = vm_event_ring_available(impl);
 
     if ( avail_req > 0 )
-        wake_up_nr(&ved->wq, avail_req);
+        wake_up_nr(&impl->wq, avail_req);
 }
 
 /*
- * vm_event_wake() will wakeup all vcpus waiting for the ring to
+ * vm_event_ring_wake() will wakeup all vcpus waiting for the ring to
  * become available.  If we have queued vCPUs, they get top priority. We
  * are guaranteed that they will go through code paths that will eventually
- * call vm_event_wake() again, ensuring that any blocked vCPUs will get
+ * call vm_event_ring_wake() again, ensuring that any blocked vCPUs will get
  * unpaused once all the queued vCPUs have made it through.
  */
-void vm_event_wake(struct vm_event_domain *ved)
+static void vm_event_ring_wake(struct vm_event_ring_domain *impl)
 {
-    if (!list_empty(&ved->wq.list))
-        vm_event_wake_queued(ved);
+    if ( !list_empty(&impl->wq.list) )
+        vm_event_ring_wake_queued(impl);
     else
-        vm_event_wake_blocked(ved);
+        vm_event_ring_wake_blocked(impl);
 }
 
-static int vm_event_disable(struct domain *d, struct vm_event_domain **ved)
+static int vm_event_ring_disable(struct vm_event_domain **_ved)
 {
-    if ( vm_event_check(*ved) )
+    struct vcpu *v;
+    struct domain *d = (*_ved)->d;
+    struct vm_event_ring_domain *impl = to_ring(*_ved);
+
+    spin_lock(&(*_ved)->lock);
+
+    if ( !list_empty(&impl->wq.list) )
     {
-        struct vcpu *v;
-
-        vm_event_ring_lock(*ved);
-
-        if ( !list_empty(&(*ved)->wq.list) )
-        {
-            vm_event_ring_unlock(*ved);
-            return -EBUSY;
-        }
-
-        /* Free domU's event channel and leave the other one unbound */
-        free_xen_event_channel(d, (*ved)->xen_port);
-
-        /* Unblock all vCPUs */
-        for_each_vcpu ( d, v )
-        {
-            if ( test_and_clear_bit((*ved)->pause_flag, &v->pause_flags) )
-            {
-                vcpu_unpause(v);
-                (*ved)->blocked--;
-            }
-        }
-
-        destroy_ring_for_helper(&(*ved)->ring_page,
-                                (*ved)->ring_pg_struct);
-
-        vm_event_cleanup_domain(d);
-
-        vm_event_ring_unlock(*ved);
+        spin_unlock(&(*_ved)->lock);
+        return -EBUSY;
     }
 
-    xfree(*ved);
-    *ved = NULL;
+    /* Free domU's event channel and leave the other one unbound */
+    free_xen_event_channel(d, impl->xen_port);
 
+    /* Unblock all vCPUs */
+    for_each_vcpu ( d, v )
+    {
+        if ( test_and_clear_bit((*_ved)->pause_flag, &v->pause_flags) )
+        {
+            vcpu_unpause(v);
+            impl->blocked--;
+        }
+    }
+
+    destroy_ring_for_helper(&impl->ring_page,
+                            impl->ring_pg_struct);
+
+    vm_event_cleanup_domain(d);
+
+    spin_unlock(&(*_ved)->lock);
+
+    XFREE(*_ved);
     return 0;
 }
 
-static inline void vm_event_release_slot(struct vm_event_domain *ved)
+static inline void vm_event_ring_release_slot(struct vm_event_ring_domain *impl)
 {
     /* Update the accounting */
-    if ( current->domain == ved->d )
-        ved->target_producers--;
+    if ( current->domain == impl->ved.d )
+        impl->target_producers--;
     else
-        ved->foreign_producers--;
+        impl->foreign_producers--;
 
     /* Kick any waiters */
-    vm_event_wake(ved);
+    vm_event_ring_wake(impl);
 }
 
 /*
- * vm_event_mark_and_pause() tags vcpu and put it to sleep.
- * The vcpu will resume execution in vm_event_wake_blocked().
+ * vm_event_ring_mark_and_pause() tags vcpu and put it to sleep.
+ * The vcpu will resume execution in vm_event_ring_wake_blocked().
  */
-static void vm_event_mark_and_pause(struct vcpu *v, struct vm_event_domain *ved)
+static void vm_event_ring_mark_and_pause(struct vcpu *v,
+                                         struct vm_event_ring_domain *impl)
 {
-    if ( !test_and_set_bit(ved->pause_flag, &v->pause_flags) )
+    if ( !test_and_set_bit(impl->ved.pause_flag, &v->pause_flags) )
     {
         vcpu_pause_nosync(v);
-        ved->blocked++;
+        impl->blocked++;
     }
 }
 
@@ -294,35 +292,32 @@ static void vm_event_mark_and_pause(struct vcpu *v, struct vm_event_domain *ved)
  * overly full and its continued execution would cause stalling and excessive
  * waiting.  The vCPU will be automatically unpaused when the ring clears.
  */
-void vm_event_put_request(struct vm_event_domain *ved,
-                          vm_event_request_t *req)
+static void vm_event_ring_put_request(struct vm_event_domain *ved,
+                                      vm_event_request_t *req)
 {
     vm_event_front_ring_t *front_ring;
     int free_req;
     unsigned int avail_req;
     RING_IDX req_prod;
     struct vcpu *curr = current;
-    struct domain *d = ved->d;
+    struct vm_event_ring_domain *impl = to_ring(ved);
 
-    if( !vm_event_check(ved))
-        return;
-
-    if ( curr->domain != d )
+    if ( curr->domain != ved->d )
     {
         req->flags |= VM_EVENT_FLAG_FOREIGN;
 #ifndef NDEBUG
         if ( !(req->flags & VM_EVENT_FLAG_VCPU_PAUSED) )
             gdprintk(XENLOG_G_WARNING, "d%dv%d was not paused.\n",
-                     d->domain_id, req->vcpu_id);
+                     ved->d->domain_id, req->vcpu_id);
 #endif
     }
 
     req->version = VM_EVENT_INTERFACE_VERSION;
 
-    vm_event_ring_lock(ved);
+    spin_lock(&impl->ved.lock);
 
     /* Due to the reservations, this step must succeed. */
-    front_ring = &ved->front_ring;
+    front_ring = &impl->front_ring;
     free_req = RING_FREE_REQUESTS(front_ring);
     ASSERT(free_req > 0);
 
@@ -336,35 +331,35 @@ void vm_event_put_request(struct vm_event_domain *ved,
     RING_PUSH_REQUESTS(front_ring);
 
     /* We've actually *used* our reservation, so release the slot. */
-    vm_event_release_slot(ved);
+    vm_event_ring_release_slot(impl);
 
     /* Give this vCPU a black eye if necessary, on the way out.
      * See the comments above wake_blocked() for more information
      * on how this mechanism works to avoid waiting. */
-    avail_req = vm_event_ring_available(ved);
-    if( curr->domain == d && avail_req < d->max_vcpus &&
+    avail_req = vm_event_ring_available(impl);
+    if( curr->domain == ved->d && avail_req < ved->d->max_vcpus &&
         !atomic_read(&curr->vm_event_pause_count) )
-        vm_event_mark_and_pause(curr, ved);
+        vm_event_ring_mark_and_pause(curr, impl);
 
-    vm_event_ring_unlock(ved);
+    spin_unlock(&impl->ved.lock);
 
-    notify_via_xen_event_channel(d, ved->xen_port);
+    notify_via_xen_event_channel(ved->d, impl->xen_port);
 }
 
-static int vm_event_get_response(struct domain *d, struct vm_event_domain *ved,
-                                 vm_event_response_t *rsp)
+static int vm_event_ring_get_response(struct vm_event_ring_domain *impl,
+                                      vm_event_response_t *rsp)
 {
     vm_event_front_ring_t *front_ring;
     RING_IDX rsp_cons;
 
-    vm_event_ring_lock(ved);
+    spin_lock(&impl->ved.lock);
 
-    front_ring = &ved->front_ring;
+    front_ring = &impl->front_ring;
     rsp_cons = front_ring->rsp_cons;
 
     if ( !RING_HAS_UNCONSUMED_RESPONSES(front_ring) )
     {
-        vm_event_ring_unlock(ved);
+        spin_unlock(&impl->ved.lock);
         return 0;
     }
 
@@ -378,9 +373,9 @@ static int vm_event_get_response(struct domain *d, struct vm_event_domain *ved,
 
     /* Kick any waiters -- since we've just consumed an event,
      * there may be additional space available in the ring. */
-    vm_event_wake(ved);
+    vm_event_ring_wake(impl);
 
-    vm_event_ring_unlock(ved);
+    spin_unlock(&impl->ved.lock);
 
     return 1;
 }
@@ -393,9 +388,12 @@ static int vm_event_get_response(struct domain *d, struct vm_event_domain *ved,
  * Note: responses are handled the same way regardless of which ring they
  * arrive on.
  */
-static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
+static int vm_event_ring_resume(struct vm_event_ring_domain *impl)
 {
     vm_event_response_t rsp;
+
+    if ( unlikely(!impl || !vm_event_check(&impl->ved)) )
+         return -ENODEV;
 
     /*
      * vm_event_resume() runs in either XEN_VM_EVENT_* domctls, or
@@ -405,13 +403,10 @@ static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
      * below, this covers the case where we would need to iterate over all
      * of them more succintly.
      */
-    ASSERT(d != current->domain);
-
-    if ( unlikely(!vm_event_check(ved)) )
-         return -ENODEV;
+    ASSERT(impl->ved.d != current->domain);
 
     /* Pull all responses off the ring. */
-    while ( vm_event_get_response(d, ved, &rsp) )
+    while ( vm_event_ring_get_response(impl, &rsp) )
     {
         struct vcpu *v;
 
@@ -422,10 +417,11 @@ static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
         }
 
         /* Validate the vcpu_id in the response. */
-        if ( (rsp.vcpu_id >= d->max_vcpus) || !d->vcpu[rsp.vcpu_id] )
+        if ( (rsp.vcpu_id >= impl->ved.d->max_vcpus) ||
+              !impl->ved.d->vcpu[rsp.vcpu_id] )
             continue;
 
-        v = d->vcpu[rsp.vcpu_id];
+        v = impl->ved.d->vcpu[rsp.vcpu_id];
 
         /*
          * In some cases the response type needs extra handling, so here
@@ -437,7 +433,7 @@ static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
         {
 #ifdef CONFIG_HAS_MEM_PAGING
             if ( rsp.reason == VM_EVENT_REASON_MEM_PAGING )
-                p2m_mem_paging_resume(d, &rsp);
+                p2m_mem_paging_resume(impl->ved.d, &rsp);
 #endif
 
             /*
@@ -457,7 +453,7 @@ static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
              * Check in arch-specific handler to avoid bitmask overhead when
              * not supported.
              */
-            vm_event_toggle_singlestep(d, v, &rsp);
+            vm_event_toggle_singlestep(impl->ved.d, v, &rsp);
 
             /* Check for altp2m switch */
             if ( rsp.flags & VM_EVENT_FLAG_ALTERNATE_P2M )
@@ -477,66 +473,63 @@ static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
     return 0;
 }
 
-void vm_event_cancel_slot(struct vm_event_domain *ved)
+static void vm_event_ring_cancel_slot(struct vm_event_domain *ved)
 {
-    if( !vm_event_check(ved) )
-        return;
-
-    vm_event_ring_lock(ved);
-    vm_event_release_slot(ved);
-    vm_event_ring_unlock(ved);
+    spin_lock(&ved->lock);
+    vm_event_ring_release_slot(to_ring(ved));
+    spin_unlock(&ved->lock);
 }
 
-static int vm_event_grab_slot(struct vm_event_domain *ved, int foreign)
+static int vm_event_ring_grab_slot(struct vm_event_ring_domain *impl, int foreign)
 {
     unsigned int avail_req;
 
-    if ( !ved->ring_page )
+    if ( !impl->ring_page )
         return -EOPNOTSUPP;
 
-    vm_event_ring_lock(ved);
+    spin_lock(&impl->ved.lock);
 
-    avail_req = vm_event_ring_available(ved);
+    avail_req = vm_event_ring_available(impl);
     if ( avail_req == 0 )
     {
-        vm_event_ring_unlock(ved);
+        spin_unlock(&impl->ved.lock);
         return -EBUSY;
     }
 
     if ( !foreign )
-        ved->target_producers++;
+        impl->target_producers++;
     else
-        ved->foreign_producers++;
+        impl->foreign_producers++;
 
-    vm_event_ring_unlock(ved);
+    spin_unlock(&impl->ved.lock);
 
     return 0;
 }
 
 /* Simple try_grab wrapper for use in the wait_event() macro. */
-static int vm_event_wait_try_grab(struct vm_event_domain *ved, int *rc)
+static int vm_event_ring_wait_try_grab(struct vm_event_ring_domain *impl, int *rc)
 {
-    *rc = vm_event_grab_slot(ved, 0);
+    *rc = vm_event_ring_grab_slot(impl, 0);
     return *rc;
 }
 
-/* Call vm_event_grab_slot() until the ring doesn't exist, or is available. */
-static int vm_event_wait_slot(struct vm_event_domain *ved)
+/* Call vm_event_ring_grab_slot() until the ring doesn't exist, or is available. */
+static int vm_event_ring_wait_slot(struct vm_event_ring_domain *impl)
 {
     int rc = -EBUSY;
-    wait_event(ved->wq, vm_event_wait_try_grab(ved, &rc) != -EBUSY);
+    wait_event(impl->wq, vm_event_ring_wait_try_grab(impl, &rc) != -EBUSY);
     return rc;
 }
 
-bool vm_event_check(struct vm_event_domain *ved)
+static bool vm_event_ring_check(struct vm_event_domain *ved)
 {
-    return (ved && ved->ring_page);
+    return ( to_ring(ved)->ring_page != NULL );
 }
 
 /*
  * Determines whether or not the current vCPU belongs to the target domain,
  * and calls the appropriate wait function.  If it is a guest vCPU, then we
- * use vm_event_wait_slot() to reserve a slot.  As long as there is a ring,
+ * use vm_event_ring_wait_slot() to reserve a slot.  As long as there is a ring,
  * this function will always return 0 for a guest.  For a non-guest, we check
  * for space and return -EBUSY if the ring is not available.
  *
@@ -545,36 +538,33 @@ bool vm_event_check(struct vm_event_domain *ved)
  *               0: a spot has been reserved
  *
  */
-int __vm_event_claim_slot(struct vm_event_domain *ved, bool allow_sleep)
+static int vm_event_ring_claim_slot(struct vm_event_domain *ved, bool allow_sleep)
 {
-    if ( !vm_event_check(ved) )
-        return -EOPNOTSUPP;
-
     if ( (current->domain == ved->d) && allow_sleep )
-        return vm_event_wait_slot(ved);
+        return vm_event_ring_wait_slot(to_ring(ved));
     else
-        return vm_event_grab_slot(ved, (current->domain != ved->d));
+        return vm_event_ring_grab_slot(to_ring(ved), (current->domain != ved->d));
 }
 
 #ifdef CONFIG_HAS_MEM_PAGING
 /* Registered with Xen-bound event channel for incoming notifications. */
 static void mem_paging_notification(struct vcpu *v, unsigned int port)
 {
-    vm_event_resume(v->domain, v->domain->vm_event_paging);
+    vm_event_ring_resume(to_ring(v->domain->vm_event_paging));
 }
 #endif
 
 /* Registered with Xen-bound event channel for incoming notifications. */
 static void monitor_notification(struct vcpu *v, unsigned int port)
 {
-    vm_event_resume(v->domain, v->domain->vm_event_monitor);
+    vm_event_ring_resume(to_ring(v->domain->vm_event_monitor));
 }
 
 #ifdef CONFIG_HAS_MEM_SHARING
 /* Registered with Xen-bound event channel for incoming notifications. */
 static void mem_sharing_notification(struct vcpu *v, unsigned int port)
 {
-    vm_event_resume(v->domain, v->domain->vm_event_share);
+    vm_event_ring_resume(to_ring(v->domain->vm_event_share));
 }
 #endif
 
@@ -583,30 +573,30 @@ void vm_event_cleanup(struct domain *d)
 {
 #ifdef CONFIG_HAS_MEM_PAGING
     if ( vm_event_check(d->vm_event_paging) )
-    {
-        /* Destroying the wait queue head means waking up all
-         * queued vcpus. This will drain the list, allowing
-         * the disable routine to complete. It will also drop
-         * all domain refs the wait-queued vcpus are holding.
-         * Finally, because this code path involves previously
-         * pausing the domain (domain_kill), unpausing the
-         * vcpus causes no harm. */
-        destroy_waitqueue_head(&d->vm_event_paging->wq);
-        (void)vm_event_disable(d, &d->vm_event_paging);
-    }
+        d->vm_event_paging->ops->cleanup(&d->vm_event_paging);
 #endif
+
     if ( vm_event_check(d->vm_event_monitor) )
-    {
-        destroy_waitqueue_head(&d->vm_event_monitor->wq);
-        (void)vm_event_disable(d, &d->vm_event_monitor);
-    }
+        d->vm_event_monitor->ops->cleanup(&d->vm_event_monitor);
+
 #ifdef CONFIG_HAS_MEM_SHARING
     if ( vm_event_check(d->vm_event_share) )
-    {
-        destroy_waitqueue_head(&d->vm_event_share->wq);
-        (void)vm_event_disable(d, &d->vm_event_share);
-    }
+        d->vm_event_share->ops->cleanup(&d->vm_event_share);
 #endif
+}
+
+static void vm_event_ring_cleanup(struct vm_event_domain **_ved)
+{
+    struct vm_event_ring_domain *impl = to_ring(*_ved);
+    /* Destroying the wait queue head means waking up all
+     * queued vcpus. This will drain the list, allowing
+     * the disable routine to complete. It will also drop
+     * all domain refs the wait-queued vcpus are holding.
+     * Finally, because this code path involves previously
+     * pausing the domain (domain_kill), unpausing the
+     * vcpus causes no harm. */
+    destroy_waitqueue_head(&impl->wq);
+    (void)vm_event_ring_disable(_ved);
 }
 
 int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec,
@@ -682,23 +672,22 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec,
                 break;
 
             /* domain_pause() not required here, see XSA-99 */
-            rc = vm_event_enable(d, vec, &d->vm_event_paging, _VPF_mem_paging,
+            rc = vm_event_ring_enable(d, vec, &d->vm_event_paging, _VPF_mem_paging,
                                  HVM_PARAM_PAGING_RING_PFN,
                                  mem_paging_notification);
         }
         break;
 
         case XEN_VM_EVENT_DISABLE:
-            if ( vm_event_check(d->vm_event_paging) )
-            {
-                domain_pause(d);
-                rc = vm_event_disable(d, &d->vm_event_paging);
-                domain_unpause(d);
-            }
+            if ( !vm_event_check(d->vm_event_paging) )
+                break;
+            domain_pause(d);
+            rc = vm_event_ring_disable(&d->vm_event_paging);
+            domain_unpause(d);
             break;
 
         case XEN_VM_EVENT_RESUME:
-            rc = vm_event_resume(d, d->vm_event_paging);
+            rc = vm_event_ring_resume(to_ring(d->vm_event_paging));
             break;
 
         default:
@@ -720,23 +709,22 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec,
             rc = arch_monitor_init_domain(d);
             if ( rc )
                 break;
-            rc = vm_event_enable(d, vec, &d->vm_event_monitor, _VPF_mem_access,
+            rc = vm_event_ring_enable(d, vec, &d->vm_event_monitor, _VPF_mem_access,
                                  HVM_PARAM_MONITOR_RING_PFN,
                                  monitor_notification);
             break;
 
         case XEN_VM_EVENT_DISABLE:
-            if ( vm_event_check(d->vm_event_monitor) )
-            {
-                domain_pause(d);
-                rc = vm_event_disable(d, &d->vm_event_monitor);
-                arch_monitor_cleanup_domain(d);
-                domain_unpause(d);
-            }
+            if ( !vm_event_check(d->vm_event_monitor) )
+                break;
+            domain_pause(d);
+            rc = vm_event_ring_disable(&d->vm_event_monitor);
+            arch_monitor_cleanup_domain(d);
+            domain_unpause(d);
             break;
 
         case XEN_VM_EVENT_RESUME:
-            rc = vm_event_resume(d, d->vm_event_monitor);
+            rc = vm_event_ring_resume(to_ring(d->vm_event_monitor));
             break;
 
         default:
@@ -765,22 +753,21 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec,
                 break;
 
             /* domain_pause() not required here, see XSA-99 */
-            rc = vm_event_enable(d, vec, &d->vm_event_share, _VPF_mem_sharing,
+            rc = vm_event_ring_enable(d, vec, &d->vm_event_share, _VPF_mem_sharing,
                                  HVM_PARAM_SHARING_RING_PFN,
                                  mem_sharing_notification);
             break;
 
         case XEN_VM_EVENT_DISABLE:
-            if ( vm_event_check(d->vm_event_share) )
-            {
-                domain_pause(d);
-                rc = vm_event_disable(d, &d->vm_event_share);
-                domain_unpause(d);
-            }
+            if ( !vm_event_check(d->vm_event_share) )
+                break;
+            domain_pause(d);
+            rc = vm_event_ring_disable(&d->vm_event_share);
+            domain_unpause(d);
             break;
 
         case XEN_VM_EVENT_RESUME:
-            rc = vm_event_resume(d, d->vm_event_share);
+            rc = vm_event_ring_resume(to_ring(d->vm_event_share));
             break;
 
         default:
@@ -831,6 +818,14 @@ void vm_event_vcpu_unpause(struct vcpu *v)
 
     vcpu_unpause(v);
 }
+
+static const struct vm_event_ops vm_event_ring_ops = {
+    .check = vm_event_ring_check,
+    .cleanup = vm_event_ring_cleanup,
+    .claim_slot = vm_event_ring_claim_slot,
+    .cancel_slot = vm_event_ring_cancel_slot,
+    .put_request = vm_event_ring_put_request
+};
 
 /*
  * Local variables:
