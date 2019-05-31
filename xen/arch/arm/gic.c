@@ -361,7 +361,9 @@ static void do_sgi(struct cpu_user_regs *regs, enum gic_sgi sgi)
         /* Nothing to do, will check for events on return path */
         break;
     case GIC_SGI_DUMP_STATE:
+#ifdef CONFIG_HAS_KEYHANDLER
         dump_execstate(regs);
+#endif
         break;
     case GIC_SGI_CALL_FUNCTION:
         smp_call_function_interrupt();

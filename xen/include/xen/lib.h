@@ -175,8 +175,10 @@ extern unsigned int tainted;
 extern char *print_tainted(char *str);
 extern void add_taint(unsigned int taint);
 
+#ifdef CONFIG_HAS_KEYHANDLER
 struct cpu_user_regs;
 void dump_execstate(struct cpu_user_regs *);
+#endif
 
 void init_constructors(void);
 

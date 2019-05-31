@@ -1913,6 +1913,7 @@ void scheduler_free(struct scheduler *sched)
     xfree(sched);
 }
 
+#ifdef CONFIG_HAS_KEYHANDLER
 void schedule_dump(struct cpupool *c)
 {
     unsigned int      i;
@@ -1941,6 +1942,7 @@ void schedule_dump(struct cpupool *c)
             SCHED_OP(sched, dump_cpu_state, i);
     }
 }
+#endif
 
 void sched_tick_suspend(void)
 {

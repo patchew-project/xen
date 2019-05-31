@@ -699,6 +699,7 @@ int cpupool_do_sysctl(struct xen_sysctl_cpupool_op *op)
     return ret;
 }
 
+#ifdef CONFIG_HAS_KEYHANDLER
 void dump_runq(unsigned char key)
 {
     unsigned long    flags;
@@ -730,6 +731,7 @@ void dump_runq(unsigned char key)
     local_irq_restore(flags);
     spin_unlock(&cpupool_lock);
 }
+#endif
 
 static int cpu_callback(
     struct notifier_block *nfb, unsigned long action, void *hcpu)

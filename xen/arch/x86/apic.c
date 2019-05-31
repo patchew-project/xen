@@ -1410,7 +1410,9 @@ void spurious_interrupt(struct cpu_user_regs *regs)
         ack_APIC_irq();
         if (this_cpu(state_dump_pending)) {
             this_cpu(state_dump_pending) = false;
+#ifdef CONFIG_HAS_KEYHANDLER
             dump_execstate(regs);
+#endif
             return;
         }
     }

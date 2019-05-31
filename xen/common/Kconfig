@@ -353,4 +353,13 @@ config DOM0_MEM
 
 	  Leave empty if you are not sure what to specify.
 
+config HAS_KEYHANDLER
+	bool "Enable/Disable keyhandler"
+	default y
+	---help---
+	  Enable or disable keyhandler function.
+	  keyhandler mainly used for debug usage by developers which can dump
+	  xen module(eg. timer, scheduler) status at runtime by input character
+	  from console.
+
 endmenu
