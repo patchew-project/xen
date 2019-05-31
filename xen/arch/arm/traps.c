@@ -93,6 +93,28 @@ static int __init parse_vwfi(const char *s)
 }
 custom_param("vwfi", parse_vwfi);
 
+static bool debug_registers_trap = true;
+static bool perf_counters_trap = true;
+
+static int __init opt_static_partitioning(const char *s)
+{
+    if ( strcmp(s, "true") && 
+         strcmp(s, "True") &&
+         strcmp(s, "1") )
+        return 0;
+
+    vwfi = NATIVE;
+    debug_registers_trap = false;
+    perf_counters_trap = false;
+    memcpy(opt_sched, "null", 5);
+
+    /* Disable Trap Debug and Performance Monitor now for CPU0 */
+    WRITE_SYSREG(HDCR_TDRA, MDCR_EL2);
+
+    return 0;
+}
+custom_param("static_partitioning", opt_static_partitioning);
+
 register_t get_default_hcr_flags(void)
 {
     return  (HCR_PTW|HCR_BSU_INNER|HCR_AMO|HCR_IMO|HCR_FMO|HCR_VM|
@@ -140,7 +162,9 @@ void init_traps(void)
     WRITE_SYSREG((vaddr_t)hyp_traps_vector, VBAR_EL2);
 
     /* Trap Debug and Performance Monitor accesses */
-    WRITE_SYSREG(HDCR_TDRA|HDCR_TDOSA|HDCR_TDA|HDCR_TPM|HDCR_TPMCR,
+    WRITE_SYSREG(HDCR_TDRA |
+                 (debug_registers_trap ? HDCR_TDOSA|HDCR_TDA : 0) |
+                 (perf_counters_trap ? HDCR_TPM|HDCR_TPMCR : 0),
                  MDCR_EL2);
 
     /* Trap CP15 c15 used for implementation defined registers */

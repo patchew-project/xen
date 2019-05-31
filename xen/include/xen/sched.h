@@ -978,6 +978,7 @@ static inline bool is_vcpu_online(const struct vcpu *v)
 }
 
 extern bool sched_smt_power_savings;
+extern char opt_sched[10];
 
 extern enum cpufreq_controller {
     FREQCTL_none, FREQCTL_dom0_kernel, FREQCTL_xen
