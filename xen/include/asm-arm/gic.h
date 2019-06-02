@@ -400,9 +400,13 @@ static inline unsigned int gic_get_nr_lrs(void)
  * Set the active state of an IRQ. This should be used with care, as this
  * directly forces the active bit, without considering the GIC state machine.
  * For private IRQs this only works for those of the current CPU.
+ *
+ * This should only be called with interrupt routed to guest. The flow
+ * of interrupt routed to Xen any software change of the state.
  */
 static inline void gic_set_active_state(struct irq_desc *irqd, bool state)
 {
+    ASSERT(test_bit(_IRQ_GUEST, &irqd->status));
     gic_hw_ops->set_active_state(irqd, state);
 }
 
