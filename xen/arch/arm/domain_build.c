@@ -1353,7 +1353,7 @@ static int __init handle_node(struct domain *d, struct kernel_info *kinfo,
         { /* sentinel */ },
     };
     struct dt_device_node *child;
-    int res;
+    int res, i, nirq, irq_id;
     const char *name;
     const char *path;
 
@@ -1397,6 +1397,21 @@ static int __init handle_node(struct domain *d, struct kernel_info *kinfo,
     {
         dt_dprintk(" IOMMU, skip it\n");
         return 0;
+    }
+
+    /* Skip the node, using PPI source */
+    nirq = dt_number_of_irq(node);
+
+    for ( i = 0 ; i < nirq ; i++ )
+    {
+        irq_id = platform_get_irq(node, i);
+
+        /* PPIs ranges from ID 16 to 31 */
+        if ( irq_id >= 16 && irq_id < 32 )
+        {
+            dt_dprintk(" Skip node with (PPI source)\n");
+            return 0;
+        }
     }
 
     /*
