@@ -16,6 +16,7 @@ config X86
 	select HAS_IOPORTS
 	select HAS_KEXEC
 	select MEM_ACCESS_ALWAYS_ON
+	select HAS_M2P
 	select HAS_MEM_PAGING
 	select HAS_MEM_SHARING
 	select HAS_NS16550

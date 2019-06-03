@@ -188,9 +188,10 @@ void __hwdom_init iommu_hwdom_init(struct domain *d)
     hd->need_sync = iommu_hwdom_strict && !iommu_use_hap_pt(d);
     if ( need_iommu_pt_sync(d) )
     {
+        int rc = 0;
+#ifdef CONFIG_HAS_M2P
         struct page_info *page;
         unsigned int i = 0, flush_flags = 0;
-        int rc = 0;
 
         page_list_for_each ( page, &d->page_list )
         {
@@ -221,6 +222,11 @@ void __hwdom_init iommu_hwdom_init(struct domain *d)
         if ( rc )
             printk(XENLOG_WARNING "d%d: IOMMU mapping failed: %d\n",
                    d->domain_id, rc);
+#else
+        ASSERT_UNREACHABLE();
+        rc = -EOPNOTSUPP;
+#endif
+
     }
 
     hd->platform_ops->hwdom_init(d);

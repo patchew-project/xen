@@ -118,4 +118,16 @@ struct vnuma_info {
 
 void vnuma_destroy(struct vnuma_info *vnuma);
 
+#ifdef CONFIG_HAS_M2P
+#define domain_shared_info_gfn(d) ({                            \
+    const struct domain *d_ = (d);                              \
+    gfn_t gfn_;                                                 \
+                                                                \
+    gfn_ = mfn_to_gfn(d_, _mfn(__virt_to_mfn(d_->shared_info)));\
+    BUG_ON(SHARED_M2P(gfn_x(gfn_)));                            \
+                                                                \
+    gfn_;                                                       \
+})
+#endif
+
 #endif /* __XEN_DOMAIN_H__ */

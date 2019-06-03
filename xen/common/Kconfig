@@ -63,6 +63,9 @@ config HAS_GDBSX
 config HAS_IOPORTS
 	bool
 
+config HAS_M2P
+	bool
+
 config NEEDS_LIBELF
 	bool
 

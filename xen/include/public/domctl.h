@@ -118,6 +118,12 @@ struct xen_domctl_getdomaininfo {
     uint64_aligned_t outstanding_pages;
     uint64_aligned_t shr_pages;
     uint64_aligned_t paged_pages;
+#define XEN_INVALID_SHARED_INFO_FRAME (~(uint64_t)0)
+    /*
+     * GFN of shared_info struct. Some architectures (e.g Arm) may not
+     * provide a mappable address in the field. In that case, the field
+     * will be set to XEN_INVALID_SHARED_INFO_FRAME.
+     */
     uint64_aligned_t shared_info_frame; /* GMFN of shared_info struct */
     uint64_aligned_t cpu_time;
     uint32_t nr_online_vcpus;    /* Number of VCPUs currently online. */

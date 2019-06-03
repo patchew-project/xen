@@ -267,6 +267,11 @@ static inline void free_vcpu_guest_context(struct vcpu_guest_context *vgc)
 
 static inline void arch_vcpu_block(struct vcpu *v) {}
 
+static inline gfn_t domain_shared_info_gfn(struct domain *d)
+{
+    return INVALID_GFN;
+}
+
 #endif /* __ASM_DOMAIN_H__ */
 
 /*

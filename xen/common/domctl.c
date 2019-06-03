@@ -154,6 +154,7 @@ void getdomaininfo(struct domain *d, struct xen_domctl_getdomaininfo *info)
     u64 cpu_time = 0;
     int flags = XEN_DOMINF_blocked;
     struct vcpu_runstate_info runstate;
+    gfn_t shared_info_frame;
 
     info->domain = d->domain_id;
     info->max_vcpu_id = XEN_INVALID_MAX_VCPU_ID;
@@ -205,8 +206,12 @@ void getdomaininfo(struct domain *d, struct xen_domctl_getdomaininfo *info)
     info->outstanding_pages = d->outstanding_pages;
     info->shr_pages         = atomic_read(&d->shr_pages);
     info->paged_pages       = atomic_read(&d->paged_pages);
-    info->shared_info_frame = mfn_to_gmfn(d, virt_to_mfn(d->shared_info));
-    BUG_ON(SHARED_M2P(info->shared_info_frame));
+
+    shared_info_frame = domain_shared_info_gfn(d);
+    if ( gfn_eq(shared_info_frame, INVALID_GFN) )
+        info->shared_info_frame = XEN_INVALID_SHARED_INFO_FRAME;
+    else
+        info->shared_info_frame = gfn_x(shared_info_frame);
 
     info->cpupool = d->cpupool ? d->cpupool->cpupool_id : CPUPOOLID_NONE;
 
