@@ -991,7 +991,8 @@ static int p2m_pt_change_entry_type_range(struct p2m_domain *p2m,
 long p2m_pt_audit_p2m(struct p2m_domain *p2m)
 {
     unsigned long entry_count = 0, pmbad = 0;
-    unsigned long mfn, gfn, m2pfn;
+    unsigned long gfn, m2pfn;
+    mfn_t mfn;
 
     ASSERT(p2m_locked_by_me(p2m));
     ASSERT(pod_locked_by_me(p2m));
@@ -1030,19 +1031,20 @@ long p2m_pt_audit_p2m(struct p2m_domain *p2m)
                 /* check for 1GB super page */
                 if ( l3e_get_flags(l3e[i3]) & _PAGE_PSE )
                 {
-                    mfn = l3e_get_pfn(l3e[i3]);
-                    ASSERT(mfn_valid(_mfn(mfn)));
+                    mfn = l3e_get_mfn(l3e[i3]);
+                    ASSERT(mfn_valid(mfn));
                     /* we have to cover 512x512 4K pages */
                     for ( i2 = 0; 
                           i2 < (L2_PAGETABLE_ENTRIES * L1_PAGETABLE_ENTRIES);
                           i2++)
                     {
-                        m2pfn = get_gpfn_from_mfn(mfn+i2);
+                        m2pfn = get_pfn_from_mfn(mfn_add(mfn, i2));
                         if ( m2pfn != (gfn + i2) )
                         {
                             pmbad++;
-                            P2M_PRINTK("mismatch: gfn %#lx -> mfn %#lx -> gfn %#lx\n",
-                                       gfn + i2, mfn + i2, m2pfn);
+                            P2M_PRINTK("mismatch: gfn %#lx -> mfn %"PRI_mfn" gfn %#lx\n",
+                                       gfn + i2, mfn_x(mfn_add(mfn, i2)),
+                                       m2pfn);
                             BUG();
                         }
                         gfn += 1 << (L3_PAGETABLE_SHIFT - PAGE_SHIFT);
@@ -1066,17 +1068,17 @@ long p2m_pt_audit_p2m(struct p2m_domain *p2m)
                     /* check for super page */
                     if ( l2e_get_flags(l2e[i2]) & _PAGE_PSE )
                     {
-                        mfn = l2e_get_pfn(l2e[i2]);
-                        ASSERT(mfn_valid(_mfn(mfn)));
+                        mfn = l2e_get_mfn(l2e[i2]);
+                        ASSERT(mfn_valid(mfn));
                         for ( i1 = 0; i1 < L1_PAGETABLE_ENTRIES; i1++)
                         {
-                            m2pfn = get_gpfn_from_mfn(mfn+i1);
+                            m2pfn = get_pfn_from_mfn(mfn_add(mfn, i1));
                             /* Allow shared M2Ps */
                             if ( (m2pfn != (gfn + i1)) && !SHARED_M2P(m2pfn) )
                             {
                                 pmbad++;
-                                P2M_PRINTK("mismatch: gfn %#lx -> mfn %#lx"
-                                           " -> gfn %#lx\n", gfn+i1, mfn+i1,
+                                P2M_PRINTK("mismatch: gfn %#lx -> mfn %"PRI_mfn" -> gfn %#lx\n",
+                                           gfn + i1, mfn_x(mfn_add(mfn, i1)),
                                            m2pfn);
                                 BUG();
                             }
@@ -1098,17 +1100,17 @@ long p2m_pt_audit_p2m(struct p2m_domain *p2m)
                                 entry_count++;
                             continue;
                         }
-                        mfn = l1e_get_pfn(l1e[i1]);
-                        ASSERT(mfn_valid(_mfn(mfn)));
-                        m2pfn = get_gpfn_from_mfn(mfn);
+                        mfn = l1e_get_mfn(l1e[i1]);
+                        ASSERT(mfn_valid(mfn));
+                        m2pfn = get_pfn_from_mfn(mfn);
                         if ( m2pfn != gfn &&
                              type != p2m_mmio_direct &&
                              !p2m_is_grant(type) &&
                              !p2m_is_shared(type) )
                         {
                             pmbad++;
-                            P2M_PRINTK("mismatch: gfn %#lx -> mfn %#lx"
-                                       " -> gfn %#lx\n", gfn, mfn, m2pfn);
+                            P2M_PRINTK("mismatch: gfn %#lx -> mfn %"PRI_mfn" -> gfn %#lx\n",
+                                       gfn, mfn_x(mfn), m2pfn);
                             BUG();
                         }
                     }

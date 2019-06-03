@@ -89,7 +89,7 @@ mc_memerr_dhandler(struct mca_binfo *binfo,
             {
                 d = get_domain_by_id(bank->mc_domid);
                 ASSERT(d);
-                gfn = get_gpfn_from_mfn((bank->mc_addr) >> PAGE_SHIFT);
+                gfn = get_pfn_from_mfn(maddr_to_mfn(bank->mc_addr));
 
                 if ( unmmap_broken_page(d, mfn, gfn) )
                 {

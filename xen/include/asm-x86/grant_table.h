@@ -41,7 +41,7 @@ static inline int replace_grant_host_mapping(uint64_t addr, mfn_t frame,
 #define gnttab_get_frame_gfn(gt, st, idx) ({                             \
     mfn_t mfn_ = (st) ? gnttab_status_mfn(gt, idx)                       \
                       : gnttab_shared_mfn(gt, idx);                      \
-    unsigned long gpfn_ = get_gpfn_from_mfn(mfn_x(mfn_));                \
+    unsigned long gpfn_ = get_pfn_from_mfn(mfn_);                        \
     VALID_M2P(gpfn_) ? _gfn(gpfn_) : INVALID_GFN;                        \
 })
 

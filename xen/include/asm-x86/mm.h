@@ -492,22 +492,26 @@ extern struct domain *dom_xen, *dom_io, *dom_cow;	/* for vmcoreinfo */
  */
 extern bool machine_to_phys_mapping_valid;
 
-static inline void set_gpfn_from_mfn(unsigned long mfn, unsigned long pfn)
+static inline void set_pfn_from_mfn(mfn_t mfn, unsigned long pfn)
 {
-    struct domain *d = page_get_owner(mfn_to_page(_mfn(mfn)));
+    const unsigned long mfn_ = mfn_x(mfn);
+    struct domain *d = page_get_owner(mfn_to_page(mfn));
     unsigned long entry = (d && (d == dom_cow)) ? SHARED_M2P_ENTRY : pfn;
 
     if ( !machine_to_phys_mapping_valid )
         return;
 
-    if ( mfn < (RDWR_COMPAT_MPT_VIRT_END - RDWR_COMPAT_MPT_VIRT_START) / 4 )
-        compat_machine_to_phys_mapping[mfn] = entry;
-    machine_to_phys_mapping[mfn] = entry;
+    if ( mfn_ < (RDWR_COMPAT_MPT_VIRT_END - RDWR_COMPAT_MPT_VIRT_START) / 4 )
+        compat_machine_to_phys_mapping[mfn_] = entry;
+    machine_to_phys_mapping[mfn_] = entry;
 }
 
 extern struct rangeset *mmio_ro_ranges;
 
-#define get_gpfn_from_mfn(mfn)      (machine_to_phys_mapping[(mfn)])
+static inline unsigned long get_pfn_from_mfn(mfn_t mfn)
+{
+    return machine_to_phys_mapping[mfn_x(mfn)];
+}
 
 #define compat_pfn_to_cr3(pfn) (((unsigned)(pfn) << 12) | ((unsigned)(pfn) >> 20))
 #define compat_cr3_to_pfn(cr3) (((unsigned)(cr3) >> 12) | ((unsigned)(cr3) << 20))

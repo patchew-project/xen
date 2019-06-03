@@ -344,7 +344,7 @@ void paging_mark_dirty(struct domain *d, mfn_t gmfn)
         return;
 
     /* We /really/ mean PFN here, even for non-translated guests. */
-    pfn = _pfn(get_gpfn_from_mfn(mfn_x(gmfn)));
+    pfn = _pfn(get_pfn_from_mfn(gmfn));
 
     paging_mark_pfn_dirty(d, pfn);
 }
@@ -362,7 +362,7 @@ int paging_mfn_is_dirty(struct domain *d, mfn_t gmfn)
     ASSERT(paging_mode_log_dirty(d));
 
     /* We /really/ mean PFN here, even for non-translated guests. */
-    pfn = _pfn(get_gpfn_from_mfn(mfn_x(gmfn)));
+    pfn = _pfn(get_pfn_from_mfn(gmfn));
     /* Invalid pages can't be dirty. */
     if ( unlikely(!VALID_M2P(pfn_x(pfn))) )
         return 0;
