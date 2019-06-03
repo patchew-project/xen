@@ -2829,8 +2829,7 @@ void audit_p2m(struct domain *d,
 
         if ( od != d )
         {
-            P2M_PRINTK("wrong owner %#lx -> %p(%u) != %p(%u)\n",
-                       mfn, od, (od?od->domain_id:-1), d, d->domain_id);
+            P2M_PRINTK("mfn %"PRI_mfn" owner %pd != %pd\n", mfn, od, d);
             continue;
         }
 
