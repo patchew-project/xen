@@ -655,4 +655,18 @@ static inline void share_xen_page_with_privileged_guests(
     share_xen_page_with_guest(page, dom_xen, flags);
 }
 
+/*
+ * Dummy implementation of M2P-related helpers for common code when
+ * the architecture doesn't have an M2P.
+ */
+#ifndef CONFIG_HAS_M2P
+
+#define INVALID_M2P_ENTRY        (~0UL)
+#define SHARED_M2P_ENTRY         (~0UL - 1UL)
+#define SHARED_M2P(_e)           ((_e) == SHARED_M2P_ENTRY)
+
+static inline void set_pfn_from_mfn(mfn_t mfn, unsigned long pfn) {}
+
+#endif
+
 #endif /* __XEN_MM_H__ */
