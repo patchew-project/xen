@@ -197,6 +197,7 @@
     } while ( 0 )
 #define set_xen_guest_handle(hnd, val) set_xen_guest_handle_raw(hnd, val)
 
+#if defined(__XEN__) || defined(__XEN_TOOLS__)
 #if defined(__GNUC__) && !defined(__STRICT_ANSI__)
 /* Anonymous union includes both 32- and 64-bit names (e.g., r0/x0). */
 # define __DECL_REG(n64, n32) union {          \
@@ -271,6 +272,8 @@ typedef struct vcpu_guest_core_regs vcpu_guest_core_regs_t;
 DEFINE_XEN_GUEST_HANDLE(vcpu_guest_core_regs_t);
 
 #undef __DECL_REG
+
+#endif
 
 typedef uint64_t xen_pfn_t;
 #define PRI_xen_pfn PRIx64
