@@ -353,4 +353,16 @@ config DOM0_MEM
 
 	  Leave empty if you are not sure what to specify.
 
+config TRACEBUFFER
+	bool "Enable trace event logs"  if EXPERT = "y"
+	---help---
+	  Xen internal running status(trace event) will be saved to trace memory
+	  when enabled. trace event data and config params can be read/changed
+	  by system control hypercall at run time.
+
+	  This is used to record xen internal running status.
+	  with a litte performance overhead.
+	  Can be set to 'N' if you dont want this function.
+	  When not configured, 'XEN_STSCTL_tbuf_op' command will result 'ENOSYS'.
+
 endmenu
