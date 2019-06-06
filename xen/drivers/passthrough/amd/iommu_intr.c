@@ -511,8 +511,7 @@ static struct amd_iommu *_find_iommu_for_device(int seg, int bdf)
     if ( iommu )
         return iommu;
 
-    AMD_IOMMU_DEBUG("No IOMMU for MSI dev = %04x:%02x:%02x.%u\n",
-                    seg, PCI_BUS(bdf), PCI_SLOT(bdf), PCI_FUNC(bdf));
+    AMD_IOMMU_DEBUG("No IOMMU for MSI dev = %pp\n", &PCI_SBDF2(seg, bdf));
     return ERR_PTR(-EINVAL);
 }
 
@@ -687,10 +686,7 @@ static int dump_intremap_mapping(u16 seg, struct ivrs_mappings *ivrs_mapping)
     if ( !ivrs_mapping )
         return 0;
 
-    printk("  %04x:%02x:%02x:%u:\n", seg,
-           PCI_BUS(ivrs_mapping->dte_requestor_id),
-           PCI_SLOT(ivrs_mapping->dte_requestor_id),
-           PCI_FUNC(ivrs_mapping->dte_requestor_id));
+    printk("  %pp:\n", &PCI_SBDF2(seg, ivrs_mapping->dte_requestor_id));
 
     spin_lock_irqsave(&(ivrs_mapping->intremap_lock), flags);
     dump_intremap_table(ivrs_mapping->intremap_table);
