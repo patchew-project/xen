@@ -49,7 +49,10 @@ typedef union {
                         uint8_t func : 3,
                                 dev  : 5;
                     };
-                    uint8_t     extfunc;
+                    union {
+                        uint8_t extfunc,
+                                devfn;
+                    };
                 };
                 uint8_t         bus;
             };
