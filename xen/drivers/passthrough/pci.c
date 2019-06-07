@@ -238,11 +238,7 @@ static void check_pdev(const struct pci_dev *pdev)
     (PCI_STATUS_PARITY | PCI_STATUS_SIG_TARGET_ABORT | \
      PCI_STATUS_REC_TARGET_ABORT | PCI_STATUS_REC_MASTER_ABORT | \
      PCI_STATUS_SIG_SYSTEM_ERROR | PCI_STATUS_DETECTED_PARITY)
-    u16 seg = pdev->seg;
-    u8 bus = pdev->bus;
-    u8 dev = PCI_SLOT(pdev->devfn);
-    u8 func = PCI_FUNC(pdev->devfn);
-    u16 val;
+     u16 val;
 
     if ( command_mask )
     {
@@ -252,8 +248,8 @@ static void check_pdev(const struct pci_dev *pdev)
         val = pci_conf_read16(pdev->sbdf, PCI_STATUS);
         if ( val & PCI_STATUS_CHECK )
         {
-            printk(XENLOG_INFO "%04x:%02x:%02x.%u status %04x -> %04x\n",
-                   seg, bus, dev, func, val, val & ~PCI_STATUS_CHECK);
+            printk(XENLOG_INFO "%pp status %04x -> %04x\n",
+                   &pdev->sbdf, val, val & ~PCI_STATUS_CHECK);
             pci_conf_write16(pdev->sbdf, PCI_STATUS, val & PCI_STATUS_CHECK);
         }
     }
@@ -270,9 +266,8 @@ static void check_pdev(const struct pci_dev *pdev)
         val = pci_conf_read16(pdev->sbdf, PCI_SEC_STATUS);
         if ( val & PCI_STATUS_CHECK )
         {
-            printk(XENLOG_INFO
-                   "%04x:%02x:%02x.%u secondary status %04x -> %04x\n",
-                   seg, bus, dev, func, val, val & ~PCI_STATUS_CHECK);
+            printk(XENLOG_INFO "%pp secondary status %04x -> %04x\n",
+                   &pdev->sbdf, val, val & ~PCI_STATUS_CHECK);
             pci_conf_write16(pdev->sbdf, PCI_SEC_STATUS,
                              val & PCI_STATUS_CHECK);
         }
@@ -411,8 +406,8 @@ static struct pci_dev *alloc_pdev(struct pci_seg *pseg, u8 bus, u8 devfn)
             break;
 
         default:
-            printk(XENLOG_WARNING "%04x:%02x:%02x.%u: unknown type %d\n",
-                   pseg->nr, bus, PCI_SLOT(devfn), PCI_FUNC(devfn), pdev->type);
+            printk(XENLOG_WARNING "%pp: unknown type %d\n",
+                   &pdev->sbdf, pdev->type);
             break;
     }
 
@@ -644,9 +639,9 @@ unsigned int pci_size_mem_bar(pci_sbdf_t sbdf, unsigned int pos,
         if ( flags & PCI_BAR_LAST )
         {
             printk(XENLOG_WARNING
-                   "%sdevice %04x:%02x:%02x.%u with 64-bit %sBAR in last slot\n",
-                   (flags & PCI_BAR_VF) ? "SR-IOV " : "", sbdf.seg, sbdf.bus,
-                   sbdf.dev, sbdf.fn, (flags & PCI_BAR_VF) ? "vf " : "");
+                   "%sdevice %pp with 64-bit %sBAR in last slot\n",
+                   (flags & PCI_BAR_VF) ? "SR-IOV " : "", &sbdf,
+                   (flags & PCI_BAR_VF) ? "vf " : "");
             *psize = 0;
             return 1;
         }
@@ -750,9 +745,8 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
                      PCI_BASE_ADDRESS_SPACE_IO )
                 {
                     printk(XENLOG_WARNING
-                           "SR-IOV device %04x:%02x:%02x.%u with vf BAR%u"
-                           " in IO space\n",
-                           seg, bus, slot, func, i);
+                           "SR-IOV device %pp with vf BAR%u in IO space\n",
+                           &pdev->sbdf, i);
                     continue;
                 }
                 ret = pci_size_mem_bar(sbdf, idx, NULL, &pdev->vf_rlen[i],
@@ -764,10 +758,8 @@ int pci_add_device(u16 seg, u8 bus, u8 devfn,
             }
         }
         else
-            printk(XENLOG_WARNING
-                   "SR-IOV device %04x:%02x:%02x.%u has its virtual"
-                   " functions already enabled (%04x)\n",
-                   seg, bus, slot, func, ctrl);
+            printk(XENLOG_WARNING "SR-IOV device %pp has its virtual"
+                   " functions already enabled (%04x)\n", &pdev->sbdf, ctrl);
     }
 
     check_pdev(pdev);
@@ -794,15 +786,14 @@ out:
     pcidevs_unlock();
     if ( !ret )
     {
-        printk(XENLOG_DEBUG "PCI add %s %04x:%02x:%02x.%u\n", pdev_type,
-               seg, bus, slot, func);
+        printk(XENLOG_DEBUG "PCI add %s %pp\n", pdev_type,  &pdev->sbdf);
         while ( pdev->phantom_stride )
         {
             func += pdev->phantom_stride;
             if ( PCI_SLOT(func) )
                 break;
-            printk(XENLOG_DEBUG "PCI phantom %04x:%02x:%02x.%u\n",
-                   seg, bus, slot, func);
+            printk(XENLOG_DEBUG "PCI phantom %pp\n",
+                   &PCI_SBDF(seg, bus, slot, func));
         }
     }
     return ret;
@@ -831,9 +822,8 @@ int pci_remove_device(u16 seg, u8 bus, u8 devfn)
             if ( pdev->domain )
                 list_del(&pdev->domain_list);
             pci_cleanup_msi(pdev);
+            printk(XENLOG_DEBUG "PCI remove device %pp\n", &pdev->sbdf);
             free_pdev(pseg, pdev);
-            printk(XENLOG_DEBUG "PCI remove device %04x:%02x:%02x.%u\n",
-                   seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn));
             break;
         }
 
@@ -907,9 +897,8 @@ int pci_release_devices(struct domain *d)
         bus = pdev->bus;
         devfn = pdev->devfn;
         if ( deassign_device(d, pdev->seg, bus, devfn) )
-            printk("domain %d: deassign device (%04x:%02x:%02x.%u) failed!\n",
-                   d->domain_id, pdev->seg, bus,
-                   PCI_SLOT(devfn), PCI_FUNC(devfn));
+            printk("domain %d: deassign device (%pp) failed!\n",
+                   d->domain_id, &pdev->sbdf);
     }
     pcidevs_unlock();
 
@@ -1056,8 +1045,8 @@ static int __init _scan_pci_devices(struct pci_seg *pseg, void *arg)
                 pdev = alloc_pdev(pseg, bus, PCI_DEVFN(dev, func));
                 if ( !pdev )
                 {
-                    printk(XENLOG_WARNING "%04x:%02x:%02x.%u: alloc_pdev failed\n",
-                           pseg->nr, bus, dev, func);
+                    printk(XENLOG_WARNING "%pp: alloc_pdev failed\n",
+                           &PCI_SBDF(pseg->nr, bus, dev, func));
                     return -ENOMEM;
                 }
 
@@ -1098,9 +1087,8 @@ static void __hwdom_init setup_one_hwdom_device(const struct setup_hwdom *ctxt,
         err = ctxt->handler(devfn, pdev);
         if ( err )
         {
-            printk(XENLOG_ERR "setup %04x:%02x:%02x.%u for d%d failed (%d)\n",
-                   pdev->seg, pdev->bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
-                   ctxt->d->domain_id, err);
+            printk(XENLOG_ERR "setup %pp for d%d failed (%d)\n",
+                   &pdev->sbdf, ctxt->d->domain_id, err);
             if ( devfn == pdev->devfn )
                 return;
         }
@@ -1141,9 +1129,8 @@ static int __hwdom_init _setup_hwdom_pci_devices(struct pci_seg *pseg, void *arg
                 pdev->domain = dom_xen;
             }
             else if ( pdev->domain != ctxt->d )
-                printk(XENLOG_WARNING "Dom%d owning %04x:%02x:%02x.%u?\n",
-                       pdev->domain->domain_id, pseg->nr, bus,
-                       PCI_SLOT(devfn), PCI_FUNC(devfn));
+                printk(XENLOG_WARNING "Dom%d owning %pp?\n",
+                       pdev->domain->domain_id, &pdev->sbdf);
 
             if ( iommu_verbose )
             {
@@ -1279,10 +1266,8 @@ static int _dump_pci_devices(struct pci_seg *pseg, void *arg)
 
     list_for_each_entry ( pdev, &pseg->alldevs_list, alldevs_list )
     {
-        printk("%04x:%02x:%02x.%u - dom %-3d - node %-3d - MSIs < ",
-               pseg->nr, pdev->bus,
-               PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn),
-               pdev->domain ? pdev->domain->domain_id : -1,
+        printk("%pp - dom %-3d - node %-3d - MSIs < ",
+               &pdev->sbdf, pdev->domain ? pdev->domain->domain_id : -1,
                (pdev->node != NUMA_NO_NODE) ? pdev->node : -1);
         list_for_each_entry ( msi, &pdev->msi_list, list )
                printk("%d ", msi->irq);
@@ -1347,8 +1332,8 @@ static int iommu_add_device(struct pci_dev *pdev)
             return 0;
         rc = hd->platform_ops->add_device(devfn, pci_to_dev(pdev));
         if ( rc )
-            printk(XENLOG_WARNING "IOMMU: add %04x:%02x:%02x.%u failed (%d)\n",
-                   pdev->seg, pdev->bus, PCI_SLOT(devfn), PCI_FUNC(devfn), rc);
+            printk(XENLOG_WARNING "IOMMU: add %pp failed (%d)\n",
+                   &pdev->sbdf, rc);
     }
 }
 
@@ -1392,8 +1377,7 @@ static int iommu_remove_device(struct pci_dev *pdev)
         if ( !rc )
             continue;
 
-        printk(XENLOG_ERR "IOMMU: remove %04x:%02x:%02x.%u failed (%d)\n",
-               pdev->seg, pdev->bus, PCI_SLOT(devfn), PCI_FUNC(devfn), rc);
+        printk(XENLOG_ERR "IOMMU: remove %pp failed (%d)\n", &pdev->sbdf, rc);
         return rc;
     }
 
@@ -1463,9 +1447,8 @@ static int assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
             break;
         rc = hd->platform_ops->assign_device(d, devfn, pci_to_dev(pdev), flag);
         if ( rc )
-            printk(XENLOG_G_WARNING "d%d: assign %04x:%02x:%02x.%u failed (%d)\n",
-                   d->domain_id, seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
-                   rc);
+            printk(XENLOG_G_WARNING "d%d: assign %pp failed (%d)\n",
+                   d->domain_id, &PCI_SBDF3(seg, bus, devfn), rc);
     }
 
  done:
@@ -1501,8 +1484,8 @@ int deassign_device(struct domain *d, u16 seg, u8 bus, u8 devfn)
         if ( !ret )
             continue;
 
-        printk(XENLOG_G_ERR "d%d: deassign %04x:%02x:%02x.%u failed (%d)\n",
-               d->domain_id, seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn), ret);
+        printk(XENLOG_G_ERR "d%d: deassign %pp failed (%d)\n",
+               d->domain_id, &PCI_SBDF3(seg, bus, devfn), ret);
         return ret;
     }
 
@@ -1511,9 +1494,8 @@ int deassign_device(struct domain *d, u16 seg, u8 bus, u8 devfn)
                                             pci_to_dev(pdev));
     if ( ret )
     {
-        dprintk(XENLOG_G_ERR,
-                "d%d: deassign device (%04x:%02x:%02x.%u) failed\n",
-                d->domain_id, seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn));
+        dprintk(XENLOG_G_ERR, "d%d: deassign device (%pp) failed\n",
+                d->domain_id, &pdev->sbdf);
         return ret;
     }
 
@@ -1590,10 +1572,8 @@ void iommu_dev_iotlb_flush_timeout(struct domain *d, struct pci_dev *pdev)
     _pci_hide_device(pdev);
 
     if ( !d->is_shutting_down && printk_ratelimit() )
-        printk(XENLOG_ERR
-               "dom%d: ATS device %04x:%02x:%02x.%u flush failed\n",
-               d->domain_id, pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
-               PCI_FUNC(pdev->devfn));
+        printk(XENLOG_ERR "dom%d: ATS device %pp flush failed\n",
+               d->domain_id, &pdev->sbdf);
     if ( !is_hardware_domain(d) )
         domain_crash(d);
 
@@ -1682,9 +1662,8 @@ int iommu_do_pci_domctl(
         {
             if ( ret )
             {
-                printk(XENLOG_G_INFO
-                       "%04x:%02x:%02x.%u already assigned, or non-existent\n",
-                       seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn));
+                printk(XENLOG_G_INFO "%pp already assigned, or non-existent\n",
+                       &PCI_SBDF3(seg, bus, devfn));
                 ret = -EINVAL;
             }
             break;
@@ -1696,9 +1675,8 @@ int iommu_do_pci_domctl(
                                                 "h", u_domctl);
         else if ( ret )
             printk(XENLOG_G_ERR "XEN_DOMCTL_assign_device: "
-                   "assign %04x:%02x:%02x.%u to dom%d failed (%d)\n",
-                   seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
-                   d->domain_id, ret);
+                   "assign %pp to dom%d failed (%d)\n",
+                   &PCI_SBDF3(seg, bus, devfn), d->domain_id, ret);
 
         break;
 
@@ -1732,10 +1710,8 @@ int iommu_do_pci_domctl(
         ret = deassign_device(d, seg, bus, devfn);
         pcidevs_unlock();
         if ( ret )
-            printk(XENLOG_G_ERR
-                   "deassign %04x:%02x:%02x.%u from dom%d failed (%d)\n",
-                   seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn),
-                   d->domain_id, ret);
+            printk(XENLOG_G_ERR "deassign %pp from dom%d failed (%d)\n",
+                   &PCI_SBDF3(seg, bus, devfn), d->domain_id, ret);
 
         break;
 
