@@ -12,6 +12,14 @@ config HAS_CADENCE_UART
 	  This selects the Xilinx Zynq Cadence UART. If you have a Xilinx Zynq
 	  based board, say Y.
 
+config HAS_IMX8MQ
+        bool "i.MX8MQ UART "
+        default y
+        depends on ARM_64
+        help
+          This selects the NXP i.MX UART. If you have a NXP i.MX8MQ
+          based board, say Y.
+
 config HAS_MVEBU
 	bool "Marvell MVEBU UART driver"
 	default y
