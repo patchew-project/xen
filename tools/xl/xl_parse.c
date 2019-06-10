@@ -521,6 +521,8 @@ int parse_nic_config(libxl_device_nic *nic, XLU_Config **config, char *token)
         replace_string(&nic->colo_filter_redirector1_indev, oparg);
     } else if (MATCH_OPTION("colo_filter_redirector1_outdev", token, oparg)) {
         replace_string(&nic->colo_filter_redirector1_outdev, oparg);
+    } else if (MATCH_OPTION("colo_iothread", token, oparg)) {
+        replace_string(&nic->colo_iothread, oparg);
     } else if (MATCH_OPTION("colo_compare_pri_in", token, oparg)) {
         replace_string(&nic->colo_compare_pri_in, oparg);
     } else if (MATCH_OPTION("colo_compare_sec_in", token, oparg)) {
@@ -529,6 +531,8 @@ int parse_nic_config(libxl_device_nic *nic, XLU_Config **config, char *token)
         replace_string(&nic->colo_compare_out, oparg);
     } else if (MATCH_OPTION("colo_compare_notify_dev", token, oparg)) {
         replace_string(&nic->colo_compare_notify_dev, oparg);
+    } else if (MATCH_OPTION("colo_compare_iothread", token, oparg)) {
+        replace_string(&nic->colo_compare_iothread, oparg);
     } else if (MATCH_OPTION("colo_sock_sec_redirector0_id", token, oparg)) {
         replace_string(&nic->colo_sock_sec_redirector0_id, oparg);
     } else if (MATCH_OPTION("colo_sock_sec_redirector0_ip", token, oparg)) {
