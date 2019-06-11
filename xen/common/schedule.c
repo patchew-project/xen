@@ -1729,11 +1729,11 @@ void __init scheduler_init(void)
     {
         if ( schedulers[i]->global_init && schedulers[i]->global_init() < 0 )
             schedulers[i] = NULL;
-        else if ( !ops.name && !strcmp(schedulers[i]->opt_name, opt_sched) )
+        else if ( !ops.opt_name && !strcmp(schedulers[i]->opt_name, opt_sched) )
             ops = *schedulers[i];
     }
 
-    if ( !ops.name )
+    if ( !ops.opt_name )
     {
         printk("Could not find scheduler: %s\n", opt_sched);
         for ( i = 0; i < NUM_SCHEDULERS; i++ )
@@ -1743,15 +1743,15 @@ void __init scheduler_init(void)
                 ops = *schedulers[i];
                 break;
             }
-        BUG_ON(!ops.name);
-        printk("Using '%s' (%s)\n", ops.name, ops.opt_name);
+        BUG_ON(!ops.opt_name);
+        printk("Using scheduler (%s)\n", ops.opt_name);
     }
 
     if ( cpu_schedule_up(0) )
         BUG();
     register_cpu_notifier(&cpu_schedule_nfb);
 
-    printk("Using scheduler: %s (%s)\n", ops.name, ops.opt_name);
+    printk("Using scheduler: (%s)\n", ops.opt_name);
     if ( SCHED_OP(&ops, init) )
         panic("scheduler returned error on init\n");
 
@@ -1926,7 +1926,7 @@ void schedule_dump(struct cpupool *c)
     {
         sched = c->sched;
         cpus = c->cpu_valid;
-        printk("Scheduler: %s (%s)\n", sched->name, sched->opt_name);
+        printk("Scheduler: (%s)\n", sched->opt_name);
         SCHED_OP(sched, dump_settings);
     }
     else

@@ -871,7 +871,6 @@ static void null_dump(const struct scheduler *ops)
 }
 
 static const struct scheduler sched_null_def = {
-    .name           = "null Scheduler",
     .opt_name       = "null",
     .sched_id       = XEN_SCHEDULER_NULL,
     .sched_data     = NULL,

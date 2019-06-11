@@ -130,8 +130,7 @@ struct task_slice {
 };
 
 struct scheduler {
-    char *name;             /* full name for this scheduler      */
-    char *opt_name;         /* option name for this scheduler    */
+    const char *opt_name;   /* option name for this scheduler    */
     unsigned int sched_id;  /* ID for this scheduler             */
     void *sched_data;       /* global data pointer               */
 

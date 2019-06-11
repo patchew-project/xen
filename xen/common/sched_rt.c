@@ -1541,7 +1541,6 @@ static void repl_timer_handler(void *data){
 }
 
 static const struct scheduler sched_rtds_def = {
-    .name           = "SMP RTDS Scheduler",
     .opt_name       = "rtds",
     .sched_id       = XEN_SCHEDULER_RTDS,
     .sched_data     = NULL,
