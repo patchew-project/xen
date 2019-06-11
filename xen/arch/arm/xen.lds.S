@@ -172,12 +172,14 @@ SECTIONS
        *(.init.data.rel)
        *(.init.data.rel.*)
 
+#if defined(CONFIG_COVERAGE)
        . = ALIGN(8);
        __ctors_start = .;
        *(.ctors)
        *(.init_array)
        *(SORT(.init_array.*))
        __ctors_end = .;
+#endif
 
 #if defined(CONFIG_HAS_VPCI) && !defined(CONFIG_LATE_HWDOM)
        . = ALIGN(POINTER_ALIGN);

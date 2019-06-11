@@ -491,15 +491,20 @@ unsigned long long parse_size_and_unit(const char *s, const char **ps)
     return ret;
 }
 
+#if defined(CONFIG_COVERAGE)
 typedef void (*ctor_func_t)(void);
 extern const ctor_func_t __ctors_start[], __ctors_end[];
+#endif
 
+/* see 'docs/hypervisor-guide/code-coverage.rst' */
 void __init init_constructors(void)
 {
+#if defined(CONFIG_COVERAGE)
     const ctor_func_t *f;
     for ( f = __ctors_start; f < __ctors_end; ++f )
         (*f)();
 
+#endif
     /* Putting this here seems as good (or bad) as any other place. */
     BUILD_BUG_ON(sizeof(size_t) != sizeof(ssize_t));
 }
