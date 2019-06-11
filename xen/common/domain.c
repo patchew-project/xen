@@ -358,10 +358,9 @@ struct domain *domain_create(domid_t domid,
      */
     if ( !is_system_domain(d) )
     {
-        err = -ENOMEM;
         d->vcpu = xzalloc_array(struct vcpu *, config->max_vcpus);
         if ( !d->vcpu )
-            goto fail;
+            goto no_mem;
 
         d->max_vcpus = config->max_vcpus;
     }
@@ -389,9 +388,8 @@ struct domain *domain_create(domid_t domid,
 
     rwlock_init(&d->vnuma_rwlock);
 
-    err = -ENOMEM;
     if ( !zalloc_cpumask_var(&d->dirty_cpumask) )
-        goto fail;
+        goto no_mem;
 
     rangeset_domain_initialise(d);
 
@@ -429,7 +427,7 @@ struct domain *domain_create(domid_t domid,
         d->iomem_caps = rangeset_new(d, "I/O Memory", RANGESETF_prettyprint_hex);
         d->irq_caps   = rangeset_new(d, "Interrupts", 0);
         if ( !d->iomem_caps || !d->irq_caps )
-            goto fail;
+            goto no_mem;
 
         if ( (err = xsm_domain_create(XSM_HOOK, d, config->ssidref)) != 0 )
             goto fail;
@@ -449,11 +447,9 @@ struct domain *domain_create(domid_t domid,
         if ( (err = argo_init(d)) != 0 )
             goto fail;
 
-        err = -ENOMEM;
-
         d->pbuf = xzalloc_array(char, DOMAIN_PBUF_SIZE);
         if ( !d->pbuf )
-            goto fail;
+            goto no_mem;
 
         if ( (err = sched_init_domain(d, 0)) != 0 )
             goto fail;
@@ -481,6 +477,9 @@ struct domain *domain_create(domid_t domid,
     }
 
     return d;
+
+ no_mem:
+    err = -ENOMEM;
 
  fail:
     ASSERT(err < 0);      /* Sanity check paths leading here. */

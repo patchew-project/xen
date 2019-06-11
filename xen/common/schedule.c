@@ -1894,9 +1894,11 @@ struct scheduler *scheduler_alloc(unsigned int sched_id, int *perr)
     return NULL;
 
  found:
-    *perr = -ENOMEM;
     if ( (sched = xmalloc(struct scheduler)) == NULL )
+    {
+        *perr = -ENOMEM;
         return NULL;
+    }
     memcpy(sched, schedulers[i], sizeof(*sched));
     if ( (*perr = SCHED_OP(sched, init)) != 0 )
     {

@@ -731,7 +731,6 @@ int arch_domain_create(struct domain *d,
     return 0;
 
 fail:
-    d->is_dying = DOMDYING_dead;
     arch_domain_destroy(d);
 
     return rc;
