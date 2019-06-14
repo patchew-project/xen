@@ -148,7 +148,7 @@ static int libxl__device_from_usbctrl(libxl__gc *gc, uint32_t domid,
         break;
     default:
         assert(0); /* can't really happen. */
-        break;
+        return ERROR_INVAL;
     }
     device->devid           = usbctrl->devid;
     device->domid           = domid;
@@ -371,7 +371,7 @@ static int libxl__device_usbctrl_add_hvm(libxl__gc *gc, uint32_t domid,
         break;
     default:
         assert(0); /* Should not be possible. */
-        break;
+        return ERROR_INVAL;
     }
 
     flexarray_append_pair(qmp_args, "id",
