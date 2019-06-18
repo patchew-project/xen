@@ -2042,13 +2042,14 @@ failed:
     return -1;
 }
 
-int xc_domain_memory_mapping(
+int xc_domain_mem_map_policy(
     xc_interface *xch,
     uint32_t domid,
     unsigned long first_gfn,
     unsigned long first_mfn,
     unsigned long nr_mfns,
-    uint32_t add_mapping)
+    uint32_t add_mapping,
+    uint32_t memory_policy)
 {
     DECLARE_DOMCTL;
     xc_dominfo_t info;
@@ -2070,7 +2071,7 @@ int xc_domain_memory_mapping(
     domctl.cmd = XEN_DOMCTL_memory_mapping;
     domctl.domain = domid;
     domctl.u.memory_mapping.add_mapping = add_mapping;
-    domctl.u.memory_mapping.memory_policy = 0;
+    domctl.u.memory_mapping.memory_policy = memory_policy;
     max_batch_sz = nr_mfns;
     do
     {
@@ -2106,14 +2107,28 @@ int xc_domain_memory_mapping(
      * Errors here are ignored.
      */
     if ( ret && add_mapping != DPCI_REMOVE_MAPPING )
-        xc_domain_memory_mapping(xch, domid, first_gfn, first_mfn, nr_mfns,
-                                 DPCI_REMOVE_MAPPING);
+        xc_domain_mem_map_policy(xch, domid, first_gfn, first_mfn, nr_mfns,
+                                 DPCI_REMOVE_MAPPING,
+                                 MEMORY_POLICY_DEFAULT);
 
     /* We might get E2BIG so many times that we never advance. */
     if ( !done && !ret )
         ret = -1;
 
     return ret;
+}
+
+int xc_domain_memory_mapping(
+    xc_interface *xch,
+    uint32_t domid,
+    unsigned long first_gfn,
+    unsigned long first_mfn,
+    unsigned long nr_mfns,
+    uint32_t add_mapping)
+{
+    return xc_domain_mem_map_policy(xch, domid, first_gfn, first_mfn,
+                                    nr_mfns, add_mapping,
+                                    MEMORY_POLICY_DEFAULT);
 }
 
 int xc_domain_ioport_mapping(
