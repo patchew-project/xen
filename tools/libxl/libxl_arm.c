@@ -1149,6 +1149,20 @@ void libxl__arch_domain_build_info_setdefault(libxl__gc *gc,
     libxl_domain_build_info_init_type(b_info, LIBXL_DOMAIN_TYPE_PVH);
 }
 
+int libxl__memory_policy_to_xc(libxl_memory_policy c)
+{
+    switch (c) {
+    case LIBXL_MEMORY_POLICY_ARM_MEM_WB:
+        return MEMORY_POLICY_ARM_MEM_WB;
+    case LIBXL_MEMORY_POLICY_ARM_DEV_NGNRE:
+        return MEMORY_POLICY_ARM_DEV_nGnRE;
+    case LIBXL_MEMORY_POLICY_DEFAULT:
+        return MEMORY_POLICY_DEFAULT;
+    default:
+        return ERROR_INVAL;
+    }
+}
+
 /*
  * Local variables:
  * mode: C

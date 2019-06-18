@@ -631,6 +631,18 @@ void libxl__arch_domain_build_info_setdefault(libxl__gc *gc,
     libxl_defbool_setdefault(&b_info->acpi, true);
 }
 
+int libxl__memory_policy_to_xc(libxl_memory_policy c)
+{
+    switch (c) {
+    case LIBXL_MEMORY_POLICY_X86_UC_MINUS:
+        return MEMORY_POLICY_X86_UC_MINUS;
+    case LIBXL_MEMORY_POLICY_DEFAULT:
+        return MEMORY_POLICY_DEFAULT;
+    default:
+        return ERROR_INVAL;
+    }
+}
+
 /*
  * Local variables:
  * mode: C
