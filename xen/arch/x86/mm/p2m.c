@@ -2276,10 +2276,10 @@ static unsigned int mmio_order(const struct domain *d,
 
 #define MAP_MMIO_MAX_ITER 64 /* pretty arbitrary */
 
-int map_mmio_regions(struct domain *d,
-                     gfn_t start_gfn,
-                     unsigned long nr,
-                     mfn_t mfn)
+int __map_mmio_regions(struct domain *d,
+                       gfn_t start_gfn,
+                       unsigned long nr,
+                       mfn_t mfn)
 {
     int ret = 0;
     unsigned long i;
