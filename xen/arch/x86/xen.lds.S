@@ -206,8 +206,7 @@ SECTIONS
 #endif
 
        *(.init.rodata)
-       *(.init.rodata.rel)
-       *(.init.rodata.str*)
+       *(.init.rodata.*)
 
        . = ALIGN(POINTER_ALIGN);
        __setup_start = .;
@@ -221,8 +220,7 @@ SECTIONS
        __initcall_end = .;
 
        *(.init.data)
-       *(.init.data.rel)
-       *(.init.data.rel.*)
+       *(.init.data.*)
        . = ALIGN(4);
        __trampoline_rel_start = .;
        *(.trampoline_rel)
@@ -272,8 +270,7 @@ SECTIONS
   DECL_SECTION(.data) {
        *(.data.page_aligned)
        *(.data)
-       *(.data.rel)
-       *(.data.rel.*)
+       *(.data.*)
        CONSTRUCTORS
   } :text
 

@@ -96,8 +96,7 @@ SECTIONS
        __start_schedulers_array = .;
        *(.data.schedulers)
        __end_schedulers_array = .;
-       *(.data.rel)
-       *(.data.rel.*)
+       *(.data.*)
        CONSTRUCTORS
   } :text
 
@@ -147,8 +146,7 @@ SECTIONS
   . = ALIGN(PAGE_SIZE);
   .init.data : {
        *(.init.rodata)
-       *(.init.rodata.rel)
-       *(.init.rodata.str*)
+       *(.init.rodata.*)
 
        . = ALIGN(POINTER_ALIGN);
        __setup_start = .;
@@ -169,8 +167,7 @@ SECTIONS
        *(.altinstr_replacement)
 
        *(.init.data)
-       *(.init.data.rel)
-       *(.init.data.rel.*)
+       *(.init.data.*)
 
        . = ALIGN(8);
        __ctors_start = .;
