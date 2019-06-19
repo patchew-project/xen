@@ -138,7 +138,7 @@ struct xz_dec {
 
 #ifdef XZ_DEC_ANY_CHECK
 /* Sizes of the Check field with different Check IDs */
-static const uint8_t check_sizes[16] = {
+static const uint8_t INITCONST check_sizes[16] = {
 	0,
 	4, 4, 4,
 	8, 8, 8,

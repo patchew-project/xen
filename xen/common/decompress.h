@@ -10,6 +10,7 @@
 #define STATIC
 #define INIT __init
 #define INITDATA __initdata
+#define INITCONST __initconst
 
 #define malloc xmalloc_bytes
 #define free xfree
@@ -22,6 +23,7 @@
 #define STATIC static
 #define INIT
 #define INITDATA
+#define INITCONST
 
 #define large_malloc malloc
 #define large_free free
