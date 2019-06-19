@@ -140,6 +140,11 @@ SECTIONS
        *(.data.param)
        __param_end = .;
 
+       . = ALIGN(POINTER_ALIGN);
+       __start_schedulers_array = .;
+       *(.data.schedulers)
+       __end_schedulers_array = .;
+
 #if defined(CONFIG_HAS_VPCI) && defined(CONFIG_LATE_HWDOM)
        . = ALIGN(POINTER_ALIGN);
        __start_vpci_array = .;
@@ -207,6 +212,7 @@ SECTIONS
 
        *(.init.rodata)
        *(.init.rodata.*)
+       CONSTRUCTORS
 
        . = ALIGN(POINTER_ALIGN);
        __setup_start = .;
@@ -261,17 +267,12 @@ SECTIONS
   . = ALIGN(SMP_CACHE_BYTES);
   DECL_SECTION(.data.read_mostly) {
        *(.data.read_mostly)
-       . = ALIGN(8);
-       __start_schedulers_array = .;
-       *(.data.schedulers)
-       __end_schedulers_array = .;
   } :text
 
   DECL_SECTION(.data) {
        *(.data.page_aligned)
        *(.data)
        *(.data.*)
-       CONSTRUCTORS
   } :text
 
   DECL_SECTION(.bss) {

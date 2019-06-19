@@ -66,6 +66,11 @@ SECTIONS
        *(.data.param)
        __param_end = .;
 
+       . = ALIGN(POINTER_ALIGN);
+       __start_schedulers_array = .;
+       *(.data.schedulers)
+       __end_schedulers_array = .;
+
        __proc_info_start = .;
        *(.proc.info)
        __proc_info_end = .;
@@ -92,12 +97,7 @@ SECTIONS
        . = ALIGN(PAGE_SIZE);
        *(.data.page_aligned)
        *(.data)
-       . = ALIGN(8);
-       __start_schedulers_array = .;
-       *(.data.schedulers)
-       __end_schedulers_array = .;
        *(.data.*)
-       CONSTRUCTORS
   } :text
 
   . = ALIGN(SMP_CACHE_BYTES);
@@ -147,6 +147,7 @@ SECTIONS
   .init.data : {
        *(.init.rodata)
        *(.init.rodata.*)
+       CONSTRUCTORS
 
        . = ALIGN(POINTER_ALIGN);
        __setup_start = .;
