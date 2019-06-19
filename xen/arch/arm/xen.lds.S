@@ -35,14 +35,13 @@ SECTIONS
        *(.text.cold)
        *(.text.unlikely)
        *(.fixup)
-       *(.gnu.warning)
        _etext = .;             /* End of text section */
   } :text = 0x9090
 
   . = ALIGN(PAGE_SIZE);
   .rodata : {
-        _srodata = .;          /* Read-only data */
-        /* Bug frames table */
+       _srodata = .;           /* Read-only data */
+       /* Bug frames table */
        __start_bug_frames = .;
        *(.bug_frames.0)
        __stop_bug_frames_0 = .;
@@ -202,6 +201,8 @@ SECTIONS
        *(.exit.text)
        *(.exit.data)
        *(.exitcall.exit)
+       *(.discard)
+       *(.discard.*)
        *(.eh_frame)
   }
 
