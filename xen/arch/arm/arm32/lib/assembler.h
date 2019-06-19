@@ -160,13 +160,6 @@
 	restore_irqs_notrace \oldcpsr
 	.endm
 
-#define USER(x...)				\
-9999:	x;					\
-	.pushsection __ex_table,"a";		\
-	.align	3;				\
-	.long	9999b,9001f;			\
-	.popsection
-
 #ifdef CONFIG_SMP
 #define ALT_SMP(instr...)					\
 9998:	instr
@@ -247,7 +240,7 @@
 #ifdef CONFIG_THUMB2_KERNEL
 
 	.macro	usraccoff, instr, reg, ptr, inc, off, cond, abort, t=T()
-9999:
+
 	.if	\inc == 1
 	\instr\cond\()b\()\t\().w \reg, [\ptr, #\off]
 	.elseif	\inc == 4
@@ -256,10 +249,6 @@
 	.error	"Unsupported inc macro argument"
 	.endif
 
-	.pushsection __ex_table,"a"
-	.align	3
-	.long	9999b, \abort
-	.popsection
 	.endm
 
 	.macro	usracc, instr, reg, ptr, inc, cond, rept, abort
@@ -288,7 +277,7 @@
 
 	.macro	usracc, instr, reg, ptr, inc, cond, rept, abort, t=T()
 	.rept	\rept
-9999:
+
 	.if	\inc == 1
 	\instr\cond\()b\()\t \reg, [\ptr], #\inc
 	.elseif	\inc == 4
@@ -297,10 +286,6 @@
 	.error	"Unsupported inc macro argument"
 	.endif
 
-	.pushsection __ex_table,"a"
-	.align	3
-	.long	9999b, \abort
-	.popsection
 	.endr
 	.endm
 

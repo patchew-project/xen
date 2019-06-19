@@ -94,25 +94,11 @@ SECTIONS
   _erodata = .;                /* End of read-only data */
 
   .data : {                    /* Data */
+       *(.data.read_mostly)
        . = ALIGN(PAGE_SIZE);
        *(.data.page_aligned)
        *(.data)
        *(.data.*)
-  } :text
-
-  . = ALIGN(SMP_CACHE_BYTES);
-  .data.read_mostly : {
-       /* Exception table */
-       __start___ex_table = .;
-       *(.ex_table)
-       __stop___ex_table = .;
-
-       /* Pre-exception table */
-       __start___pre_ex_table = .;
-       *(.ex_table.pre)
-       __stop___pre_ex_table = .;
-
-       *(.data.read_mostly)
   } :text
 
   . = ALIGN(8);

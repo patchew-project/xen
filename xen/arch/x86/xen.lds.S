@@ -264,12 +264,9 @@ SECTIONS
   __2M_init_end = .;
 
   __2M_rwdata_start = .;       /* Start of 2M superpages, mapped RW. */
-  . = ALIGN(SMP_CACHE_BYTES);
-  DECL_SECTION(.data.read_mostly) {
-       *(.data.read_mostly)
-  } :text
-
   DECL_SECTION(.data) {
+       *(.data.read_mostly)
+       . = ALIGN(PAGE_SIZE);
        *(.data.page_aligned)
        *(.data)
        *(.data.*)
