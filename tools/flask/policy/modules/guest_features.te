@@ -21,8 +21,9 @@ if (guest_writeconsole) {
 
 # For normal guests, allow all queries except XENVER_commandline.
 allow domain_type xen_t:version {
-    xen_extraversion xen_compile_info xen_capabilities
-    xen_changeset xen_pagesize xen_guest_handle
+    xen_version xen_extraversion xen_compile_info xen_capabilities
+    xen_changeset xen_pagesize xen_guest_handle xen_get_features
+    xen_platform_parameters
 };
 
 # Version queries don't need auditing when denied.  They can be

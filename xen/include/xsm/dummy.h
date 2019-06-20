@@ -69,7 +69,7 @@ void __xsm_action_mismatch_detected(void);
 #endif /* CONFIG_XSM */
 
 static always_inline int xsm_default_action(
-    xsm_default_t action, struct domain *src, struct domain *target)
+    xsm_default_t action, const struct domain *src, const struct domain *target)
 {
     switch ( action ) {
     case XSM_HOOK:
@@ -738,6 +738,16 @@ static XSM_INLINE int xsm_argo_send(const struct domain *d,
 }
 
 #endif /* CONFIG_ARGO */
+
+#ifdef CONFIG_XEN_NESTED
+static XSM_INLINE int xsm_nested_xen_version(XSM_DEFAULT_ARG
+                                             const struct domain *d,
+                                             unsigned int cmd)
+{
+    XSM_ASSERT_ACTION(XSM_PRIV);
+    return xsm_default_action(action, d, NULL);
+}
+#endif
 
 #include <public/version.h>
 static XSM_INLINE int xsm_xen_version (XSM_DEFAULT_ARG uint32_t op)

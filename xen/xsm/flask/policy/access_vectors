@@ -510,6 +510,8 @@ class security
 #
 class version
 {
+# Basic information
+    xen_version
 # Extra informations (-unstable).
     xen_extraversion
 # Compile information of the hypervisor.
@@ -518,6 +520,10 @@ class version
     xen_capabilities
 # Source code changeset.
     xen_changeset
+# Hypervisor virt start
+    xen_platform_parameters
+# Query for bitmap of platform features
+    xen_get_features
 # Page size the hypervisor uses.
     xen_pagesize
 # An value that the control stack can choose.

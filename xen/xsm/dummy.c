@@ -157,4 +157,7 @@ void __init xsm_fixup_ops (struct xsm_operations *ops)
     set_to_dummy_if_null(ops, argo_register_any_source);
     set_to_dummy_if_null(ops, argo_send);
 #endif
+#ifdef CONFIG_XEN_NESTED
+    set_to_dummy_if_null(ops, nested_xen_version);
+#endif
 }

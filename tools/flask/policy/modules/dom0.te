@@ -22,9 +22,9 @@ allow dom0_t xen_t:xen2 {
 # Allow dom0 to use all XENVER_ subops that have checks.
 # Note that dom0 is part of domain_type so this has duplicates.
 allow dom0_t xen_t:version {
-	xen_extraversion xen_compile_info xen_capabilities
+	xen_version xen_extraversion xen_compile_info xen_capabilities
 	xen_changeset xen_pagesize xen_guest_handle xen_commandline
-	xen_build_id
+	xen_build_id xen_get_features xen_platform_parameters
 };
 
 allow dom0_t xen_t:mmu memorymap;
@@ -42,6 +42,9 @@ allow dom0_t dom0_t:domain2 {
 	get_vnumainfo psr_cmt_op psr_alloc get_cpu_policy
 };
 allow dom0_t dom0_t:resource { add remove };
+
+# Allow dom0 to communicate with a nested Xen hypervisor
+allow dom0_t nestedxen_t:version { xen_version xen_get_features };
 
 # These permissions allow using the FLASK security server to compute access
 # checks locally, which could be used by a domain or service (such as xenstore)

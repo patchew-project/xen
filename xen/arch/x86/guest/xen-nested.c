@@ -47,9 +47,9 @@ long do_nested_xen_version(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
     if ( !xen_nested )
         return -ENOSYS;
 
-    /* FIXME: apply XSM check here */
-    if ( !is_control_domain(current->domain) )
-        return -EPERM;
+    ret = xsm_nested_xen_version(XSM_PRIV, current->domain, cmd);
+    if ( ret )
+        return ret;
 
     gprintk(XENLOG_DEBUG, "Nested xen_version: %d.\n", cmd);
 

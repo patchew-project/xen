@@ -187,6 +187,9 @@ struct xsm_operations {
     int (*argo_register_any_source) (const struct domain *d);
     int (*argo_send) (const struct domain *d, const struct domain *t);
 #endif
+#ifdef CONFIG_XEN_NESTED
+    int (*nested_xen_version) (const struct domain *d, unsigned int cmd);
+#endif
 };
 
 #ifdef CONFIG_XSM
@@ -722,6 +725,16 @@ static inline int xsm_argo_send(const struct domain *d, const struct domain *t)
 }
 
 #endif /* CONFIG_ARGO */
+
+#ifdef CONFIG_XEN_NESTED
+static inline int xsm_nested_xen_version(xsm_default_t def,
+                                         const struct domain *d,
+                                         unsigned int cmd)
+{
+    return xsm_ops->nested_xen_version(d, cmd);
+}
+
+#endif /* CONFIG_XEN_NESTED */
 
 #endif /* XSM_NO_WRAPPERS */
 

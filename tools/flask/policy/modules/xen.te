@@ -26,6 +26,9 @@ attribute mls_priv;
 # The hypervisor itself
 type xen_t, xen_type, mls_priv;
 
+# A nested Xen hypervisor, if any
+type nestedxen_t, xen_type;
+
 # Domain 0
 declare_singleton_domain(dom0_t, mls_priv);
 

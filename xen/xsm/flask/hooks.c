@@ -1666,44 +1666,54 @@ static int flask_dm_op(struct domain *d)
 
 #endif /* CONFIG_X86 */
 
-static int flask_xen_version (uint32_t op)
+static int domain_has_xen_version (const struct domain *d, u32 tsid,
+                                   uint32_t op)
 {
-    u32 dsid = domain_sid(current->domain);
+    u32 dsid = domain_sid(d);
 
     switch ( op )
     {
     case XENVER_version:
-    case XENVER_platform_parameters:
-    case XENVER_get_features:
-        /* These sub-ops ignore the permission checks and return data. */
-        return 0;
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
+                            VERSION__XEN_VERSION, NULL);
     case XENVER_extraversion:
-        return avc_has_perm(dsid, SECINITSID_XEN, SECCLASS_VERSION,
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
                             VERSION__XEN_EXTRAVERSION, NULL);
     case XENVER_compile_info:
-        return avc_has_perm(dsid, SECINITSID_XEN, SECCLASS_VERSION,
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
                             VERSION__XEN_COMPILE_INFO, NULL);
     case XENVER_capabilities:
-        return avc_has_perm(dsid, SECINITSID_XEN, SECCLASS_VERSION,
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
                             VERSION__XEN_CAPABILITIES, NULL);
     case XENVER_changeset:
-        return avc_has_perm(dsid, SECINITSID_XEN, SECCLASS_VERSION,
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
                             VERSION__XEN_CHANGESET, NULL);
+    case XENVER_platform_parameters:
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
+                            VERSION__XEN_PLATFORM_PARAMETERS, NULL);
+    case XENVER_get_features:
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
+                            VERSION__XEN_GET_FEATURES, NULL);
     case XENVER_pagesize:
-        return avc_has_perm(dsid, SECINITSID_XEN, SECCLASS_VERSION,
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
                             VERSION__XEN_PAGESIZE, NULL);
     case XENVER_guest_handle:
-        return avc_has_perm(dsid, SECINITSID_XEN, SECCLASS_VERSION,
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
                             VERSION__XEN_GUEST_HANDLE, NULL);
     case XENVER_commandline:
-        return avc_has_perm(dsid, SECINITSID_XEN, SECCLASS_VERSION,
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
                             VERSION__XEN_COMMANDLINE, NULL);
     case XENVER_build_id:
-        return avc_has_perm(dsid, SECINITSID_XEN, SECCLASS_VERSION,
+        return avc_has_perm(dsid, tsid, SECCLASS_VERSION,
                             VERSION__XEN_BUILD_ID, NULL);
     default:
         return -EPERM;
     }
+}
+
+static int flask_xen_version (uint32_t op)
+{
+    return domain_has_xen_version(current->domain, SECINITSID_XEN, op);
 }
 
 static int flask_domain_resource_map(struct domain *d)
@@ -1734,6 +1744,14 @@ static int flask_argo_register_any_source(const struct domain *d)
 static int flask_argo_send(const struct domain *d, const struct domain *t)
 {
     return domain_has_perm(d, t, SECCLASS_ARGO, ARGO__SEND);
+}
+
+#endif
+
+#ifdef CONFIG_XEN_NESTED
+static int flask_nested_xen_version(const struct domain *d, unsigned int op)
+{
+    return domain_has_xen_version(d, SECINITSID_NESTEDXEN, op);
 }
 
 #endif
@@ -1876,6 +1894,9 @@ static struct xsm_operations flask_ops = {
     .argo_register_single_source = flask_argo_register_single_source,
     .argo_register_any_source = flask_argo_register_any_source,
     .argo_send = flask_argo_send,
+#endif
+#ifdef CONFIG_XEN_NESTED
+    .nested_xen_version = flask_nested_xen_version,
 #endif
 };
 
