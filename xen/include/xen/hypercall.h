@@ -162,6 +162,11 @@ extern long do_nested_memory_op(
 extern long do_nested_hvm_op(
     int cmd,
     XEN_GUEST_HANDLE_PARAM(void) arg);
+
+extern long do_nested_grant_table_op(
+    unsigned int cmd,
+    XEN_GUEST_HANDLE_PARAM(void) uop,
+    unsigned int count);
 #endif
 
 #ifdef CONFIG_COMPAT

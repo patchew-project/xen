@@ -22,6 +22,7 @@
 #include <xen/lib.h>
 #include <xen/sched.h>
 
+#include <public/grant_table.h>
 #include <public/hvm/hvm_op.h>
 #include <public/memory.h>
 #include <public/version.h>
@@ -201,4 +202,40 @@ long do_nested_hvm_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         gprintk(XENLOG_ERR, "Nested hvm op %d not implemented.\n", cmd);
         return -EOPNOTSUPP;
     }
+}
+
+long do_nested_grant_table_op(unsigned int cmd,
+                              XEN_GUEST_HANDLE_PARAM(void) uop,
+                              unsigned int count)
+{
+    struct gnttab_query_size op;
+    long ret;
+
+    if ( !xen_nested )
+        return -ENOSYS;
+
+    if ( cmd != GNTTABOP_query_size )
+    {
+        gprintk(XENLOG_ERR, "Nested grant table op %u not supported.\n", cmd);
+        return -EOPNOTSUPP;
+    }
+
+    if ( count != 1 )
+        return -EINVAL;
+
+    if ( copy_from_guest(&op, uop, 1) )
+        return -EFAULT;
+
+    if ( op.dom != DOMID_SELF )
+        return -EPERM;
+
+    ret = xsm_nested_grant_query_size(XSM_PRIV, current->domain);
+    if ( ret )
+        return ret;
+
+    ret = xen_hypercall_grant_table_op(cmd, &op, 1);
+    if ( !ret && __copy_to_guest(uop, &op, 1) )
+        return -EFAULT;
+
+    return ret;
 }

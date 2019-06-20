@@ -124,6 +124,7 @@ DEFINE_XEN_GUEST_HANDLE(xen_ulong_t);
 #define __HYPERVISOR_nested_xen_version   42
 #define __HYPERVISOR_nested_memory_op     43
 #define __HYPERVISOR_nested_hvm_op        44
+#define __HYPERVISOR_nested_grant_table_op 45
 
 /* Architecture-specific hypercall definitions. */
 #define __HYPERVISOR_arch_0               48

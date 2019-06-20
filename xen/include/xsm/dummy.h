@@ -761,6 +761,13 @@ static XSM_INLINE int xsm_nested_hvm_op(XSM_DEFAULT_ARG const struct domain *d,
     XSM_ASSERT_ACTION(XSM_PRIV);
     return xsm_default_action(action, d, NULL);
 }
+
+static XSM_INLINE int xsm_nested_grant_query_size(XSM_DEFAULT_ARG
+                                                  const struct domain *d)
+{
+    XSM_ASSERT_ACTION(XSM_PRIV);
+    return xsm_default_action(action, d, NULL);
+}
 #endif
 
 #include <public/version.h>

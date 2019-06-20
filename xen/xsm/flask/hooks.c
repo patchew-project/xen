@@ -1789,6 +1789,11 @@ static int flask_nested_hvm_op(const struct domain *d, unsigned int op)
     return domain_has_nested_perm(d, SECCLASS_HVM, perm);
 }
 
+static int flask_nested_grant_query_size(const struct domain *d)
+{
+    return domain_has_nested_perm(d, SECCLASS_GRANT, GRANT__QUERY);
+}
+
 #endif
 
 long do_flask_op(XEN_GUEST_HANDLE_PARAM(xsm_op_t) u_flask_op);
@@ -1934,6 +1939,7 @@ static struct xsm_operations flask_ops = {
     .nested_xen_version = flask_nested_xen_version,
     .nested_add_to_physmap = flask_nested_add_to_physmap,
     .nested_hvm_op = flask_nested_hvm_op,
+    .nested_grant_query_size = flask_nested_grant_query_size,
 #endif
 };
 
