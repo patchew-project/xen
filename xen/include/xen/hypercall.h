@@ -154,6 +154,10 @@ do_dm_op(
 extern long do_nested_xen_version(
     int cmd,
     XEN_GUEST_HANDLE_PARAM(void) arg);
+
+extern long do_nested_memory_op(
+    int cmd,
+    XEN_GUEST_HANDLE_PARAM(void) arg);
 #endif
 
 #ifdef CONFIG_COMPAT
@@ -221,6 +225,12 @@ compat_dm_op(
     domid_t domid,
     unsigned int nr_bufs,
     XEN_GUEST_HANDLE_PARAM(void) bufs);
+
+#ifdef CONFIG_XEN_NESTED
+extern int compat_nested_memory_op(
+    int cmd,
+    XEN_GUEST_HANDLE_PARAM(void) arg);
+#endif
 
 #endif
 

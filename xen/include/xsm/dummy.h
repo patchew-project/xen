@@ -747,6 +747,13 @@ static XSM_INLINE int xsm_nested_xen_version(XSM_DEFAULT_ARG
     XSM_ASSERT_ACTION(XSM_PRIV);
     return xsm_default_action(action, d, NULL);
 }
+
+static XSM_INLINE int xsm_nested_add_to_physmap(XSM_DEFAULT_ARG
+                                                const struct domain *d)
+{
+    XSM_ASSERT_ACTION(XSM_PRIV);
+    return xsm_default_action(action, d, NULL);
+}
 #endif
 
 #include <public/version.h>

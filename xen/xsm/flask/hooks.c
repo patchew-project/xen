@@ -1749,6 +1749,20 @@ static int flask_argo_send(const struct domain *d, const struct domain *t)
 #endif
 
 #ifdef CONFIG_XEN_NESTED
+static int domain_has_nested_perm(const struct domain *d, u16 class, u32 perm)
+{
+    struct avc_audit_data ad;
+
+    AVC_AUDIT_DATA_INIT(&ad, NONE);
+
+    return avc_has_perm(domain_sid(d), SECINITSID_NESTEDXEN, class, perm, &ad);
+}
+
+static int flask_nested_add_to_physmap(const struct domain *d)
+{
+    return domain_has_nested_perm(d, SECCLASS_MMU, MMU__PHYSMAP);
+}
+
 static int flask_nested_xen_version(const struct domain *d, unsigned int op)
 {
     return domain_has_xen_version(d, SECINITSID_NESTEDXEN, op);
@@ -1897,6 +1911,7 @@ static struct xsm_operations flask_ops = {
 #endif
 #ifdef CONFIG_XEN_NESTED
     .nested_xen_version = flask_nested_xen_version,
+    .nested_add_to_physmap = flask_nested_add_to_physmap,
 #endif
 };
 

@@ -75,6 +75,7 @@ const hypercall_args_t hypercall_args_table[NR_hypercalls] =
 #endif
 #ifdef CONFIG_XEN_NESTED
     ARGS(nested_xen_version, 2),
+    COMP(nested_memory_op, 2, 2),
 #endif
     ARGS(mca, 1),
     ARGS(arch_1, 1),

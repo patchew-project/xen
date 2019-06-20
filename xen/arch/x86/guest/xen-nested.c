@@ -22,10 +22,16 @@
 #include <xen/lib.h>
 #include <xen/sched.h>
 
+#include <public/memory.h>
 #include <public/version.h>
+#include <public/xen.h>
 
 #include <asm/guest/hypercall.h>
 #include <asm/guest/xen.h>
+
+#ifdef CONFIG_COMPAT
+#include <compat/memory.h>
+#endif
 
 extern char hypercall_page[];
 
@@ -80,3 +86,77 @@ long do_nested_xen_version(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         return -EOPNOTSUPP;
     }
 }
+
+static long nested_add_to_physmap(struct xen_add_to_physmap xatp)
+{
+    struct domain *d;
+    long ret;
+
+    if ( !xen_nested )
+        return -ENOSYS;
+
+    if ( (xatp.space != XENMAPSPACE_shared_info) &&
+         (xatp.space != XENMAPSPACE_grant_table) )
+    {
+        gprintk(XENLOG_ERR, "Nested memory op: unknown xatp.space: %u\n",
+                xatp.space);
+        return -EINVAL;
+    }
+
+    if ( xatp.domid != DOMID_SELF )
+        return -EPERM;
+
+    ret = xsm_nested_add_to_physmap(XSM_PRIV, current->domain);
+    if ( ret )
+        return ret;
+
+    gprintk(XENLOG_DEBUG, "Nested XENMEM_add_to_physmap: %d\n", xatp.space);
+
+    d = rcu_lock_current_domain();
+
+    ret = xen_hypercall_memory_op(XENMEM_add_to_physmap, &xatp);
+
+    rcu_unlock_domain(d);
+
+    if ( ret )
+        gprintk(XENLOG_ERR, "Nested memory op failed add_to_physmap"
+                            " for %d with %ld\n", xatp.space, ret);
+    return ret;
+}
+
+long do_nested_memory_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+{
+    struct xen_add_to_physmap xatp;
+
+    if ( cmd != XENMEM_add_to_physmap )
+    {
+        gprintk(XENLOG_ERR, "Nested memory op %u not implemented.\n", cmd);
+        return -EOPNOTSUPP;
+    }
+
+    if ( copy_from_guest(&xatp, arg, 1) )
+        return -EFAULT;
+
+    return nested_add_to_physmap(xatp);
+}
+
+#ifdef CONFIG_COMPAT
+int compat_nested_memory_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+{
+    struct compat_add_to_physmap cmp;
+    struct xen_add_to_physmap *nat = COMPAT_ARG_XLAT_VIRT_BASE;
+
+    if ( cmd != XENMEM_add_to_physmap )
+    {
+        gprintk(XENLOG_ERR, "Nested memory op %u not implemented.\n", cmd);
+        return -EOPNOTSUPP;
+    }
+
+    if ( copy_from_guest(&cmp, arg, 1) )
+        return -EFAULT;
+
+    XLAT_add_to_physmap(nat, &cmp);
+
+    return nested_add_to_physmap(*nat);
+}
+#endif

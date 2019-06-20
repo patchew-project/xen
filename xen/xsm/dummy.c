@@ -159,5 +159,6 @@ void __init xsm_fixup_ops (struct xsm_operations *ops)
 #endif
 #ifdef CONFIG_XEN_NESTED
     set_to_dummy_if_null(ops, nested_xen_version);
+    set_to_dummy_if_null(ops, nested_add_to_physmap);
 #endif
 }
