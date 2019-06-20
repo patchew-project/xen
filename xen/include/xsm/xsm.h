@@ -190,6 +190,7 @@ struct xsm_operations {
 #ifdef CONFIG_XEN_NESTED
     int (*nested_xen_version) (const struct domain *d, unsigned int cmd);
     int (*nested_add_to_physmap) (const struct domain *d);
+    int (*nested_hvm_op) (const struct domain *d, unsigned int cmd);
 #endif
 };
 
@@ -739,6 +740,12 @@ static inline int xsm_nested_add_to_physmap(xsm_default_t def,
                                             const struct domain *d)
 {
     return xsm_ops->nested_add_to_physmap(d);
+}
+
+static inline int xsm_nested_hvm_op(xsm_default_t def, const struct domain *d,
+                                    unsigned int cmd)
+{
+    return xsm_ops->nested_hvm_op(d, cmd);
 }
 
 #endif /* CONFIG_XEN_NESTED */

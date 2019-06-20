@@ -1768,6 +1768,27 @@ static int flask_nested_xen_version(const struct domain *d, unsigned int op)
     return domain_has_xen_version(d, SECINITSID_NESTEDXEN, op);
 }
 
+static int flask_nested_hvm_op(const struct domain *d, unsigned int op)
+{
+    u32 perm;
+
+    switch ( op )
+    {
+    case HVMOP_set_param:
+        perm = HVM__SETPARAM;
+        break;
+
+    case HVMOP_get_param:
+        perm = HVM__GETPARAM;
+        break;
+
+    default:
+        perm = HVM__HVMCTL;
+    }
+
+    return domain_has_nested_perm(d, SECCLASS_HVM, perm);
+}
+
 #endif
 
 long do_flask_op(XEN_GUEST_HANDLE_PARAM(xsm_op_t) u_flask_op);
@@ -1912,6 +1933,7 @@ static struct xsm_operations flask_ops = {
 #ifdef CONFIG_XEN_NESTED
     .nested_xen_version = flask_nested_xen_version,
     .nested_add_to_physmap = flask_nested_add_to_physmap,
+    .nested_hvm_op = flask_nested_hvm_op,
 #endif
 };
 

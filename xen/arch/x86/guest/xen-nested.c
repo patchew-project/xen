@@ -22,6 +22,7 @@
 #include <xen/lib.h>
 #include <xen/sched.h>
 
+#include <public/hvm/hvm_op.h>
 #include <public/memory.h>
 #include <public/version.h>
 #include <public/xen.h>
@@ -160,3 +161,44 @@ int compat_nested_memory_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
     return nested_add_to_physmap(*nat);
 }
 #endif
+
+long do_nested_hvm_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+{
+    struct xen_hvm_param a;
+    long ret;
+
+    if ( !xen_nested )
+        return -ENOSYS;
+
+    ret = xsm_nested_hvm_op(XSM_PRIV, current->domain, cmd);
+    if ( ret )
+        return ret;
+
+    switch ( cmd )
+    {
+    case HVMOP_set_param:
+    {
+        if ( copy_from_guest(&a, arg, 1) )
+            return -EFAULT;
+
+        return xen_hypercall_hvm_op(cmd, &a);
+    }
+
+    case HVMOP_get_param:
+    {
+        if ( copy_from_guest(&a, arg, 1) )
+            return -EFAULT;
+
+        ret = xen_hypercall_hvm_op(cmd, &a);
+
+        if ( !ret && __copy_to_guest(arg, &a, 1) )
+            return -EFAULT;
+
+        return ret;
+    }
+
+    default:
+        gprintk(XENLOG_ERR, "Nested hvm op %d not implemented.\n", cmd);
+        return -EOPNOTSUPP;
+    }
+}

@@ -87,6 +87,7 @@ const hypercall_table_t pv_hypercall_table[] = {
 #ifdef CONFIG_XEN_NESTED
     HYPERCALL(nested_xen_version),
     COMPAT_CALL(nested_memory_op),
+    HYPERCALL(nested_hvm_op),
 #endif
     HYPERCALL(mca),
     HYPERCALL(arch_1),

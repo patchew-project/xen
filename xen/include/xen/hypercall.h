@@ -158,6 +158,10 @@ extern long do_nested_xen_version(
 extern long do_nested_memory_op(
     int cmd,
     XEN_GUEST_HANDLE_PARAM(void) arg);
+
+extern long do_nested_hvm_op(
+    int cmd,
+    XEN_GUEST_HANDLE_PARAM(void) arg);
 #endif
 
 #ifdef CONFIG_COMPAT
