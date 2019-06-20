@@ -26,6 +26,7 @@
 #include <public/grant_table.h>
 #include <public/hvm/hvm_op.h>
 #include <public/memory.h>
+#include <public/sched.h>
 #include <public/version.h>
 #include <public/xen.h>
 
@@ -322,4 +323,28 @@ long do_nested_event_channel_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
     }
 
     return ret;
+}
+
+long do_nested_sched_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+{
+    struct sched_shutdown sched_shutdown;
+    long ret;
+
+    if ( !xen_nested )
+        return -ENOSYS;
+
+    if ( cmd != SCHEDOP_shutdown )
+    {
+        gprintk(XENLOG_ERR, "Nested: sched op %d not supported.\n", cmd);
+        return -EOPNOTSUPP;
+    }
+
+    ret = xsm_nested_schedop_shutdown(XSM_PRIV, current->domain);
+    if ( ret )
+        return ret;
+
+    if ( copy_from_guest(&sched_shutdown, arg, 1) )
+        return -EFAULT;
+
+    return xen_hypercall_sched_op(cmd, &sched_shutdown);
 }

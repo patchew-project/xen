@@ -193,6 +193,7 @@ struct xsm_operations {
     int (*nested_hvm_op) (const struct domain *d, unsigned int cmd);
     int (*nested_grant_query_size) (const struct domain *d);
     int (*nested_event_channel_op) (const struct domain *d, unsigned int cmd);
+    int (*nested_schedop_shutdown) (const struct domain *d);
 #endif
 };
 
@@ -761,6 +762,12 @@ static inline int xsm_nested_event_channel_op(xsm_default_t def,
                                               unsigned int cmd)
 {
     return xsm_ops->nested_event_channel_op(d, cmd);
+}
+
+static inline int xsm_nested_schedop_shutdown(xsm_default_t def,
+                                              const struct domain *d)
+{
+    return xsm_ops->nested_schedop_shutdown(d);
 }
 
 #endif /* CONFIG_XEN_NESTED */

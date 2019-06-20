@@ -1828,6 +1828,11 @@ static int flask_nested_event_channel_op(const struct domain *d,
     return domain_has_nested_perm(d, SECCLASS_NESTED_EVENT, perm);
 }
 
+static int flask_nested_schedop_shutdown(const struct domain *d)
+{
+    return domain_has_nested_perm(d, SECCLASS_DOMAIN, DOMAIN__SHUTDOWN);
+}
+
 #endif
 
 long do_flask_op(XEN_GUEST_HANDLE_PARAM(xsm_op_t) u_flask_op);
@@ -1975,6 +1980,7 @@ static struct xsm_operations flask_ops = {
     .nested_hvm_op = flask_nested_hvm_op,
     .nested_grant_query_size = flask_nested_grant_query_size,
     .nested_event_channel_op = flask_nested_event_channel_op,
+    .nested_schedop_shutdown = flask_nested_schedop_shutdown,
 #endif
 };
 

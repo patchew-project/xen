@@ -65,6 +65,7 @@ DECLARE_HYPERCALL(nested_memory_op)
 DECLARE_HYPERCALL(nested_hvm_op)
 DECLARE_HYPERCALL(nested_grant_table_op)
 DECLARE_HYPERCALL(nested_event_channel_op)
+DECLARE_HYPERCALL(nested_sched_op)
 
 DECLARE_HYPERCALL(arch_0)
 DECLARE_HYPERCALL(arch_1)

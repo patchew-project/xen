@@ -90,6 +90,7 @@ const hypercall_table_t pv_hypercall_table[] = {
     HYPERCALL(nested_hvm_op),
     HYPERCALL(nested_grant_table_op),
     HYPERCALL(nested_event_channel_op),
+    HYPERCALL(nested_sched_op),
 #endif
     HYPERCALL(mca),
     HYPERCALL(arch_1),

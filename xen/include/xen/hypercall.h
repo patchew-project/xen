@@ -171,6 +171,10 @@ extern long do_nested_grant_table_op(
 extern long do_nested_event_channel_op(
     int cmd,
     XEN_GUEST_HANDLE_PARAM(void) arg);
+
+extern long do_nested_sched_op(
+    int cmd,
+    XEN_GUEST_HANDLE_PARAM(void) arg);
 #endif
 
 #ifdef CONFIG_COMPAT
