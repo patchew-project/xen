@@ -208,6 +208,28 @@ config PV_SHIM_EXCLUSIVE
 	  firmware, and will not function correctly in other scenarios.
 
 	  If unsure, say N.
+
+config XEN_NESTED
+	bool "Xen PV driver interface for nested Xen" if EXPERT = "y"
+	depends on XEN_DETECT
+	---help---
+	  Enables a second PV driver interface in the hypervisor to support running
+	  two sets of PV drivers within a single privileged guest (eg. guest dom0)
+	  of a system running Xen under Xen:
+
+	  1) host set: frontends to access devices provided by lower hypervisor
+	  2) guest set: backends to support existing PV drivers in nested guest VMs
+
+	  This interface supports the host set of drivers and performs proxying of a
+	  limited set of hypercall operations from the guest to the host hypervisor.
+
+	  This feature is for the guest hypervisor and is transparent to the
+	  host hypervisor. Guest VMs of the guest hypervisor use the standard
+	  PV driver interfaces and unmodified drivers.
+
+	  Feature is also known as "The Xen-Blanket", presented at Eurosys 2012.
+
+	  If unsure, say N.
 endmenu
 
 source "common/Kconfig"

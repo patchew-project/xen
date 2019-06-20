@@ -150,6 +150,12 @@ do_dm_op(
     unsigned int nr_bufs,
     XEN_GUEST_HANDLE_PARAM(xen_dm_op_buf_t) bufs);
 
+#ifdef CONFIG_XEN_NESTED
+extern long do_nested_xen_version(
+    int cmd,
+    XEN_GUEST_HANDLE_PARAM(void) arg);
+#endif
+
 #ifdef CONFIG_COMPAT
 
 extern int

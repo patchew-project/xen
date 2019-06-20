@@ -43,6 +43,16 @@ static inline void hypervisor_print_info(void) {
 
 #endif /* CONFIG_XEN_DETECT */
 
+#ifdef CONFIG_XEN_NESTED
+
+void xen_nested_enable(void);
+
+#else
+
+static inline void xen_nested_enable(void) {}
+
+#endif /* CONFIG_XEN_NESTED */
+
 #ifdef CONFIG_XEN_GUEST
 #define XEN_shared_info ((struct shared_info *)fix_to_virt(FIX_XEN_SHARED_INFO))
 

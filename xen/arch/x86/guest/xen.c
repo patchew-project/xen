@@ -74,7 +74,10 @@ void __init probe_hypervisor(void)
 
     xen_detected = true;
 
-    xen_guest_enable();
+    if ( pv_shim || pvh_boot )
+        xen_guest_enable();
+    else
+        xen_nested_enable();
 }
 
 void __init hypervisor_print_info(void)

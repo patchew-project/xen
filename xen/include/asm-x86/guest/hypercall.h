@@ -19,7 +19,7 @@
 #ifndef __X86_XEN_HYPERCALL_H__
 #define __X86_XEN_HYPERCALL_H__
 
-#ifdef CONFIG_XEN_GUEST
+#if defined(CONFIG_XEN_GUEST) || defined (CONFIG_XEN_NESTED)
 
 #include <xen/types.h>
 
@@ -121,6 +121,11 @@ static inline long xen_hypercall_grant_table_op(unsigned int cmd, void *arg,
 static inline long xen_hypercall_hvm_op(unsigned int op, void *arg)
 {
     return _hypercall64_2(long, __HYPERVISOR_hvm_op, op, arg);
+}
+
+static inline long xen_hypercall_xen_version(unsigned int op, void *arg)
+{
+    return _hypercall64_2(long, __HYPERVISOR_xen_version, op, arg);
 }
 
 /*
