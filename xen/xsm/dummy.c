@@ -162,5 +162,6 @@ void __init xsm_fixup_ops (struct xsm_operations *ops)
     set_to_dummy_if_null(ops, nested_add_to_physmap);
     set_to_dummy_if_null(ops, nested_hvm_op);
     set_to_dummy_if_null(ops, nested_grant_query_size);
+    set_to_dummy_if_null(ops, nested_event_channel_op);
 #endif
 }

@@ -316,6 +316,26 @@ class event
     reset
 }
 
+# Class nested_event describes event channels to the host hypervisor
+# in a nested Xen-on-Xen system. Policy controls for these differ
+# from the interdomain event channels between guest VMs:
+# the guest hypervisor does not maintain security identifier information about
+# the remote event endpoint managed by the host hypervisor, so nested_event
+# channels do not have their own security label derived from a type transition.
+class nested_event
+{
+    # nested_event_channel_op: EVTCHNOP_alloc_unbound
+    alloc_unbound
+    # nested_event_channel_op: EVTCHNOP_bind_vcpu
+    bind_vcpu
+    # nested_event_channel_op: EVTCHNOP_close
+    close
+    # nested_event_channel_op: EVTCHNOP_send
+    send
+    # nested_event_channel_op: EVTCHNOP_unmask
+    unmask
+}
+
 # Class grant describes pages shared by grant mappings.  Pages use the security
 # label of their owning domain.
 class grant

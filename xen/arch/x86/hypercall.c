@@ -78,6 +78,7 @@ const hypercall_args_t hypercall_args_table[NR_hypercalls] =
     COMP(nested_memory_op, 2, 2),
     ARGS(nested_hvm_op, 2),
     ARGS(nested_grant_table_op, 3),
+    ARGS(nested_event_channel_op, 2),
 #endif
     ARGS(mca, 1),
     ARGS(arch_1, 1),

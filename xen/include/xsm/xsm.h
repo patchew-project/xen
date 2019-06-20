@@ -192,6 +192,7 @@ struct xsm_operations {
     int (*nested_add_to_physmap) (const struct domain *d);
     int (*nested_hvm_op) (const struct domain *d, unsigned int cmd);
     int (*nested_grant_query_size) (const struct domain *d);
+    int (*nested_event_channel_op) (const struct domain *d, unsigned int cmd);
 #endif
 };
 
@@ -753,6 +754,13 @@ static inline int xsm_nested_grant_query_size(xsm_default_t def,
                                               const struct domain *d)
 {
     return xsm_ops->nested_grant_query_size(d);
+}
+
+static inline int xsm_nested_event_channel_op(xsm_default_t def,
+                                              const struct domain *d,
+                                              unsigned int cmd)
+{
+    return xsm_ops->nested_event_channel_op(d, cmd);
 }
 
 #endif /* CONFIG_XEN_NESTED */

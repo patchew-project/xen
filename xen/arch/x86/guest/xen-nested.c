@@ -22,6 +22,7 @@
 #include <xen/lib.h>
 #include <xen/sched.h>
 
+#include <public/event_channel.h>
 #include <public/grant_table.h>
 #include <public/hvm/hvm_op.h>
 #include <public/memory.h>
@@ -236,6 +237,89 @@ long do_nested_grant_table_op(unsigned int cmd,
     ret = xen_hypercall_grant_table_op(cmd, &op, 1);
     if ( !ret && __copy_to_guest(uop, &op, 1) )
         return -EFAULT;
+
+    return ret;
+}
+
+long do_nested_event_channel_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
+{
+    long ret;
+
+    if ( !xen_nested )
+        return -ENOSYS;
+
+    ret = xsm_nested_event_channel_op(XSM_PRIV, current->domain, cmd);
+    if ( ret )
+        return ret;
+
+    switch ( cmd )
+    {
+    case EVTCHNOP_alloc_unbound:
+    {
+        struct evtchn_alloc_unbound alloc_unbound;
+
+        if ( copy_from_guest(&alloc_unbound, arg, 1) )
+            return -EFAULT;
+
+        ret = xen_hypercall_event_channel_op(cmd, &alloc_unbound);
+        if ( !ret && __copy_to_guest(arg, &alloc_unbound, 1) )
+        {
+            struct evtchn_close close;
+
+            ret = -EFAULT;
+            close.port = alloc_unbound.port;
+
+            if ( xen_hypercall_event_channel_op(EVTCHNOP_close, &close) )
+                gprintk(XENLOG_ERR, "Nested event alloc_unbound failed to close"
+                                    " port %u on EFAULT\n", alloc_unbound.port);
+        }
+        break;
+    }
+
+    case EVTCHNOP_bind_vcpu:
+    {
+       struct evtchn_bind_vcpu bind_vcpu;
+
+        if( copy_from_guest(&bind_vcpu, arg, 1) )
+            return -EFAULT;
+
+        return xen_hypercall_event_channel_op(cmd, &bind_vcpu);
+    }
+
+    case EVTCHNOP_close:
+    {
+        struct evtchn_close close;
+
+        if ( copy_from_guest(&close, arg, 1) )
+            return -EFAULT;
+
+        return xen_hypercall_event_channel_op(cmd, &close);
+    }
+
+    case EVTCHNOP_send:
+    {
+        struct evtchn_send send;
+
+        if ( copy_from_guest(&send, arg, 1) )
+            return -EFAULT;
+
+        return xen_hypercall_event_channel_op(cmd, &send);
+    }
+
+    case EVTCHNOP_unmask:
+    {
+        struct evtchn_unmask unmask;
+
+        if ( copy_from_guest(&unmask, arg, 1) )
+            return -EFAULT;
+
+        return xen_hypercall_event_channel_op(cmd, &unmask);
+    }
+
+    default:
+        gprintk(XENLOG_ERR, "Nested: event hypercall %d not supported.\n", cmd);
+        return -EOPNOTSUPP;
+    }
 
     return ret;
 }

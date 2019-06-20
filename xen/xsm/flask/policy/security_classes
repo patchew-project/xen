@@ -20,5 +20,6 @@ class grant
 class security
 class version
 class argo
+class nested_event
 
 # FLASK

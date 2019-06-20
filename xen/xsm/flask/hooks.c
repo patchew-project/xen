@@ -1794,6 +1794,40 @@ static int flask_nested_grant_query_size(const struct domain *d)
     return domain_has_nested_perm(d, SECCLASS_GRANT, GRANT__QUERY);
 }
 
+static int flask_nested_event_channel_op(const struct domain *d,
+                                         unsigned int op)
+{
+    u32 perm;
+
+    switch ( op )
+    {
+    case EVTCHNOP_alloc_unbound:
+        perm = NESTED_EVENT__ALLOC_UNBOUND;
+        break;
+
+    case EVTCHNOP_bind_vcpu:
+        perm = NESTED_EVENT__BIND_VCPU;
+        break;
+
+    case EVTCHNOP_close:
+        perm = NESTED_EVENT__CLOSE;
+        break;
+
+    case EVTCHNOP_send:
+        perm = NESTED_EVENT__SEND;
+        break;
+
+    case EVTCHNOP_unmask:
+        perm = NESTED_EVENT__UNMASK;
+        break;
+
+    default:
+        return avc_unknown_permission("nested event channel op", op);
+    }
+
+    return domain_has_nested_perm(d, SECCLASS_NESTED_EVENT, perm);
+}
+
 #endif
 
 long do_flask_op(XEN_GUEST_HANDLE_PARAM(xsm_op_t) u_flask_op);
@@ -1940,6 +1974,7 @@ static struct xsm_operations flask_ops = {
     .nested_add_to_physmap = flask_nested_add_to_physmap,
     .nested_hvm_op = flask_nested_hvm_op,
     .nested_grant_query_size = flask_nested_grant_query_size,
+    .nested_event_channel_op = flask_nested_event_channel_op,
 #endif
 };
 

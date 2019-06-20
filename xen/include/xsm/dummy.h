@@ -768,6 +768,14 @@ static XSM_INLINE int xsm_nested_grant_query_size(XSM_DEFAULT_ARG
     XSM_ASSERT_ACTION(XSM_PRIV);
     return xsm_default_action(action, d, NULL);
 }
+
+static XSM_INLINE int xsm_nested_event_channel_op(XSM_DEFAULT_ARG
+                                                  const struct domain *d,
+                                                  unsigned int cmd)
+{
+    XSM_ASSERT_ACTION(XSM_PRIV);
+    return xsm_default_action(action, d, NULL);
+}
 #endif
 
 #include <public/version.h>
