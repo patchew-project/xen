@@ -1247,7 +1247,7 @@ static int __init calibrate_APIC_clock(void)
      */
     __setup_APIC_LVTT(1000000000);
 
-    if ( !xen_guest )
+    if ( !xen_detected )
         /*
          * The timer chip counts down to zero. Let's wait
          * for a wraparound to start exact measurement:
@@ -1267,7 +1267,7 @@ static int __init calibrate_APIC_clock(void)
      * Let's wait LOOPS ticks:
      */
     for (i = 0; i < LOOPS; i++)
-        if ( !xen_guest )
+        if ( !xen_detected )
             wait_8254_wraparound();
         else
             wait_tick_pvh();

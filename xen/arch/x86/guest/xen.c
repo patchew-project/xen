@@ -33,8 +33,10 @@
 #include <public/arch-x86/cpuid.h>
 #include <public/hvm/params.h>
 
+/* xen_detected: Xen running on Xen detected */
+bool __read_mostly xen_detected;
+
 static __read_mostly uint32_t xen_cpuid_base;
-extern char hypercall_page[];
 
 static void __init find_xen_leaves(void)
 {
@@ -58,7 +60,7 @@ static void __init find_xen_leaves(void)
 
 void __init probe_hypervisor(void)
 {
-    if ( xen_guest )
+    if ( xen_detected )
         return;
 
     /* Too early to use cpu_has_hypervisor */
@@ -70,10 +72,21 @@ void __init probe_hypervisor(void)
     if ( !xen_cpuid_base )
         return;
 
-    /* Fill the hypercall page. */
-    wrmsrl(cpuid_ebx(xen_cpuid_base + 2), __pa(hypercall_page));
+    xen_detected = true;
 
-    xen_guest = true;
+    xen_guest_enable();
+}
+
+void __init hypervisor_print_info(void)
+{
+    uint32_t eax, ebx, ecx, edx;
+    unsigned int major, minor;
+
+    cpuid(xen_cpuid_base + 1, &eax, &ebx, &ecx, &edx);
+
+    major = eax >> 16;
+    minor = eax & 0xffff;
+    printk("Nested Xen version %u.%u.\n", major, minor);
 }
 
 uint32_t hypervisor_cpuid_base(void)

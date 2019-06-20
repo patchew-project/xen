@@ -1,4 +1,4 @@
-obj-y += hypercall_page.o
+obj-$(CONFIG_XEN_GUEST) += hypercall_page.o
 obj-y += xen.o
 obj-$(CONFIG_XEN_GUEST) += xen-guest.o
 

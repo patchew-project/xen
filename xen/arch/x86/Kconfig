@@ -161,11 +161,20 @@ config XEN_ALIGN_2M
 
 endchoice
 
+config XEN_DETECT
+	def_bool y
+	prompt "Xen Detection"
+	---help---
+	  Support for Xen detecting when it is running under Xen.
+
+	  If unsure, say Y.
+
 config XEN_GUEST
 	def_bool n
 	prompt "Xen Guest"
+	depends on XEN_DETECT
 	---help---
-	  Support for Xen detecting when it is running under Xen.
+	  Common PVH_GUEST and PV_SHIM logic for Xen as a Xen-aware guest.
 
 	  If unsure, say N.
 

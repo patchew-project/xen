@@ -35,6 +35,8 @@
 #include <public/arch-x86/cpuid.h>
 #include <public/hvm/params.h>
 
+extern char hypercall_page[];
+
 bool __read_mostly xen_guest;
 
 static struct rangeset *mem;
@@ -44,6 +46,14 @@ DEFINE_PER_CPU(unsigned int, vcpu_id);
 static struct vcpu_info *vcpu_info;
 static unsigned long vcpu_info_mapped[BITS_TO_LONGS(NR_CPUS)];
 DEFINE_PER_CPU(struct vcpu_info *, vcpu_info);
+
+void xen_guest_enable(void)
+{
+    /* Fill the hypercall page. */
+    wrmsrl(cpuid_ebx(hypervisor_cpuid_base() + 2), __pa(hypercall_page));
+
+    xen_guest = true;
+}
 
 static void map_shared_info(void)
 {

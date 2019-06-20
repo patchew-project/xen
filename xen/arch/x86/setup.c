@@ -774,6 +774,9 @@ void __init noreturn __start_xen(unsigned long mbi_p)
     ehci_dbgp_init();
     console_init_preirq();
 
+    if ( xen_detected )
+        hypervisor_print_info();
+
     if ( pvh_boot )
         pvh_print_info();
 
