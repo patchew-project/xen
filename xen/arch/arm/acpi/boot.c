@@ -248,7 +248,7 @@ int __init acpi_boot_table_init(void)
      */
     if ( param_acpi_off || ( !param_acpi_force
                              && device_tree_for_each_node(device_tree_flattened,
-                                                   dt_scan_depth1_nodes, NULL)))
+                                 0, 0, dt_scan_depth1_nodes, NULL)))
         goto disable;
 
     /*
