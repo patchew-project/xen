@@ -175,6 +175,14 @@ SECTIONS
   } :text
 #endif
 #endif
+
+#if defined(XEN_BUILD_EFI) && !defined(EFI)
+  . = ALIGN(4);
+  DECL_SECTION(.reloc) {
+    *(.reloc)
+  } :text
+#endif
+
   _erodata = .;
 
   . = ALIGN(SECTION_ALIGN);
