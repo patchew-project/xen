@@ -100,8 +100,12 @@ syms-warn-dup-y := --warn-dup
 syms-warn-dup-$(CONFIG_SUPPRESS_DUPLICATE_SYMBOL_WARNINGS) :=
 
 $(TARGET): $(TARGET)-syms $(efi-y) boot/mkelf32
-	./boot/mkelf32 $(notes_phdrs) $(TARGET)-syms $(TARGET) $(XEN_IMG_OFFSET) \
+	./boot/mkelf32 $(notes_phdrs) $(TARGET)-syms $(@D)/.$(@F) $(XEN_IMG_OFFSET) \
 	               `$(NM) $(TARGET)-syms | sed -ne 's/^\([^ ]*\) . __2M_rwdata_end$$/0x\1/p'`
+	# Check for multiboot{1,2} headers
+	od -t x4 -N 8192 $(@D)/.$(@F) | grep 1badb002 > /dev/null
+	od -t x4 -N 32768 $(@D)/.$(@F) | grep e85250d6 > /dev/null
+	mv $(@D)/.$(@F) $(TARGET)
 
 ALL_OBJS := $(BASEDIR)/arch/x86/boot/built_in.o $(BASEDIR)/arch/x86/efi/built_in.o $(ALL_OBJS)
 
