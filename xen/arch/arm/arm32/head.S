@@ -36,6 +36,10 @@
 #include EARLY_PRINTK_INC
 #endif
 
+
+#define API_HYP_ENTRY 0x102
+#define AUX_CORE_BOOT0_PA           0x48281800
+
 /*
  * Common register usage in this file:
  *   r0  -
@@ -113,6 +117,12 @@ past_zImage:
 
         b     common_start
 
+GLOBAL(omap5_init_secondary)
+        ldr  r12, =API_HYP_ENTRY
+        adr  r0, init_secondary
+		dsb
+        smc   #0
+
 GLOBAL(init_secondary)
         cpsid aif                    /* Disable all interrupts */
 
@@ -159,7 +169,6 @@ common_start:
         PRINT("- CPU doesn't support the virtualization extensions -\r\n")
         b     fail
 1:
-
         /* Check that we're already in Hyp mode */
         mrs   r0, cpsr
         and   r0, r0, #0x1f          /* Mode is in the low 5 bits of CPSR */
