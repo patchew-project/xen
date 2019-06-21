@@ -135,6 +135,8 @@ static int __init process_memory_node(const void *fdt, int node,
     const __be32 *cell;
     paddr_t start, size;
     u32 reg_cells = address_cells + size_cells;
+    struct meminfo *mem;
+    bool reserved = (bool)data;
 
     if ( address_cells < 1 || size_cells < 1 )
     {
@@ -143,26 +145,46 @@ static int __init process_memory_node(const void *fdt, int node,
         return 0;
     }
 
+    if ( reserved )
+        mem = &bootinfo.reserved_mem;
+    else
+        mem = &bootinfo.mem;
+
     prop = fdt_get_property(fdt, node, "reg", NULL);
     if ( !prop )
     {
-        printk("fdt: node `%s': missing `reg' property\n", name);
+        if ( !reserved )
+            printk("fdt: node `%s': missing `reg' property\n", name);
         return 0;
     }
 
     cell = (const __be32 *)prop->data;
     banks = fdt32_to_cpu(prop->len) / (reg_cells * sizeof (u32));
 
-    for ( i = 0; i < banks && bootinfo.mem.nr_banks < NR_MEM_BANKS; i++ )
+    for ( i = 0; i < banks && mem->nr_banks < NR_MEM_BANKS; i++ )
     {
         device_tree_get_reg(&cell, address_cells, size_cells, &start, &size);
         if ( !size )
             continue;
-        bootinfo.mem.bank[bootinfo.mem.nr_banks].start = start;
-        bootinfo.mem.bank[bootinfo.mem.nr_banks].size = size;
-        bootinfo.mem.nr_banks++;
+        mem->bank[mem->nr_banks].start = start;
+        mem->bank[mem->nr_banks].size = size;
+        mem->nr_banks++;
     }
+    /*
+     * We reached the max number of supported reserved-memory regions.
+     * Stop and refuse to continue. We don't want to risk Xen allocating
+     * those regions as normal memory to a VM.
+     */
+    BUG_ON(reserved && mem->nr_banks == NR_MEM_BANKS);
 
+    return 0;
+}
+
+static int __init process_reserved_memory_node(const void *fdt, int node,
+                                               const char *name, int depth,
+                                               u32 address_cells, u32 size_cells)
+{
+    device_tree_for_each_node(fdt, node, depth, process_memory_node, (void*)true);
     return 0;
 }
 
@@ -299,7 +321,11 @@ static int __init early_scan_node(const void *fdt,
 
     if ( device_tree_node_matches(fdt, node, "memory") )
         rc = process_memory_node(fdt, node, name, depth,
-                                 address_cells, size_cells, NULL);
+                                 address_cells, size_cells, (void*)false);
+    else if ( depth == 1 && !strcmp(name, "reserved-memory") &&
+              strlen(name) == strlen("reserved-memory") )
+        rc = process_reserved_memory_node(fdt, node, name, depth,
+                                          address_cells, size_cells);
     else if ( depth <= 3 && (device_tree_node_compatible(fdt, node, "xen,multiboot-module" ) ||
               device_tree_node_compatible(fdt, node, "multiboot,module" )))
         process_multiboot_node(fdt, node, name, address_cells, size_cells);
