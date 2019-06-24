@@ -138,7 +138,9 @@ $(filter-out %.init.o $(nocov-y),$(obj-y) $(obj-bin-y) $(extra-y)): CFLAGS += $(
 endif
 
 ifeq ($(CONFIG_UBSAN),y)
-$(filter-out %.init.o $(noubsan-y),$(obj-y) $(obj-bin-y) $(extra-y)): CFLAGS += -fsanitize=undefined
+UBSAN_FLAGS := -fsanitize=undefined
+$(call cc-option-add,UBSAN_FLAGS,CC,-fno-sanitize=alignment)
+$(filter-out %.init.o $(noubsan-y),$(obj-y) $(obj-bin-y) $(extra-y)): CFLAGS += $(UBSAN_FLAGS)
 endif
 
 ifeq ($(CONFIG_LTO),y)
