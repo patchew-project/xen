@@ -189,6 +189,12 @@ static inline int __nodes_weight(const nodemask_t *srcp, int nbits)
 	return bitmap_weight(srcp->bits, nbits);
 }
 
+#define nodes_copy(dst, src) __nodes_copy(&(dst), &(src))
+static inline void __nodes_copy(nodemask_t *dst, nodemask_t *src)
+{
+	return bitmap_copy(dst->bits, src->bits, MAX_NUMNODES);
+}
+
 #define nodes_shift_right(dst, src, n) \
 			__nodes_shift_right(&(dst), &(src), (n), MAX_NUMNODES)
 static inline void __nodes_shift_right(nodemask_t *dstp,
