@@ -1810,7 +1810,7 @@ csched_load_balance(struct csched_private *prv, int cpu,
             } while( peer_cpu != first_cpu );
 
  next_node:
-            peer_node = cycle_node(peer_node, node_online_map);
+            peer_node = cycle_node(peer_node, &node_online_map);
         } while( peer_node != node );
     }
 

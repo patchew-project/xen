@@ -280,7 +280,7 @@ long do_sysctl(XEN_GUEST_HANDLE_PARAM(xen_sysctl_t) u_sysctl)
         bool_t do_meminfo = !guest_handle_is_null(ni->meminfo);
         bool_t do_distance = !guest_handle_is_null(ni->distance);
 
-        num_nodes = last_node(node_online_map) + 1;
+        num_nodes = last_node(&node_online_map) + 1;
 
         if ( do_meminfo || do_distance )
         {

@@ -186,15 +186,15 @@ void __init numa_init_array(void)
        mapping. To avoid this fill in the mapping for all possible
        CPUs, as the number of CPUs is not known yet.
        We round robin the existing nodes. */
-    rr = first_node(node_online_map);
+    rr = first_node(&node_online_map);
     for ( i = 0; i < nr_cpu_ids; i++ )
     {
         if ( cpu_to_node[i] != NUMA_NO_NODE )
             continue;
         numa_set_node(i, rr);
-        rr = next_node(rr, node_online_map);
+        rr = next_node(rr, &node_online_map);
         if ( rr == MAX_NUMNODES )
-            rr = first_node(node_online_map);
+            rr = first_node(&node_online_map);
     }
 }
 
@@ -271,7 +271,7 @@ void __init numa_initmem_init(unsigned long start_pfn, unsigned long end_pfn)
     /* setup dummy node covering all memory */
     memnode_shift = BITS_PER_LONG - 1;
     memnodemap = _memnodemap;
-    nodes_clear(node_online_map);
+    nodes_clear(&node_online_map);
     node_set_online(0);
     for ( i = 0; i < nr_cpu_ids; i++ )
         numa_set_node(i, 0);

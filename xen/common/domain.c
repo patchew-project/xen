@@ -613,9 +613,9 @@ void domain_update_node_affinity(struct domain *d)
         dom_affinity = cpumask_empty(dom_cpumask_soft) ?
                            dom_cpumask : dom_cpumask_soft;
 
-        nodes_clear(d->node_affinity);
+        nodes_clear(&d->node_affinity);
         for_each_cpu ( cpu, dom_affinity )
-            node_set(cpu_to_node(cpu), d->node_affinity);
+            node_set(cpu_to_node(cpu), &d->node_affinity);
     }
 
     spin_unlock(&d->node_affinity_lock);
@@ -628,7 +628,7 @@ void domain_update_node_affinity(struct domain *d)
 int domain_set_node_affinity(struct domain *d, const nodemask_t *affinity)
 {
     /* Being affine with no nodes is just wrong */
-    if ( nodes_empty(*affinity) )
+    if ( nodes_empty(affinity) )
         return -EINVAL;
 
     spin_lock(&d->node_affinity_lock);
@@ -637,7 +637,7 @@ int domain_set_node_affinity(struct domain *d, const nodemask_t *affinity)
      * Being/becoming explicitly affine to all nodes is not particularly
      * useful. Let's take it as the `reset node affinity` command.
      */
-    if ( nodes_full(*affinity) )
+    if ( nodes_full(affinity) )
     {
         d->auto_node_affinity = 1;
         goto out;
