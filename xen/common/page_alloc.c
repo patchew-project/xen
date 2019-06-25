@@ -811,10 +811,14 @@ static struct page_info *get_free_buddy(unsigned int zone_lo,
                                         const struct domain *d)
 {
     nodeid_t first, node = MEMF_get_node(memflags), req_node = node;
-    nodemask_t nodemask = d ? d->node_affinity : node_online_map;
+    nodemask_t nodemask;
     unsigned int j, zone, nodemask_retry = 0;
     struct page_info *pg;
     bool use_unscrubbed = (memflags & MEMF_no_scrub);
+
+    /* Clamp nodemask to node_online_map and optionally d->node_affinity. */
+    nodes_and(&nodemask, &node_online_map,
+              d ? &d->node_affinity : &node_online_map);
 
     if ( node == NUMA_NO_NODE )
     {
