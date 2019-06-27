@@ -771,7 +771,8 @@ void guest_cpuid(const struct vcpu *v, uint32_t leaf,
              *
              * - Enlightened CPUID or CPUID faulting available:
              *    Xen can fully control what is seen here.  Guest kernels need
-             *    to see the leaked OSXSAVE via the enlightened path, but
+             *    to see the leaked OSXSAVE via the enlightened path
+             *    (unless XSAVE is explicitly clear in policy), but
              *    guest userspace and the native is given architectural
              *    behaviour.
              *
@@ -780,7 +781,8 @@ void guest_cpuid(const struct vcpu *v, uint32_t leaf,
              */
             /* OSXSAVE clear in policy.  Fast-forward CR4 back in. */
             if ( (v->arch.pv.ctrlreg[4] & X86_CR4_OSXSAVE) ||
-                 (regs->entry_vector == TRAP_invalid_op &&
+                 (p->basic.xsave &&
+                  regs->entry_vector == TRAP_invalid_op &&
                   guest_kernel_mode(v, regs) &&
                   (read_cr4() & X86_CR4_OSXSAVE)) )
                 res->c |= cpufeat_mask(X86_FEATURE_OSXSAVE);
