@@ -149,9 +149,6 @@ static inline shr_handle_t get_next_handle(void)
     return x + 1;
 }
 
-#define mem_sharing_enabled(d) \
-    (is_hvm_domain(d) && (d)->arch.hvm.mem_sharing_enabled)
-
 static atomic_t nr_saved_mfns   = ATOMIC_INIT(0); 
 static atomic_t nr_shared_mfns  = ATOMIC_INIT(0);
 

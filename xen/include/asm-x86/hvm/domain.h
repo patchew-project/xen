@@ -197,8 +197,11 @@ struct hvm_domain {
 
 #ifdef CONFIG_HVM
 #define hap_enabled(d)  (is_hvm_domain(d) && (d)->arch.hvm.hap_enabled)
+#define mem_sharing_enabled(d) \
+    (is_hvm_domain(d) && (d)->arch.hvm.mem_sharing_enabled)
 #else
 #define hap_enabled(d)  ({(void)(d); false;})
+#define mem_sharing_enabled(d)  ({(void)(d); false;})
 #endif
 
 #endif /* __ASM_X86_HVM_DOMAIN_H__ */
