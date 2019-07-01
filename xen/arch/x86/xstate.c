@@ -577,7 +577,7 @@ unsigned int xstate_ctxt_size(u64 xcr0)
 /* Collect the information of processor's extended state */
 void xstate_init(struct cpuinfo_x86 *c)
 {
-    static bool __initdata use_xsave = true;
+    static bool use_xsave = true;
     boolean_param("xsave", use_xsave);
 
     bool bsp = c == &boot_cpu_data;
