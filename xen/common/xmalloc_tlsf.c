@@ -223,6 +223,10 @@ static inline void EXTRACT_BLOCK_HDR(struct bhdr *b, struct xmem_pool *p, int fl
 static inline void EXTRACT_BLOCK(struct bhdr *b, struct xmem_pool *p, int fl,
                                  int sl)
 {
+#ifdef CONFIG_POOL_POISON
+    unsigned int i;
+#endif /* CONFIG_POOL_POISON */
+
     if ( b->ptr.free_ptr.next )
         b->ptr.free_ptr.next->ptr.free_ptr.prev =
             b->ptr.free_ptr.prev;
@@ -240,6 +244,10 @@ static inline void EXTRACT_BLOCK(struct bhdr *b, struct xmem_pool *p, int fl,
         }
     }
     b->ptr.free_ptr = (struct free_ptr) {NULL, NULL};
+#ifdef CONFIG_POOL_POISON
+    for ( i = MIN_BLOCK_SIZE; i < (b->size & BLOCK_SIZE_MASK); i++ )
+        ASSERT(b->ptr.buffer[i] == 0xAA);
+#endif /* CONFIG_POOL_POISON */
 }
 
 /**
@@ -247,6 +255,11 @@ static inline void EXTRACT_BLOCK(struct bhdr *b, struct xmem_pool *p, int fl,
  */
 static inline void INSERT_BLOCK(struct bhdr *b, struct xmem_pool *p, int fl, int sl)
 {
+#ifdef CONFIG_POOL_POISON
+    if ( (b->size & BLOCK_SIZE_MASK) > MIN_BLOCK_SIZE )
+        memset(b->ptr.buffer + MIN_BLOCK_SIZE, 0xAA,
+               (b->size & BLOCK_SIZE_MASK) - MIN_BLOCK_SIZE);
+#endif /* CONFIG_POOL_POISON */
     b->ptr.free_ptr = (struct free_ptr) {NULL, p->matrix[fl][sl]};
     if ( p->matrix[fl][sl] )
         p->matrix[fl][sl]->ptr.free_ptr.prev = b;
