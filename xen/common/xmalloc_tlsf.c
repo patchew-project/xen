@@ -380,18 +380,22 @@ void *xmem_pool_alloc(unsigned long size, struct xmem_pool *pool)
     int fl, sl;
     unsigned long tmp_size;
 
+    spin_lock(&pool->lock);
     if ( pool->init_region == NULL )
     {
+        spin_unlock(&pool->lock);
         if ( (region = pool->get_mem(pool->init_size)) == NULL )
             goto out;
+        spin_lock(&pool->lock);
         ADD_REGION(region, pool->init_size, pool);
-        pool->init_region = region;
+        /* Re-check since the lock was dropped */
+        if ( pool->init_region == NULL )
+            pool->init_region = region;
     }
 
     size = (size < MIN_BLOCK_SIZE) ? MIN_BLOCK_SIZE : ROUNDUP_SIZE(size);
     /* Rounding up the requested size and calculating fl and sl */
 
-    spin_lock(&pool->lock);
  retry_find:
     MAPPING_SEARCH(&size, &fl, &sl);
 
