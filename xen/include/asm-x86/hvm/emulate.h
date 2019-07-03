@@ -80,6 +80,10 @@ struct segment_register *hvmemul_get_seg_reg(
     enum x86_segment seg,
     struct hvm_emulate_ctxt *hvmemul_ctxt);
 int hvm_emulate_one_mmio(unsigned long mfn, unsigned long gla);
+bool hvm_emulate_send_vm_event(
+    unsigned long gla,
+    gfn_t gfn,
+    uint32_t pfec);
 
 static inline bool handle_mmio(void)
 {

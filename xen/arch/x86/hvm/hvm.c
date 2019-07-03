@@ -3224,6 +3224,14 @@ static enum hvm_translation_result __hvm_copy(
             return HVMTRANS_bad_gfn_to_mfn;
         }
 
+        if ( unlikely(v->arch.vm_event) &&
+            v->arch.vm_event->send_event &&
+            hvm_emulate_send_vm_event(addr, gfn, pfec) )
+        {
+            put_page(page);
+            return HVMTRANS_gfn_paged_out;
+        }
+
         p = (char *)__map_domain_page(page) + (addr & ~PAGE_MASK);
 
         if ( flags & HVMCOPY_to_guest )

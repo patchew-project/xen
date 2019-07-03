@@ -86,6 +86,7 @@ void hvm_vm_event_do_resume(struct vcpu *v)
                   VM_EVENT_FLAG_SET_EMUL_INSN_DATA )
             kind = EMUL_KIND_SET_CONTEXT_INSN;
 
+        v->arch.vm_event->send_event = false;
         hvm_emulate_one_vm_event(kind, TRAP_invalid_op,
                                  X86_EVENT_NO_EC);
 

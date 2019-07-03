@@ -12,9 +12,11 @@
 #include <xen/init.h>
 #include <xen/lib.h>
 #include <xen/sched.h>
+#include <xen/monitor.h>
 #include <xen/paging.h>
 #include <xen/trace.h>
 #include <xen/vm_event.h>
+#include <asm/altp2m.h>
 #include <asm/event.h>
 #include <asm/i387.h>
 #include <asm/xstate.h>
@@ -531,6 +533,71 @@ static int hvmemul_do_mmio_addr(paddr_t mmio_gpa,
 }
 
 /*
+ * Send memory access vm_events based on pfec. Returns true if the event was
+ * sent and false for p2m_get_mem_access() error, no violation and event send
+ * error. Depends on arch.vm_event->send_event.
+ *
+ * NOTE: p2m_get_mem_access() can fail for wrong address or if the entry
+ * was not found in the EPT (in which case access to it is unrestricted, so
+ * no violations can occur). In both cases it is fine to continue the
+ * emulation.
+ */
+bool hvm_emulate_send_vm_event(unsigned long gla, gfn_t gfn,
+                               uint32_t pfec)
+{
+    xenmem_access_t access;
+    vm_event_request_t req = {};
+    paddr_t gpa = (gfn_to_gaddr(gfn) | (gla & ~PAGE_MASK));
+
+    current->arch.vm_event->send_event = false;
+
+    if ( p2m_get_mem_access(current->domain, gfn, &access,
+                            altp2m_vcpu_idx(current)) != 0 )
+        return false;
+
+    switch ( access )
+    {
+    case XENMEM_access_x:
+    case XENMEM_access_rx:
+        if ( pfec & PFEC_write_access )
+            req.u.mem_access.flags = MEM_ACCESS_R | MEM_ACCESS_W;
+        break;
+
+    case XENMEM_access_w:
+    case XENMEM_access_rw:
+        if ( pfec & PFEC_insn_fetch )
+            req.u.mem_access.flags = MEM_ACCESS_X;
+        break;
+
+    case XENMEM_access_r:
+    case XENMEM_access_n:
+        if ( pfec & PFEC_write_access )
+            req.u.mem_access.flags |= MEM_ACCESS_R | MEM_ACCESS_W;
+        if ( pfec & PFEC_insn_fetch )
+            req.u.mem_access.flags |= MEM_ACCESS_X;
+        break;
+
+    case XENMEM_access_wx:
+    case XENMEM_access_rwx:
+    case XENMEM_access_rx2rw:
+    case XENMEM_access_n2rwx:
+    case XENMEM_access_default:
+        break;
+    }
+
+    if ( !req.u.mem_access.flags )
+        return false; /* no violation */
+
+    req.reason = VM_EVENT_REASON_MEM_ACCESS;
+    req.u.mem_access.gfn = gfn_x(gfn);
+    req.u.mem_access.flags |= MEM_ACCESS_FAULT_WITH_GLA | MEM_ACCESS_GLA_VALID;
+    req.u.mem_access.gla = gla;
+    req.u.mem_access.offset = gpa & ~PAGE_MASK;
+
+    return monitor_traps(current, true, &req) >= 0;
+}
+
+/*
  * Map the frame(s) covering an individual linear access, for writeable
  * access.  May return NULL for MMIO, or ERR_PTR(~X86EMUL_*) for other errors
  * including ERR_PTR(~X86EMUL_OKAY) for write-discard mappings.
@@ -547,6 +614,7 @@ static void *hvmemul_map_linear_addr(
     unsigned int nr_frames = ((linear + bytes - !!bytes) >> PAGE_SHIFT) -
         (linear >> PAGE_SHIFT) + 1;
     unsigned int i;
+    gfn_t gfn;
 
     /*
      * mfn points to the next free slot.  All used slots have a page reference
@@ -585,7 +653,7 @@ static void *hvmemul_map_linear_addr(
         ASSERT(mfn_x(*mfn) == 0);
 
         res = hvm_translate_get_page(curr, addr, true, pfec,
-                                     &pfinfo, &page, NULL, &p2mt);
+                                     &pfinfo, &page, &gfn, &p2mt);
 
         switch ( res )
         {
@@ -628,6 +696,14 @@ static void *hvmemul_map_linear_addr(
             }
 
             ASSERT(p2mt == p2m_ram_logdirty || !p2m_is_readonly(p2mt));
+        }
+
+        if ( curr->arch.vm_event &&
+            curr->arch.vm_event->send_event &&
+            hvm_emulate_send_vm_event(addr, gfn, pfec) )
+        {
+            err = ERR_PTR(~X86EMUL_RETRY);
+            goto out;
         }
     }
 
