@@ -62,19 +62,19 @@ device tree adding a node under /chosen as follows:
 
     domU1 {
         compatible = "xen,domain";
-        memory = <0x20000>;
+        memory = <0x0 0x20000>;
         cpus = 1;
         vpl011;
 
         module@2000000 {
             compatible = "multiboot,kernel", "multiboot,module";
-            reg = <0x2000000 0xffffff>;
+            reg = <0x0 0x2000000 0x0 0xffffff>;
             bootargs = "console=ttyAMA0";
         };
 
         module@30000000 {
             compatible = "multiboot,ramdisk", "multiboot,module";
-            reg = <0x3000000 0xffffff>;
+            reg = <0x0 0x3000000 0x0 0xffffff>;
         };
     };
 
@@ -90,12 +90,25 @@ Limitations
 Domains started by Xen at boot time currently have the following
 limitations:
 
-- They cannot be properly shutdown or rebooted using xl. If one of them
-  crashes, the whole platform should be rebooted.
-
 - Some xl operations might not work as expected. xl is meant to be used
-  with domains that have been created by it. Using xl with domains
-  started by Xen at boot might not work as expected.
+  with domains that have been created by it:
+
+    -> Using xl with domains started by Xen at boot might not work
+       as expected.
+
+    -> They cannot be properly shutdown or rebooted using xl.
+       If one of them crashes, the whole platform should be rebooted.
+
+    -> 'xl console' command will not switch console input.
+       Type 'CTRL-a' three times to switch input in case of dom0less mode.
+
+    -> 'xl list' prints the list of domains.
+       However DomU names are shown as '(null)' in the list. For example:
+
+        root@dom0:~# xl list
+        Name                         ID   Mem VCPUs      State   Time(s)
+        Domain-0                      0   256     4     r-----       6.2
+        (null)                        1   256     1     -b----       1.7
 
 - The GIC version is the native version. In absence of other
   information, the GIC version exposed to the domains started by Xen at
