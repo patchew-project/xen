@@ -2012,9 +2012,9 @@ static int __init construct_domU(struct domain *d,
 {
     struct kernel_info kinfo = {};
     int rc;
-    u64 mem;
+    u32 mem;
 
-    rc = dt_property_read_u64(node, "memory", &mem);
+    rc = dt_property_read_u32(node, "memory", &mem);
     if ( !rc )
     {
         printk("Error building DomU: cannot read \"memory\" property\n");
@@ -2022,7 +2022,7 @@ static int __init construct_domU(struct domain *d,
     }
     kinfo.unassigned_mem = (paddr_t)mem * SZ_1K;
 
-    printk("*** LOADING DOMU cpus=%u memory=%"PRIx64"KB ***\n", d->max_vcpus, mem);
+    printk("*** LOADING DOMU cpus=%u memory=%"PRIx32"KB ***\n", d->max_vcpus, mem);
 
     kinfo.vpl011 = dt_property_read_bool(node, "vpl011");
 
