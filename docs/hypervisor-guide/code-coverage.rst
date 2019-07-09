@@ -6,13 +6,6 @@ the coverage of its own basic blocks.  Being a piece of system software rather
 than a userspace, it can't automatically write coverage out to the filesystem,
 so some extra steps are required to collect and process the data.
 
-.. warning::
-
-  Coverage has only been tested on x86 at the moment.  ARM doesn't currently
-  boot when the final binary exceeds 2MB in size, and the coverage build tends
-  to exceeds this limit.
-
-
 Compiling Xen
 -------------
 
