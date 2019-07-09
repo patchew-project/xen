@@ -343,6 +343,11 @@ M:	Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 S:	Supported
 F:	tools/python
 
+GOLANG BINDINGS
+M:     George Dunlap <george.dunlap@citrix.com>
+S:     Maintained
+F:     tools/golang
+
 QEMU-DM
 M:	Ian Jackson <ian.jackson@eu.citrix.com>
 S:	Supported
