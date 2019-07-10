@@ -658,4 +658,15 @@ static inline void share_xen_page_with_privileged_guests(
     share_xen_page_with_guest(page, dom_xen, flags);
 }
 
+static inline void clear_assignment_reference(struct page_info *page)
+{
+    /*
+     * It is unsafe to clear _PGC_allocated without holding an additional
+     * reference.
+     */
+    ASSERT((page->count_info & PGC_count_mask) > 1);
+    if ( test_and_clear_bit(_PGC_allocated, &page->count_info) )
+        put_page(page);
+}
+
 #endif /* __XEN_MM_H__ */

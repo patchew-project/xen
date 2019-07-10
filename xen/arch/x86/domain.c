@@ -1923,8 +1923,7 @@ static int relinquish_memory(
             BUG();
         }
 
-        if ( test_and_clear_bit(_PGC_allocated, &page->count_info) )
-            put_page(page);
+        clear_assignment_reference(page);
 
         /*
          * Forcibly invalidate top-most, still valid page tables at this point

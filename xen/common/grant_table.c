@@ -1701,8 +1701,7 @@ gnttab_unpopulate_status_frames(struct domain *d, struct grant_table *gt)
         }
 
         BUG_ON(page_get_owner(pg) != d);
-        if ( test_and_clear_bit(_PGC_allocated, &pg->count_info) )
-            put_page(pg);
+        clear_assignment_reference(pg);
 
         if ( pg->count_info & ~PGC_xen_heap )
         {
