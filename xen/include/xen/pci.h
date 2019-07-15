@@ -154,6 +154,7 @@ int find_upstream_bridge(u16 seg, u8 *bus, u8 *devfn, u8 *secbus);
 struct pci_dev *pci_lock_pdev(int seg, int bus, int devfn);
 struct pci_dev *pci_lock_domain_pdev(
     struct domain *, int seg, int bus, int devfn);
+int pci_pdevs_iterate(int (*cb)(struct pci_dev *, void *), void *arg);
 
 void setup_hwdom_pci_devices(struct domain *,
                             int (*)(u8 devfn, struct pci_dev *));
