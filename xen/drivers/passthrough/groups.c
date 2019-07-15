@@ -12,8 +12,12 @@
  * GNU General Public License for more details.
  */
 
+#include <xen/guest_access.h>
 #include <xen/iommu.h>
+#include <xen/pci.h>
 #include <xen/radix-tree.h>
+#include <xen/sched.h>
+#include <xsm/xsm.h>
 
 struct iommu_group {
     unsigned int id;
@@ -79,6 +83,46 @@ int iommu_group_assign(struct pci_dev *pdev, void *arg)
     pdev->grp = grp;
 
     return 0;
+}
+
+int iommu_get_device_group(struct domain *d, pci_sbdf_t sbdf,
+                           XEN_GUEST_HANDLE_64(uint32) buf, int max_sdevs)
+{
+    struct iommu_group *grp = NULL;
+    struct pci_dev *pdev;
+    unsigned int i = 0;
+
+    pcidevs_lock();
+
+    for_each_pdev ( d, pdev )
+    {
+        if ( pdev->sbdf.sbdf == sbdf.sbdf )
+        {
+            grp = pdev->grp;
+            break;
+        }
+    }
+
+    if ( !grp )
+        goto out;
+
+    for_each_pdev ( d, pdev )
+    {
+        if ( xsm_get_device_group(XSM_HOOK, pdev->sbdf.sbdf) ||
+             pdev->grp != grp )
+            continue;
+
+        if ( unlikely(copy_to_guest_offset(buf, i++, &pdev->sbdf.sbdf, 1)) )
+        {
+            pcidevs_unlock();
+            return -EFAULT;
+        }
+    }
+
+ out:
+    pcidevs_unlock();
+
+    return i;
 }
 
 /*
