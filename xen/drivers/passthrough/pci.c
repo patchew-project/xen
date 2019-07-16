@@ -1134,64 +1134,87 @@ static void __hwdom_init setup_one_hwdom_device(const struct setup_hwdom *ctxt,
                ctxt->d->domain_id, err);
 }
 
-static int __hwdom_init _setup_hwdom_pci_devices(struct pci_seg *pseg, void *arg)
+static int __hwdom_init setup_hwdom_pci_device(struct pci_dev *pdev, void *arg)
 {
     struct setup_hwdom *ctxt = arg;
-    int bus, devfn;
+    struct domain *d = ctxt->d;
 
-    for ( bus = 0; bus < 256; bus++ )
+    if ( !pdev->domain )
     {
-        for ( devfn = 0; devfn < 256; devfn++ )
+        pdev->domain = d;
+        list_add(&pdev->domain_list, &d->pdev_list);
+        setup_one_hwdom_device(ctxt, pdev);
+    }
+    else if ( pdev->domain == dom_xen )
+    {
+        pdev->domain = d;
+        setup_one_hwdom_device(ctxt, pdev);
+        pdev->domain = dom_xen;
+    }
+    else if ( pdev->domain != d )
+        printk(XENLOG_WARNING "Dom%pd owning %04x:%02x:%02x.%u?\n",
+               pdev->domain, pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
+               PCI_FUNC(pdev->devfn));
+
+    return 0;
+}
+
+struct psdi_ctxt {
+    int (*cb)(struct pci_dev *, void *);
+    void *arg;
+};
+
+static int pci_segment_devices_iterate(struct pci_seg *pseg, void *arg)
+{
+    struct psdi_ctxt *ctxt = arg;
+    unsigned int bus, devfn;
+    int rc = 0;
+
+    /*
+     * We don't iterate by walking pseg->alldevs_list here because that
+     * would make the pcidevs_unlock()/lock() sequence below unsafe.
+     */
+    for ( bus = 0; !rc && bus < 256; bus++ )
+        for ( devfn = 0; !rc && devfn < 256; devfn++ )
         {
             struct pci_dev *pdev = pci_get_pdev(pseg->nr, bus, devfn);
 
             if ( !pdev )
                 continue;
 
-            if ( !pdev->domain )
-            {
-                pdev->domain = ctxt->d;
-                list_add(&pdev->domain_list, &ctxt->d->pdev_list);
-                setup_one_hwdom_device(ctxt, pdev);
-            }
-            else if ( pdev->domain == dom_xen )
-            {
-                pdev->domain = ctxt->d;
-                setup_one_hwdom_device(ctxt, pdev);
-                pdev->domain = dom_xen;
-            }
-            else if ( pdev->domain != ctxt->d )
-                printk(XENLOG_WARNING "Dom%d owning %04x:%02x:%02x.%u?\n",
-                       pdev->domain->domain_id, pseg->nr, bus,
-                       PCI_SLOT(devfn), PCI_FUNC(devfn));
+            rc = ctxt->cb(pdev, ctxt->arg);
 
-            if ( iommu_verbose )
-            {
-                pcidevs_unlock();
-                process_pending_softirqs();
-                pcidevs_lock();
-            }
-        }
-
-        if ( !iommu_verbose )
-        {
+            /*
+             * Err on the safe side and assume the callback has taken
+             * a significant amount of time.
+             */
             pcidevs_unlock();
             process_pending_softirqs();
             pcidevs_lock();
         }
-    }
 
-    return 0;
+    return rc;
+}
+
+int pci_pdevs_iterate(int (*cb)(struct pci_dev *, void *), void *arg)
+{
+    struct psdi_ctxt ctxt = { .cb = cb, .arg = arg };
+    int rc;
+
+    pcidevs_lock();
+    rc = pci_segments_iterate(pci_segment_devices_iterate, &ctxt);
+    pcidevs_unlock();
+
+    return rc;
 }
 
 void __hwdom_init setup_hwdom_pci_devices(
     struct domain *d, int (*handler)(u8 devfn, struct pci_dev *))
 {
     struct setup_hwdom ctxt = { .d = d, .handler = handler };
+    int rc = pci_pdevs_iterate(setup_hwdom_pci_device, &ctxt);
 
-    pcidevs_lock();
-    pci_segments_iterate(_setup_hwdom_pci_devices, &ctxt);
-    pcidevs_unlock();
+    ASSERT(!rc);
 }
 
 #ifdef CONFIG_ACPI
@@ -1294,24 +1317,18 @@ bool_t pcie_aer_get_firmware_first(const struct pci_dev *pdev)
 }
 #endif
 
-static int _dump_pci_devices(struct pci_seg *pseg, void *arg)
+static int dump_pci_device(struct pci_dev *pdev, void *arg)
 {
-    struct pci_dev *pdev;
     struct msi_desc *msi;
 
-    printk("==== segment %04x ====\n", pseg->nr);
-
-    list_for_each_entry ( pdev, &pseg->alldevs_list, alldevs_list )
-    {
-        printk("%04x:%02x:%02x.%u - dom %-3d - node %-3d - MSIs < ",
-               pseg->nr, pdev->bus,
-               PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn),
-               pdev->domain ? pdev->domain->domain_id : -1,
-               (pdev->node != NUMA_NO_NODE) ? pdev->node : -1);
-        list_for_each_entry ( msi, &pdev->msi_list, list )
-               printk("%d ", msi->irq);
-        printk(">\n");
-    }
+    printk("%04x:%02x:%02x.%u - dom %-3d - node %-3d - MSIs < ",
+           pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
+           PCI_FUNC(pdev->devfn),
+           pdev->domain ? pdev->domain->domain_id : -1,
+           (pdev->node != NUMA_NO_NODE) ? pdev->node : -1);
+    list_for_each_entry ( msi, &pdev->msi_list, list )
+        printk("%d ", msi->irq);
+    printk(">\n");
 
     return 0;
 }
@@ -1319,9 +1336,7 @@ static int _dump_pci_devices(struct pci_seg *pseg, void *arg)
 static void dump_pci_devices(unsigned char ch)
 {
     printk("==== PCI devices ====\n");
-    pcidevs_lock();
-    pci_segments_iterate(_dump_pci_devices, NULL);
-    pcidevs_unlock();
+    pci_pdevs_iterate(dump_pci_device, NULL);
 }
 
 static int __init setup_dump_pcidevs(void)
