@@ -317,6 +317,13 @@ DECLARE_PER_CPU(bool_t, iommu_dont_flush_iotlb);
 extern struct spinlock iommu_pt_cleanup_lock;
 extern struct page_list_head iommu_pt_cleanup_list;
 
+#ifdef CONFIG_HAS_PCI
+
+void iommu_groups_init(void);
+int iommu_group_assign(struct pci_dev *pdev, void *arg);
+
+#endif /* CONFIG_HAS_PCI */
+
 #endif /* _IOMMU_H_ */
 
 /*

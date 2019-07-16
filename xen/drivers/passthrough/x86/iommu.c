@@ -43,7 +43,13 @@ int __init iommu_hardware_setup(void)
         /* x2apic setup may have previously initialised the struct. */
         ASSERT(iommu_ops.init == iommu_init_ops->ops->init);
 
-    return iommu_init_ops->setup();
+    rc = iommu_init_ops->setup();
+    if ( rc )
+        return rc;
+
+    iommu_groups_init();
+
+    return pci_pdevs_iterate(iommu_group_assign, NULL);
 }
 
 int iommu_enable_x2apic(void)
