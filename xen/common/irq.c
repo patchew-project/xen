@@ -16,6 +16,7 @@ int init_one_irq_desc(struct irq_desc *desc)
     spin_lock_init(&desc->lock);
     cpumask_setall(desc->affinity);
     INIT_LIST_HEAD(&desc->rl_link);
+    desc->creator_domid = DOMID_INVALID;
 
     err = arch_init_one_irq_desc(desc);
     if ( err )

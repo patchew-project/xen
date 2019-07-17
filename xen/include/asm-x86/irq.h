@@ -155,7 +155,7 @@ int  init_irq_data(void);
 void clear_irq_vector(int irq);
 
 int irq_to_vector(int irq);
-int create_irq(nodeid_t node);
+int create_irq(nodeid_t node, struct domain *d);
 void destroy_irq(unsigned int irq);
 int assign_irq_vector(int irq, const cpumask_t *);
 

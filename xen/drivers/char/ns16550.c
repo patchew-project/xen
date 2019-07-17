@@ -719,7 +719,7 @@ static void __init ns16550_init_irq(struct serial_port *port)
     struct ns16550 *uart = port->uart;
 
     if ( uart->msi )
-        uart->irq = create_irq(0);
+        uart->irq = create_irq(0, NULL);
 #endif
 }
 

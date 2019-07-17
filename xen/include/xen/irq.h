@@ -91,6 +91,7 @@ typedef struct irq_desc {
     spinlock_t lock;
     struct arch_irq_desc arch;
     cpumask_var_t affinity;
+    domid_t creator_domid; /* weak reference to domain handling this IRQ */
 
     /* irq ratelimit */
     s_time_t rl_quantum_start;

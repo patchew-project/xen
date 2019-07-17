@@ -845,6 +845,9 @@ int pci_remove_device(u16 seg, u8 bus, u8 devfn)
     list_for_each_entry ( pdev, &pseg->alldevs_list, alldevs_list )
         if ( pdev->bus == bus && pdev->devfn == devfn )
         {
+            ret = -EBUSY;
+            if ( pdev->domain && pdev->domain != hardware_domain )
+                break;
             ret = iommu_remove_device(pdev);
             if ( pdev->domain )
                 list_del(&pdev->domain_list);
