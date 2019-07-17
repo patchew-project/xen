@@ -344,6 +344,22 @@ struct physdev_dbgp_op {
 typedef struct physdev_dbgp_op physdev_dbgp_op_t;
 DEFINE_XEN_GUEST_HANDLE(physdev_dbgp_op_t);
 
+/* when PHYSDEVOP_MSI_CONTROL_MSIX not set, control MSI */
+#define PHYSDEVOP_MSI_CONTROL_MSIX    1
+/* when PHYSDEVOP_MSI_CONTROL_ENABLE not set, disable */
+#define PHYSDEVOP_MSI_CONTROL_ENABLE  2
+
+#define PHYSDEVOP_msi_control   32
+struct physdev_msi_control {
+    /* IN */
+    uint16_t seg;
+    uint8_t bus;
+    uint8_t devfn;
+    uint8_t flags;
+};
+typedef struct physdev_msi_control physdev_msi_control_t;
+DEFINE_XEN_GUEST_HANDLE(physdev_msi_control_t);
+
 /*
  * Notify that some PIRQ-bound event channels have been unmasked.
  * ** This command is obsolete since interface version 0x00030202 and is **

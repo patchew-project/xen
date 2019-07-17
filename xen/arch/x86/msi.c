@@ -1475,6 +1475,48 @@ int pci_restore_msi_state(struct pci_dev *pdev)
     return 0;
 }
 
+int msi_control(struct pci_dev *pdev, bool msix, bool enable)
+{
+    int ret;
+    struct msi_desc *old_desc;
+
+    if ( !use_msi )
+        return -EOPNOTSUPP;
+
+    ret = xsm_msi_control(XSM_DM_PRIV, pdev->domain, pdev->sbdf.sbdf, msix, enable);
+    if ( ret )
+        return ret;
+
+    if ( msix )
+    {
+        if ( !pdev->msix )
+            return -ENODEV;
+        old_desc = find_msi_entry(pdev, -1, PCI_CAP_ID_MSI);
+        if ( old_desc )
+            return -EBUSY;
+        if ( enable )
+            pci_intx(pdev, false);
+        msix_set_enable(pdev, enable);
+    }
+    else
+    {
+        if ( !pci_find_cap_offset(pdev->seg,
+                                  pdev->bus,
+                                  PCI_SLOT(pdev->devfn),
+                                  PCI_FUNC(pdev->devfn),
+                                  PCI_CAP_ID_MSI) )
+            return -ENODEV;
+        old_desc = find_msi_entry(pdev, -1, PCI_CAP_ID_MSIX);
+        if ( old_desc )
+            return -EBUSY;
+        if ( enable )
+            pci_intx(pdev, false);
+        msi_set_enable(pdev, enable);
+    }
+
+    return 0;
+}
+
 void __init early_msi_init(void)
 {
     if ( use_msi < 0 )

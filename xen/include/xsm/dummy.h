@@ -514,6 +514,13 @@ static XSM_INLINE int xsm_pci_config_permission(XSM_DEFAULT_ARG struct domain *d
     return xsm_default_action(action, current->domain, d);
 }
 
+static XSM_INLINE int xsm_msi_control(XSM_DEFAULT_ARG struct domain *d, uint32_t machine_bdf,
+                                      uint8_t msix, uint8_t enable)
+{
+    XSM_ASSERT_ACTION(XSM_DM_PRIV);
+    return xsm_default_action(action, current->domain, d);
+}
+
 static XSM_INLINE int xsm_add_to_physmap(XSM_DEFAULT_ARG struct domain *d1, struct domain *d2)
 {
     XSM_ASSERT_ACTION(XSM_TARGET);

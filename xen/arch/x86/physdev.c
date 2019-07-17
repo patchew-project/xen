@@ -662,6 +662,31 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         break;
     }
 
+    case PHYSDEVOP_msi_control: {
+        struct physdev_msi_control op;
+        struct pci_dev *pdev;
+
+        ret = -EFAULT;
+        if ( copy_from_guest(&op, arg, 1) )
+            break;
+
+        ret = -EINVAL;
+        if ( op.flags & ~(PHYSDEVOP_MSI_CONTROL_MSIX | PHYSDEVOP_MSI_CONTROL_ENABLE) )
+            break;
+
+        pcidevs_lock();
+        pdev = pci_get_pdev(op.seg, op.bus, op.devfn);
+        if ( pdev )
+            ret = msi_control(pdev,
+                              op.flags & PHYSDEVOP_MSI_CONTROL_MSIX,
+                              op.flags & PHYSDEVOP_MSI_CONTROL_ENABLE);
+        else
+            ret = -ENODEV;
+        pcidevs_unlock();
+        break;
+
+    }
+
     default:
         ret = -ENOSYS;
         break;
