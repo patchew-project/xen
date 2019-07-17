@@ -1638,6 +1638,12 @@ int xc_physdev_unmap_pirq(xc_interface *xch,
                           uint32_t domid,
                           int pirq);
 
+int xc_physdev_msi_control(xc_interface *xch,
+                           int seg,
+                           int bus,
+                           int devfn,
+                           int flags);
+
 /*
  *  LOGGING AND ERROR REPORTING
  */

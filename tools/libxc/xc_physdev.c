@@ -111,3 +111,22 @@ int xc_physdev_unmap_pirq(xc_interface *xch,
     return rc;
 }
 
+int xc_physdev_msi_control(xc_interface *xch,
+                           int seg,
+                           int bus,
+                           int devfn,
+                           int flags)
+{
+    int rc;
+    struct physdev_msi_control op;
+
+    memset(&op, 0, sizeof(struct physdev_msi_control));
+    op.seg = seg;
+    op.bus = bus;
+    op.devfn = devfn;
+    op.flags = flags;
+
+    rc = do_physdev_op(xch, PHYSDEVOP_msi_control, &op, sizeof(op));
+
+    return rc;
+}
