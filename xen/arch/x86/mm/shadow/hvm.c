@@ -597,7 +597,7 @@ static void sh_emulate_unmap_dest(struct vcpu *v, void *addr,
     {
         paging_mark_dirty(v->domain, sh_ctxt->mfn[1]);
         put_page(mfn_to_page(sh_ctxt->mfn[1]));
-        vunmap((void *)((unsigned long)addr & PAGE_MASK));
+        vunmap(addr);
     }
     else
         unmap_domain_page(addr);

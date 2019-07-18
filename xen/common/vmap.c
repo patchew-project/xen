@@ -141,7 +141,7 @@ static void *vm_alloc(unsigned int nr, unsigned int align,
 
 static unsigned int vm_index(const void *va, enum vmap_region type)
 {
-    unsigned long addr = (unsigned long)va & ~(PAGE_SIZE - 1);
+    unsigned long addr = (unsigned long)va & PAGE_MASK;
     unsigned int idx;
     unsigned long start = (unsigned long)vm_base[type];
 
@@ -225,7 +225,7 @@ void *vmap(const mfn_t *mfn, unsigned int nr)
 
 void vunmap(const void *va)
 {
-    unsigned long addr = (unsigned long)va;
+    unsigned long addr = (unsigned long)va & PAGE_MASK;
     unsigned int pages = vm_size(va, VMAP_DEFAULT);
 
     if ( !pages )

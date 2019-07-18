@@ -115,7 +115,7 @@ void acpi_os_unmap_memory(void __iomem * virt, acpi_size size)
 	}
 
 	if (system_state >= SYS_STATE_boot)
-		vunmap((void *)((unsigned long)virt & PAGE_MASK));
+		vunmap(virt);
 }
 
 acpi_status acpi_os_read_port(acpi_io_address port, u32 * value, u32 width)

@@ -27,9 +27,7 @@ void __iomem *ioremap(paddr_t, size_t);
 
 static inline void iounmap(void __iomem *va)
 {
-    unsigned long addr = (unsigned long)(void __force *)va;
-
-    vunmap((void *)(addr & PAGE_MASK));
+    vunmap((void *)va);
 }
 
 void *arch_vmap_virt_end(void);
