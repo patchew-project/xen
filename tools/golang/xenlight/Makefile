@@ -8,7 +8,7 @@ GOXL_PKG_DIR = /src/$(XEN_GOCODE_URL)/xenlight/
 GOXL_INSTALL_DIR = $(GOCODE_DIR)$(GOXL_PKG_DIR)
 
 # PKGSOURCES: Files which comprise the distributed source package
-PKGSOURCES = xenlight.go
+PKGSOURCES = xenlight.go xenlight_utils.go
 
 GO ?= go
 
