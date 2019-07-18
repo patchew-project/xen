@@ -182,7 +182,9 @@ static inline void vcpu_runstate_change(
 
     trace_runstate_change(v, new_state);
 
-    delta = new_entry_time - v->runstate.state_entry_time;
+    delta = new_entry_time -
+            (v->runstate.state_entry_time & ~XEN_RUNSTATE_UPDATE);
+
     if ( delta > 0 )
     {
         v->runstate.time[v->runstate.state] += delta;
