@@ -45,3 +45,12 @@ kind of development environment.
   :maxdepth: 2
 
   hypervisor-guide/index
+
+
+Misc unsorted
+-------------
+
+.. toctree::
+  :maxdepth: 2
+
+  misc/wishlist
