@@ -373,8 +373,6 @@ create_page_tables:
         /* Write Xen's PT's paddr into the HTTBR */
         ldr   r4, =boot_pgtable
         add   r4, r4, r10            /* r4 := paddr (boot_pagetable) */
-        mov   r5, #0                 /* r4:r5 is paddr (boot_pagetable) */
-        mcrr  CP64(r4, r5, HTTBR)
 
         /* Setup boot_pgtable: */
         ldr   r1, =boot_second
@@ -479,6 +477,12 @@ enable_mmu:
          */
         mcr   CP32(r0, TLBIALLH)     /* Flush hypervisor TLBs */
         dsb   nsh
+
+        ldr   r0, =boot_pgtable
+        add   r0, r0, r10            /* r0 := paddr (boot_pagetable) */
+        mov   r1, #0                 /* r0:r1 is paddr (boot_pagetable) */
+        mcrr  CP64(r0, r1, HTTBR)
+        isb
 
         mrc   CP32(r0, HSCTLR)
         /* Enable MMU and D-cache */
