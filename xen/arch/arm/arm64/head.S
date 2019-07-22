@@ -300,6 +300,13 @@ real_start_efi:
         ldr   x0, =primary_switched
         br    x0
 primary_switched:
+        /*
+         * The 1:1 map may clash with other parts of the Xen virtual memory
+         * layout. As it is not used anymore, remove it completely to
+         * avoid having to worry about replacing existing mapping
+         * afterwards.
+         */
+        bl    remove_identity_mapping
         bl    setup_fixmap
 #ifdef CONFIG_EARLY_PRINTK
         /* Use a virtual address to access the UART. */
@@ -625,10 +632,68 @@ enable_mmu:
         ret
 ENDPROC(enable_mmu)
 
+/*
+ * Remove the 1:1 map for the page-tables. It is not easy to keep track
+ * where the 1:1 map was mapped, so we will look for the top-level entry
+ * exclusive to the 1:1 map and remove it.
+ *
+ * Inputs:
+ *   x19: paddr(start)
+ *
+ * Clobbers x0 - x1
+ */
+remove_identity_mapping:
+        /*
+         * Find the zeroeth slot used. Remove the entry from zeroeth
+         * table if the slot is not 0. For slot 0, the 1:1 mapping was either
+         * done in first or second table.
+         */
+        lsr   x1, x19, #ZEROETH_SHIFT   /* x1 := zeroeth slot */
+        cbz   x1, 1f
+        /* It is not in slot 0, remove the entry */
+        ldr   x0, =boot_pgtable         /* x0 := root table */
+        str   xzr, [x0, x1, lsl #3]
+        b     identity_mapping_removed
+
+1:
+        /*
+         * Find the first slot used. Remove the entry for the first
+         * table if the slot is not 0. For slot 0, the 1:1 mapping was
+         * done in the second table.
+         */
+        lsr   x1, x19, #FIRST_SHIFT
+        and   x1, x1, #LPAE_ENTRY_MASK  /* x1 := first slot */
+        cbz   x1, 1f
+        /* It is not in slot 0, remove the entry */
+        ldr   x0, =boot_first           /* x0 := first table */
+        str   xzr, [x0, x1, lsl #3]
+        b     identity_mapping_removed
+
+1:
+        /*
+         * Find the second slot used. Remove the entry for the first
+         * table if the slot is not 1 (runtime Xen mapping is 2M - 4M).
+         * For slot 1, it means the 1:1 mapping was not created.
+         */
+        lsr   x1, x19, #SECOND_SHIFT
+        and   x1, x1, #LPAE_ENTRY_MASK  /* x1 := first slot */
+        cmp   x1, #1
+        beq   identity_mapping_removed
+        /* It is not in slot 1, remove the entry */
+        ldr   x0, =boot_second          /* x0 := second table */
+        str   xzr, [x0, x1, lsl #3]
+
+identity_mapping_removed:
+        /* See asm-arm/arm64/flushtlb.h for the explanation of the sequence. */
+        dsb   nshst
+        tlbi  alle2
+        dsb   nsh
+        isb
+
+        ret
+ENDPROC(remove_identity_mapping)
+
 setup_fixmap:
-        /* Now we can install the fixmap and dtb mappings, since we
-         * don't need the 1:1 map any more */
-        dsb   sy
 #if defined(CONFIG_EARLY_PRINTK) /* Fixmap is only used by early printk */
         /* Add UART to the fixmap table */
         ldr   x1, =xen_fixmap        /* x1 := vaddr (xen_fixmap) */
@@ -646,19 +711,10 @@ setup_fixmap:
         ldr   x1, =FIXMAP_ADDR(0)
         lsr   x1, x1, #(SECOND_SHIFT - 3)   /* x1 := Slot for FIXMAP(0) */
         str   x2, [x4, x1]           /* Map it in the fixmap's slot */
+
+        /* Ensure any page table updates made above have occurred. */
+        dsb   nshst
 #endif
-
-        /*
-         * Flush the TLB in case the 1:1 mapping happens to clash with
-         * the virtual addresses used by the fixmap or DTB.
-         */
-        dsb   sy                     /* Ensure any page table updates made above
-                                      * have occurred. */
-
-        isb
-        tlbi  alle2
-        dsb   sy                     /* Ensure completion of TLB flush */
-        isb
         ret
 ENDPROC(setup_fixmap)
 
