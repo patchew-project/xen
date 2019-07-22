@@ -836,7 +836,7 @@ guest_physmap_add_page(struct domain *d, gfn_t gfn, mfn_t mfn,
          */
         for ( i = 0; i < (1UL << page_order); ++i, ++page )
         {
-            if ( !need_iommu_pt_sync(d) )
+            if ( !has_iommu_pt(d) )
                 /* nothing */;
             else if ( get_page_and_type(page, d, PGT_writable_page) )
                 put_page_and_type(page);
@@ -1341,7 +1341,7 @@ int set_identity_p2m_entry(struct domain *d, unsigned long gfn_l,
 
     if ( !paging_mode_translate(p2m->domain) )
     {
-        if ( !need_iommu_pt_sync(d) )
+        if ( !has_iommu_pt(d) )
             return 0;
         return iommu_legacy_map(d, _dfn(gfn_l), _mfn(gfn_l), PAGE_ORDER_4K,
                                 IOMMUF_readable | IOMMUF_writable);
@@ -1432,7 +1432,7 @@ int clear_identity_p2m_entry(struct domain *d, unsigned long gfn_l)
 
     if ( !paging_mode_translate(d) )
     {
-        if ( !need_iommu_pt_sync(d) )
+        if ( !has_iommu_pt(d) )
             return 0;
         return iommu_legacy_unmap(d, _dfn(gfn_l), PAGE_ORDER_4K);
     }
