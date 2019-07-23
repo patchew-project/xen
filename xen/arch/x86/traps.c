@@ -1601,12 +1601,8 @@ void async_exception_cleanup(struct vcpu *curr)
         return;
 
     /* Restore affinity.  */
-    if ( !cpumask_empty(curr->cpu_hard_affinity_tmp) &&
-         !cpumask_equal(curr->cpu_hard_affinity_tmp, curr->cpu_hard_affinity) )
-    {
-        vcpu_set_hard_affinity(curr, curr->cpu_hard_affinity_tmp);
-        cpumask_clear(curr->cpu_hard_affinity_tmp);
-    }
+    if ( curr->affinity_broken & VCPU_AFFINITY_NMI )
+        vcpu_set_tmp_affinity(curr, -1, VCPU_AFFINITY_NMI);
 
     if ( !(curr->async_exception_mask & (curr->async_exception_mask - 1)) )
         trap = __scanbit(curr->async_exception_mask, VCPU_TRAP_NONE);

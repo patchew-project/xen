@@ -1106,45 +1106,56 @@ void watchdog_domain_destroy(struct domain *d)
         kill_timer(&d->watchdog_timer[i]);
 }
 
-int vcpu_pin_override(struct vcpu *v, int cpu)
+int vcpu_set_tmp_affinity(struct vcpu *v, int cpu, uint8_t reason)
 {
     spinlock_t *lock;
     int ret = -EINVAL;
+    bool migrate;
 
     lock = vcpu_schedule_lock_irq(v);
 
     if ( cpu < 0 )
     {
-        if ( v->affinity_broken )
+        if ( v->affinity_broken & reason )
         {
-            sched_set_affinity(v, v->cpu_hard_affinity_saved, NULL);
-            v->affinity_broken = 0;
             ret = 0;
+            v->affinity_broken &= ~reason;
         }
+        if ( !ret && !v->affinity_broken )
+            sched_set_affinity(v, v->cpu_hard_affinity_saved, NULL);
     }
     else if ( cpu < nr_cpu_ids )
     {
-        if ( v->affinity_broken )
+        if ( (v->affinity_broken & reason) ||
+             (v->affinity_broken && v->processor != cpu) )
             ret = -EBUSY;
         else if ( cpumask_test_cpu(cpu, VCPU2ONLINE(v)) )
         {
-            cpumask_copy(v->cpu_hard_affinity_saved, v->cpu_hard_affinity);
-            v->affinity_broken = 1;
-            sched_set_affinity(v, cpumask_of(cpu), NULL);
+            if ( !v->affinity_broken )
+            {
+                cpumask_copy(v->cpu_hard_affinity_saved, v->cpu_hard_affinity);
+                sched_set_affinity(v, cpumask_of(cpu), NULL);
+            }
+            v->affinity_broken |= reason;
             ret = 0;
         }
     }
 
-    if ( ret == 0 )
+    migrate = !ret && !cpumask_test_cpu(v->processor, v->cpu_hard_affinity);
+    if ( migrate )
         vcpu_migrate_start(v);
 
     vcpu_schedule_unlock_irq(lock, v);
 
-    domain_update_node_affinity(v->domain);
-
-    vcpu_migrate_finish(v);
+    if ( migrate )
+        vcpu_migrate_finish(v);
 
     return ret;
+}
+
+int vcpu_pin_override(struct vcpu *v, int cpu)
+{
+    return vcpu_set_tmp_affinity(v, cpu, VCPU_AFFINITY_OVERRIDE);
 }
 
 typedef long ret_t;

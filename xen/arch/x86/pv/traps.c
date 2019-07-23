@@ -151,25 +151,7 @@ static void nmi_mce_softirq(void)
 
     BUG_ON(st->vcpu == NULL);
 
-    /*
-     * Set the tmp value unconditionally, so that the check in the iret
-     * hypercall works.
-     */
-    cpumask_copy(st->vcpu->cpu_hard_affinity_tmp,
-                 st->vcpu->cpu_hard_affinity);
-
-    if ( (cpu != st->processor) ||
-         (st->processor != st->vcpu->processor) )
-    {
-
-        /*
-         * We are on a different physical cpu.  Make sure to wakeup the vcpu on
-         * the specified processor.
-         */
-        vcpu_set_hard_affinity(st->vcpu, cpumask_of(st->processor));
-
-        /* Affinity is restored in the iret hypercall. */
-    }
+    vcpu_set_tmp_affinity(st->vcpu, st->processor, VCPU_AFFINITY_NMI);
 
     /*
      * Only used to defer wakeup of domain/vcpu to a safe (non-NMI/MCE)
