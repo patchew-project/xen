@@ -195,7 +195,7 @@ static bool __hwdom_init hwdom_iommu_map(const struct domain *d,
                                          unsigned long max_pfn)
 {
     mfn_t mfn = _mfn(pfn);
-    unsigned int i, type;
+    unsigned int type;
 
     /*
      * Set up 1:1 mapping for dom0. Default to include only conventional RAM
@@ -229,10 +229,9 @@ static bool __hwdom_init hwdom_iommu_map(const struct domain *d,
     /* Check that it doesn't overlap with the Interrupt Address Range. */
     if ( pfn >= 0xfee00 && pfn <= 0xfeeff )
         return false;
-    /* ... or the IO-APIC */
-    for ( i = 0; has_vioapic(d) && i < d->arch.hvm.nr_vioapics; i++ )
-        if ( pfn == PFN_DOWN(domain_vioapic(d, i)->base_address) )
-            return false;
+    /* ... or the APIC Configuration Space. */
+    if ( pfn >= 0xfec00 && pfn <= 0xfecff )
+        return false;
     /*
      * ... or the PCIe MCFG regions.
      * TODO: runtime added MMCFG regions are not checked to make sure they
