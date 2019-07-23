@@ -62,7 +62,6 @@ int shadow_domain_init(struct domain *d)
 
 #if (SHADOW_OPTIMIZATIONS & SHOPT_OUT_OF_SYNC)
     d->arch.paging.shadow.oos_active = 0;
-    d->arch.paging.shadow.oos_off = d->createflags & XEN_DOMCTL_CDF_oos_off;
 #endif
     d->arch.paging.shadow.pagetable_dying_op = 0;
 
@@ -2523,7 +2522,7 @@ static void sh_update_paging_modes(struct vcpu *v)
 #if (SHADOW_OPTIMIZATIONS & SHOPT_OUT_OF_SYNC)
     /* We need to check that all the vcpus have paging enabled to
      * unsync PTs. */
-    if ( is_hvm_domain(d) && !d->arch.paging.shadow.oos_off )
+    if ( is_hvm_domain(d) && !(d->createflags & XEN_DOMCTL_CDF_oos_off) )
     {
         int pe = 1;
         struct vcpu *vptr;
