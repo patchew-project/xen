@@ -46,7 +46,7 @@ static void sh_clean_dirty_bitmap(struct domain *);
 
 /* Set up the shadow-specific parts of a domain struct at start of day.
  * Called for every domain from arch_domain_create() */
-int shadow_domain_init(struct domain *d, unsigned int domcr_flags)
+int shadow_domain_init(struct domain *d)
 {
     static const struct log_dirty_ops sh_ops = {
         .enable  = sh_enable_log_dirty,
@@ -62,7 +62,7 @@ int shadow_domain_init(struct domain *d, unsigned int domcr_flags)
 
 #if (SHADOW_OPTIMIZATIONS & SHOPT_OUT_OF_SYNC)
     d->arch.paging.shadow.oos_active = 0;
-    d->arch.paging.shadow.oos_off = domcr_flags & XEN_DOMCTL_CDF_oos_off;
+    d->arch.paging.shadow.oos_off = d->createflags & XEN_DOMCTL_CDF_oos_off;
 #endif
     d->arch.paging.shadow.pagetable_dying_op = 0;
 
