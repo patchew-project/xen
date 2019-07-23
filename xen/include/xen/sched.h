@@ -308,6 +308,7 @@ enum guest_type {
 
 struct domain
 {
+    unsigned int     createflags;
     domid_t          domain_id;
 
     unsigned int     max_vcpus;
