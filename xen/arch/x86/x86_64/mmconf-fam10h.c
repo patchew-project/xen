@@ -183,7 +183,7 @@ void fam10h_check_enable_mmcfg(void)
 	wrmsrl(MSR_FAM10H_MMIO_CONF_BASE, val);
 }
 
-static struct dmi_system_id __initdata mmconf_dmi_table[] = {
+static const struct dmi_system_id __initconst mmconf_dmi_table[] = {
 	{
 		.ident = "Sun Microsystems Machine",
 		.matches = {
