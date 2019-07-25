@@ -156,7 +156,6 @@ struct hvm_domain {
 
     struct viridian_domain *viridian;
 
-    bool_t                 hap_enabled;
     bool_t                 mem_sharing_enabled;
     bool_t                 qemu_mapcache_invalidate;
     bool_t                 is_s3_suspended;
@@ -195,11 +194,9 @@ struct hvm_domain {
     };
 };
 
-#ifdef CONFIG_HVM
-#define hap_enabled(d)  (is_hvm_domain(d) && (d)->arch.hvm.hap_enabled)
-#else
-#define hap_enabled(d)  ({(void)(d); false;})
-#endif
+#define hap_enabled(d) \
+    (hvm_hap_supported() && is_hvm_domain(d) && \
+     evaluate_nospec(d->options & XEN_DOMCTL_CDF_hap))
 
 #endif /* __ASM_X86_HVM_DOMAIN_H__ */
 
