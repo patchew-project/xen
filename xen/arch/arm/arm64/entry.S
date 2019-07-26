@@ -195,7 +195,6 @@ hyp_error_invalid:
 
 hyp_error:
         entry   hyp=1
-        msr     daifclr, #2
         mov     x0, sp
         bl      do_trap_hyp_serror
         exit    hyp=1
@@ -203,7 +202,7 @@ hyp_error:
 /* Traps taken in Current EL with SP_ELx */
 hyp_sync:
         entry   hyp=1
-        msr     daifclr, #6
+        msr     daifclr, #4
         mov     x0, sp
         bl      do_trap_hyp_sync
         exit    hyp=1
@@ -304,7 +303,7 @@ guest_sync_slowpath:
         ALTERNATIVE("bl check_pending_vserror; cbnz x0, 1f",
                     "nop; nop",
                     SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT)
-        msr     daifclr, #6
+        msr     daifclr, #4
         mov     x0, sp
         bl      do_trap_guest_sync
 1:
@@ -332,7 +331,7 @@ guest_fiq_invalid:
 
 guest_error:
         entry   hyp=0, compat=0
-        msr     daifclr, #6
+        msr     daifclr, #4
         mov     x0, sp
         bl      do_trap_guest_serror
         exit    hyp=0, compat=0
@@ -347,7 +346,7 @@ guest_sync_compat:
         ALTERNATIVE("bl check_pending_vserror; cbnz x0, 1f",
                     "nop; nop",
                     SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT)
-        msr     daifclr, #6
+        msr     daifclr, #4
         mov     x0, sp
         bl      do_trap_guest_sync
 1:
@@ -375,7 +374,7 @@ guest_fiq_invalid_compat:
 
 guest_error_compat:
         entry   hyp=0, compat=1
-        msr     daifclr, #6
+        msr     daifclr, #4
         mov     x0, sp
         bl      do_trap_guest_serror
         exit    hyp=0, compat=1
