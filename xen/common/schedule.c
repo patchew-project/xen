@@ -1504,20 +1504,16 @@ static void schedule(void)
              (now - next->runstate.state_entry_time) : 0,
              next_slice.time);
 
-    ASSERT(prev->runstate.state == RUNSTATE_running);
-
     TRACE_4D(TRC_SCHED_SWITCH,
              prev->domain->domain_id, prev->vcpu_id,
              next->domain->domain_id, next->vcpu_id);
 
-    vcpu_runstate_change(
-        prev,
-        ((prev->pause_flags & VPF_blocked) ? RUNSTATE_blocked :
-         (vcpu_runnable(prev) ? RUNSTATE_runnable : RUNSTATE_offline)),
-        now);
-
-    ASSERT(next->runstate.state != RUNSTATE_running);
-    vcpu_runstate_change(next, RUNSTATE_running, now);
+    if ( !vcpu_runnable(prev) )
+        vcpu_runstate_change(
+            prev,
+            ((prev->pause_flags & VPF_blocked) ? RUNSTATE_blocked :
+             RUNSTATE_offline),
+            now);
 
     /*
      * NB. Don't add any trace records from here until the actual context
@@ -1526,6 +1522,7 @@ static void schedule(void)
 
     ASSERT(!next->is_running);
     next->is_running = 1;
+    next->runtime = 0;
 
     pcpu_schedule_unlock_irq(lock, cpu);
 
@@ -1539,6 +1536,58 @@ static void schedule(void)
     vcpu_periodic_timer_work(next);
 
     context_switch(prev, next);
+}
+
+DEFINE_PER_CPU(int, hyp_tacc_cnt);
+
+void hyp_tacc_head(int place)
+{
+    //printk("\thead cpu %u, place %d, cnt %d\n", smp_processor_id(), place, this_cpu(hyp_tacc_cnt));
+
+    ASSERT(this_cpu(hyp_tacc_cnt) >= 0);
+
+    if ( this_cpu(hyp_tacc_cnt) == 0 )
+    {
+        s_time_t now = NOW();
+        spin_lock(per_cpu(schedule_data,smp_processor_id()).schedule_lock);
+        /*
+         * Stop time accounting for guest (guest vcpu)
+         */
+        ASSERT( (current->runstate.state_entry_time & XEN_RUNSTATE_UPDATE) == 0);
+        current->runtime += now - current->runstate.state_entry_time;
+        vcpu_runstate_change(current, RUNSTATE_runnable, now);
+        /*
+         * Start time accounting for hyp (idle vcpu)
+         */
+        vcpu_runstate_change(idle_vcpu[smp_processor_id()], RUNSTATE_running, now);
+        spin_unlock(per_cpu(schedule_data,smp_processor_id()).schedule_lock);
+    }
+
+    this_cpu(hyp_tacc_cnt)++;
+}
+
+void hyp_tacc_tail(int place)
+{
+    //printk("\t\t\t\ttail cpu %u, place %d, cnt %d\n", smp_processor_id(), place, this_cpu(hyp_tacc_cnt));
+
+    ASSERT(this_cpu(hyp_tacc_cnt) > 0);
+
+    if (this_cpu(hyp_tacc_cnt) == 1)
+    {
+        s_time_t now = NOW();
+        spin_lock(per_cpu(schedule_data,smp_processor_id()).schedule_lock);
+        /*
+         * Stop time accounting for guest (guest vcpu)
+         */
+        vcpu_runstate_change(idle_vcpu[smp_processor_id()], RUNSTATE_runnable, now);
+        /*
+         * Start time accounting for hyp (idle vcpu)
+         */
+        vcpu_runstate_change(current, RUNSTATE_running, now);
+        spin_unlock(per_cpu(schedule_data,smp_processor_id()).schedule_lock);
+    }
+
+    this_cpu(hyp_tacc_cnt)--;
 }
 
 void context_saved(struct vcpu *prev)
@@ -1597,8 +1646,9 @@ static int cpu_schedule_up(unsigned int cpu)
     sd->curr = idle_vcpu[cpu];
     init_timer(&sd->s_timer, s_timer_fn, NULL, cpu);
     atomic_set(&sd->urgent_count, 0);
+    per_cpu(hyp_tacc_cnt, cpu) = 1;
 
-    /* Boot CPU is dealt with later in schedule_init(). */
+    /* Boot CPU is dealt with later in scheduler_init(). */
     if ( cpu == 0 )
         return 0;
 
@@ -1654,6 +1704,8 @@ static void cpu_schedule_down(unsigned int cpu)
     sd->sched_priv = NULL;
 
     kill_timer(&sd->s_timer);
+
+    per_cpu(hyp_tacc_cnt, cpu) = 0;
 }
 
 static int cpu_schedule_callback(

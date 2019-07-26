@@ -3285,7 +3285,7 @@ runq_candidate(struct csched2_runqueue_data *rqd,
      * no point forcing it to do so until rate limiting expires.
      */
     if ( !yield && prv->ratelimit_us && vcpu_runnable(scurr->vcpu) &&
-         (now - scurr->vcpu->runstate.state_entry_time) <
+          scurr->vcpu->runtime <
           MICROSECS(prv->ratelimit_us) )
     {
         if ( unlikely(tb_init_done) )
@@ -3296,7 +3296,7 @@ runq_candidate(struct csched2_runqueue_data *rqd,
             } d;
             d.dom = scurr->vcpu->domain->domain_id;
             d.vcpu = scurr->vcpu->vcpu_id;
-            d.runtime = now - scurr->vcpu->runstate.state_entry_time;
+            d.runtime = scurr->vcpu->runtime;
             __trace_var(TRC_CSCHED2_RATELIMIT, 1,
                         sizeof(d),
                         (unsigned char *)&d);

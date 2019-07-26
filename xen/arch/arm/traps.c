@@ -2064,7 +2064,7 @@ void do_trap_guest_sync(struct cpu_user_regs *regs)
         if ( !check_conditional_instr(regs, hsr) )
         {
             advance_pc(regs, hsr);
-            return;
+            break;
         }
         if ( hsr.wfi_wfe.ti ) {
             /* Yield the VCPU for WFE */
@@ -2126,10 +2126,16 @@ void do_trap_guest_sync(struct cpu_user_regs *regs)
         perfc_incr(trap_hvc32);
 #ifndef NDEBUG
         if ( (hsr.iss & 0xff00) == 0xff00 )
-            return do_debug_trap(regs, hsr.iss & 0x00ff);
+        {
+            do_debug_trap(regs, hsr.iss & 0x00ff);
+            break;
+        }
 #endif
         if ( hsr.iss == 0 )
-            return do_trap_hvc_smccc(regs);
+        {
+            do_trap_hvc_smccc(regs);
+            break;
+        }
         nr = regs->r12;
         do_trap_hypercall(regs, &nr, hsr);
         regs->r12 = (uint32_t)nr;
@@ -2141,10 +2147,16 @@ void do_trap_guest_sync(struct cpu_user_regs *regs)
         perfc_incr(trap_hvc64);
 #ifndef NDEBUG
         if ( (hsr.iss & 0xff00) == 0xff00 )
-            return do_debug_trap(regs, hsr.iss & 0x00ff);
+        {
+            do_debug_trap(regs, hsr.iss & 0x00ff);
+            break;
+        }
 #endif
         if ( hsr.iss == 0 )
-            return do_trap_hvc_smccc(regs);
+        {
+            do_trap_hvc_smccc(regs);
+            break;
+        }
         do_trap_hypercall(regs, &regs->x16, hsr);
         break;
     case HSR_EC_SMC64:
@@ -2179,6 +2191,11 @@ void do_trap_guest_sync(struct cpu_user_regs *regs)
                 hsr.bits, hsr.ec, hsr.len, hsr.iss);
         inject_undef_exception(regs, hsr);
     }
+
+    local_irq_disable();
+    hyp_tacc_head(1);
+
+    /*we will call tacc tail from the leave_hypervisor_tail*/
 }
 
 void do_trap_hyp_sync(struct cpu_user_regs *regs)
@@ -2219,6 +2236,7 @@ void do_trap_hyp_sync(struct cpu_user_regs *regs)
                hsr.bits, hsr.ec, hsr.len, hsr.iss);
         do_unexpected_trap("Hypervisor", regs);
     }
+
 }
 
 void do_trap_hyp_serror(struct cpu_user_regs *regs)
@@ -2234,28 +2252,47 @@ void do_trap_guest_serror(struct cpu_user_regs *regs)
     local_irq_enable();
 
     __do_trap_serror(regs, true);
+
+    local_irq_disable();
+    hyp_tacc_head(2);
 }
 
 void do_trap_guest_irq(struct cpu_user_regs *regs)
 {
+    hyp_tacc_head(3);
+
     enter_hypervisor_head();
     gic_interrupt(regs, 0);
+
+    /*we will call tacc tail from the leave_hypervisor_tail*/
 }
 
 void do_trap_guest_fiq(struct cpu_user_regs *regs)
 {
+    hyp_tacc_head(4);
+
     enter_hypervisor_head();
     gic_interrupt(regs, 1);
+
+    /*we will call tacc tail from the leave_hypervisor_tail*/
 }
 
 void do_trap_hyp_irq(struct cpu_user_regs *regs)
 {
+    hyp_tacc_head(5);
+
     gic_interrupt(regs, 0);
+
+    hyp_tacc_tail(5);
 }
 
 void do_trap_hyp_fiq(struct cpu_user_regs *regs)
 {
+    hyp_tacc_head(6);
+
     gic_interrupt(regs, 1);
+
+    hyp_tacc_tail(6);
 }
 
 static void check_for_pcpu_work(void)
@@ -2317,6 +2354,8 @@ void leave_hypervisor_tail(void)
      * to skip synchronizing SErrors for other SErrors handle options.
      */
     SYNCHRONIZE_SERROR(SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT);
+
+    hyp_tacc_tail(1234);
 
     /*
      * The hypervisor runs with the workaround always present.

@@ -1856,7 +1856,7 @@ csched_schedule(
                     (unsigned char *)&d);
     }
 
-    runtime = now - current->runstate.state_entry_time;
+    runtime = current->runtime;
     if ( runtime < 0 ) /* Does this ever happen? */
         runtime = 0;
 
