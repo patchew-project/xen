@@ -201,14 +201,15 @@ SECTIONS
        *(.bss.stack_aligned)
        . = ALIGN(PAGE_SIZE);
        *(.bss.page_aligned)
-       *(.bss)
-       . = ALIGN(SMP_CACHE_BYTES);
        __per_cpu_start = .;
+       *(.bss.percpu.page_aligned)
        *(.bss.percpu)
        . = ALIGN(SMP_CACHE_BYTES);
        *(.bss.percpu.read_mostly)
        . = ALIGN(SMP_CACHE_BYTES);
        __per_cpu_data_end = .;
+       *(.bss)
+       . = ALIGN(SMP_CACHE_BYTES);
        __bss_end = .;
   } :text
   _end = . ;
