@@ -100,8 +100,6 @@ unsigned long __read_mostly xen_phys_start;
 
 unsigned long __read_mostly xen_virt_end;
 
-DEFINE_PER_CPU(struct tss_struct, init_tss);
-
 char __section(".bss.stack_aligned") __aligned(STACK_SIZE)
     cpu0_stack[STACK_SIZE];
 
