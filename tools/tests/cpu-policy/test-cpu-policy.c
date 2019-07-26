@@ -35,7 +35,7 @@ static void test_vendor_identification(void)
 {
     static const struct test {
         union {
-            char ident[12];
+            char ident[13];
             struct {
                 uint32_t b, d, c;
             };
