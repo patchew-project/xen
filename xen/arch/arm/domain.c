@@ -19,6 +19,7 @@
 #include <xen/sched.h>
 #include <xen/softirq.h>
 #include <xen/wait.h>
+#include <xen/sched-if.h>
 
 #include <asm/alternative.h>
 #include <asm/cpuerrata.h>
@@ -42,6 +43,27 @@
 
 DEFINE_PER_CPU(struct vcpu *, curr_vcpu);
 
+static inline void idle_vcpu_runstate_change(
+    unsigned int cpu, int new_state, s_time_t new_entry_time)
+{
+    s_time_t delta;
+    struct vcpu *v = idle_vcpu[cpu];
+    spinlock_t *lock = vcpu_schedule_lock(v);
+
+    ASSERT(v == current);
+    ASSERT(v->runstate.state != new_state);
+
+    delta = new_entry_time - v->runstate.state_entry_time;
+    if ( delta > 0 )
+    {
+        v->runstate.time[v->runstate.state] += delta;
+        v->runstate.state_entry_time = new_entry_time;
+    }
+
+    v->runstate.state = new_state;
+    vcpu_schedule_unlock(lock, v);
+}
+
 static void do_idle(void)
 {
     unsigned int cpu = smp_processor_id();
@@ -51,11 +73,13 @@ static void do_idle(void)
     process_pending_softirqs();
 
     local_irq_disable();
+    idle_vcpu_runstate_change(cpu, RUNSTATE_blocked, NOW());
     if ( cpu_is_haltable(cpu) )
     {
         dsb(sy);
         wfi();
     }
+    idle_vcpu_runstate_change(cpu, RUNSTATE_running, NOW());
     local_irq_enable();
 
     sched_tick_resume();
