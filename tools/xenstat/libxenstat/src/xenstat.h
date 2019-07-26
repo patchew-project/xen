@@ -80,6 +80,15 @@ unsigned int xenstat_node_num_cpus(xenstat_node * node);
 /* Get information about the CPU speed */
 unsigned long long xenstat_node_cpu_hz(xenstat_node * node);
 
+/* Get information about the CPU idle time */
+unsigned long long xenstat_node_idle_time(xenstat_node * node);
+
+/* Get information about the CPU guest execution time */
+unsigned long long xenstat_node_guest_time(xenstat_node * node);
+
+/* Get information about the CPU hypervisor execution time */
+unsigned long long xenstat_node_hyp_time(xenstat_node * node);
+
 /*
  * Domain functions - extract information from a xenstat_domain
  */

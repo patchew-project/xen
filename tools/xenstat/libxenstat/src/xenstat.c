@@ -148,6 +148,9 @@ static inline unsigned long long parse(char *s, char *match)
 xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
 {
 #define DOMAIN_CHUNK_SIZE 256
+	xc_cpuinfo_t *cpuinfo;
+	int max_cpus, nr_cpus;
+
 	xenstat_node *node;
 	xc_physinfo_t physinfo = { 0 };
 	xc_domaininfo_t domaininfo[DOMAIN_CHUNK_SIZE];
@@ -177,6 +180,26 @@ xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
 	    * handle->page_size;
 
 	node->freeable_mb = 0;
+
+	max_cpus = node->num_cpus;
+
+	cpuinfo = calloc(max_cpus, sizeof(xc_cpuinfo_t));
+	if (!cpuinfo)
+		return NULL;
+
+	if (xc_getcpuinfo(handle->xc_handle, max_cpus, cpuinfo, &nr_cpus) < 0) {
+		free(cpuinfo);
+		return NULL;
+	}
+
+	for ( i = 0; i < nr_cpus; i++) {
+		node->idle_time += cpuinfo[i].idletime;
+		node->hyp_time += cpuinfo[i].hyptime;
+		node->guest_time += cpuinfo[i].guesttime;
+	}
+
+	free(cpuinfo);
+
 	/* malloc(0) is not portable, so allocate a single domain.  This will
 	 * be resized below. */
 	node->domains = malloc(sizeof(xenstat_domain));
@@ -344,6 +367,21 @@ unsigned int xenstat_node_num_cpus(xenstat_node * node)
 unsigned long long xenstat_node_cpu_hz(xenstat_node * node)
 {
 	return node->cpu_hz;
+}
+
+unsigned long long xenstat_node_idle_time(xenstat_node * node)
+{
+	return node->idle_time;
+}
+
+unsigned long long xenstat_node_guest_time(xenstat_node * node)
+{
+	return node->guest_time;
+}
+
+unsigned long long xenstat_node_hyp_time(xenstat_node * node)
+{
+	return node->hyp_time;
 }
 
 /* Get the domain ID for this domain */

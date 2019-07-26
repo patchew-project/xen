@@ -930,6 +930,34 @@ void adjust_field_widths(xenstat_domain *domain)
 		fields[FIELD_VBD_WSECT-1].default_width = length;
 }
 
+void do_utilization(void)
+{
+	double us_elapsed = 0.0,
+		   us_hyp = 0.0,
+		   us_guest = 0.0,
+		   us_idle = 0.0;
+
+	/* Can't calculate CPU percentage without a current and a previous sample.*/
+	if(prev_node != NULL && cur_node != NULL) {
+
+		/* Calculate the time elapsed in microseconds */
+		us_elapsed = ((curtime.tv_sec-oldtime.tv_sec)*1000000.0
+				  +(curtime.tv_usec - oldtime.tv_usec));
+
+		/* In the following, nanoseconds must be multiplied by 1000.0 to
+		 * convert to microseconds, then divided by 100.0 to get a percentage,
+		 * resulting in a multiplication by 10.0 */
+		us_idle = ((xenstat_node_idle_time(cur_node) -
+				   xenstat_node_idle_time(prev_node))/10.0)/us_elapsed;
+		us_guest = ((xenstat_node_guest_time(cur_node) -
+				   xenstat_node_guest_time(prev_node))/10.0)/us_elapsed;
+		us_hyp = ((xenstat_node_hyp_time(cur_node) -
+				   xenstat_node_hyp_time(prev_node))/10.0)/us_elapsed;
+	}
+
+	print("%%CPU(s): %6.1f gu, %6.1f hy, %6.1f id \n",
+		  us_guest, us_hyp, us_idle);
+}
 
 /* Section printing functions */
 /* Prints the top summary, above the domain table */
@@ -971,6 +999,8 @@ void do_summary(void)
 
 	used = xenstat_node_tot_mem(cur_node);
 	freeable_mb = 0;
+
+	do_utilization();
 
 	/* Dump node memory and cpu information */
 	if ( freeable_mb <= 0 )

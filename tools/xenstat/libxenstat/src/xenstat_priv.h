@@ -45,6 +45,9 @@ struct xenstat_node {
 	unsigned int flags;
 	unsigned long long cpu_hz;
 	unsigned int num_cpus;
+	unsigned long long hyp_time;
+	unsigned long long guest_time;
+	unsigned long long idle_time;
 	unsigned long long tot_mem;
 	unsigned long long free_mem;
 	unsigned int num_domains;
