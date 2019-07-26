@@ -217,6 +217,28 @@ uint64_t get_cpu_idle_time(unsigned int cpu)
     return state.time[RUNSTATE_blocked];
 }
 
+uint64_t get_cpu_guest_time(unsigned int cpu)
+{
+    struct vcpu_runstate_info state = { 0 };
+    struct vcpu *v = idle_vcpu[cpu];
+
+    if ( cpu_online(cpu) && v )
+        vcpu_runstate_get(v, &state);
+
+    return state.time[RUNSTATE_runnable];
+}
+
+uint64_t get_cpu_hyp_time(unsigned int cpu)
+{
+    struct vcpu_runstate_info state = { 0 };
+    struct vcpu *v = idle_vcpu[cpu];
+
+    if ( cpu_online(cpu) && v )
+        vcpu_runstate_get(v, &state);
+
+    return state.time[RUNSTATE_running];
+}
+
 /*
  * If locks are different, take the one with the lower address first.
  * This avoids dead- or live-locks when this code is running on both

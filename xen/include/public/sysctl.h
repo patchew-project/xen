@@ -164,6 +164,8 @@ struct xen_sysctl_debug_keys {
 /* XEN_SYSCTL_getcpuinfo */
 struct xen_sysctl_cpuinfo {
     uint64_aligned_t idletime;
+    uint64_aligned_t hyptime;
+    uint64_aligned_t guesttime;
 };
 typedef struct xen_sysctl_cpuinfo xen_sysctl_cpuinfo_t;
 DEFINE_XEN_GUEST_HANDLE(xen_sysctl_cpuinfo_t);

@@ -152,6 +152,8 @@ long do_sysctl(XEN_GUEST_HANDLE_PARAM(xen_sysctl_t) u_sysctl)
         for ( i = 0; i < nr_cpus; i++ )
         {
             cpuinfo.idletime = get_cpu_idle_time(i);
+            cpuinfo.guesttime = get_cpu_guest_time(i);
+            cpuinfo.hyptime = get_cpu_hyp_time(i);
 
             if ( copy_to_guest_offset(op->u.getcpuinfo.info, i, &cpuinfo, 1) )
                 goto out;
