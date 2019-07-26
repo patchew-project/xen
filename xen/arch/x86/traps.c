@@ -108,6 +108,12 @@ idt_entry_t __section(".bss.page_aligned") __aligned(PAGE_SIZE)
 /* Pointer to the IDT of every CPU. */
 idt_entry_t *idt_tables[NR_CPUS] __read_mostly;
 
+/*
+ * The TSS is smaller than a page, but we give it a full page to avoid
+ * adjacent per-cpu data leaking via Meltdown when XPTI is in use.
+ */
+DEFINE_PER_CPU_PAGE_ALIGNED(struct tss_struct, init_tss);
+
 bool (*ioemul_handle_quirk)(
     u8 opcode, char *io_emul_stub, struct cpu_user_regs *regs);
 

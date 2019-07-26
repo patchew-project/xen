@@ -411,7 +411,7 @@ static always_inline void __mwait(unsigned long eax, unsigned long ecx)
 #define IOBMP_BYTES             8192
 #define IOBMP_INVALID_OFFSET    0x8000
 
-struct __packed __cacheline_aligned tss_struct {
+struct __packed tss_struct {
     uint32_t :32;
     uint64_t rsp0, rsp1, rsp2;
     uint64_t :64;
@@ -425,6 +425,7 @@ struct __packed __cacheline_aligned tss_struct {
     /* Pads the TSS to be cacheline-aligned (total size is 0x80). */
     uint8_t __cacheline_filler[24];
 };
+DECLARE_PER_CPU(struct tss_struct, init_tss);
 
 #define IST_NONE 0UL
 #define IST_DF   1UL
@@ -463,7 +464,6 @@ static inline void disable_each_ist(idt_entry_t *idt)
 extern idt_entry_t idt_table[];
 extern idt_entry_t *idt_tables[];
 
-DECLARE_PER_CPU(struct tss_struct, init_tss);
 DECLARE_PER_CPU(root_pgentry_t *, root_pgt);
 
 extern void write_ptbase(struct vcpu *v);
