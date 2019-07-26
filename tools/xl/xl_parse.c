@@ -521,6 +521,8 @@ int parse_nic_config(libxl_device_nic *nic, XLU_Config **config, char *token)
         replace_string(&nic->colo_filter_redirector1_indev, oparg);
     } else if (MATCH_OPTION("colo_filter_redirector1_outdev", token, oparg)) {
         replace_string(&nic->colo_filter_redirector1_outdev, oparg);
+    } else if (MATCH_OPTION("colo_iothread", token, oparg)) {
+        replace_string(&nic->colo_iothread, oparg);
     } else if (MATCH_OPTION("colo_compare_pri_in", token, oparg)) {
         replace_string(&nic->colo_compare_pri_in, oparg);
     } else if (MATCH_OPTION("colo_compare_sec_in", token, oparg)) {

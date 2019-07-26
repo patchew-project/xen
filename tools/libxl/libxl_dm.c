@@ -1629,17 +1629,25 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
                                      nics[i].colo_filter_redirector1_queue,
                                      nics[i].colo_filter_redirector1_outdev));
                     }
+                    if (nics[i].colo_iothread) {
+                        flexarray_append(dm_args, "-object");
+                        flexarray_append(dm_args,
+                           GCSPRINTF("iothread,id=%s",
+                                     nics[i].colo_iothread));
+                    }
                     if (nics[i].colo_compare_pri_in &&
                         nics[i].colo_compare_sec_in &&
                         nics[i].colo_compare_out &&
-                        nics[i].colo_compare_notify_dev) {
+                        nics[i].colo_compare_notify_dev &&
+                        nics[i].colo_iothread) {
                         flexarray_append(dm_args, "-object");
                         flexarray_append(dm_args,
-                           GCSPRINTF("colo-compare,id=c1,primary_in=%s,secondary_in=%s,outdev=%s,notify_dev=%s",
+                           GCSPRINTF("colo-compare,id=c1,primary_in=%s,secondary_in=%s,outdev=%s,notify_dev=%s,iothread=%s",
                                      nics[i].colo_compare_pri_in,
                                      nics[i].colo_compare_sec_in,
                                      nics[i].colo_compare_out,
-                                     nics[i].colo_compare_notify_dev));
+                                     nics[i].colo_compare_notify_dev,
+                                     nics[i].colo_iothread));
                     }
                 }
                 ioemu_nics++;
