@@ -48,4 +48,8 @@ int console_resume(void);
 
 extern int8_t opt_console_xen;
 
+/* Issue string via serial line. */
+extern int sercon_handle;
+void sercon_puts(const char *s);
+
 #endif /* __CONSOLE_H__ */
