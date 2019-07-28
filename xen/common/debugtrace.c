@@ -15,31 +15,37 @@
 #include <xen/watchdog.h>
 
 /* Send output direct to console, or buffer it? */
-static volatile int debugtrace_send_to_console;
+static volatile bool debugtrace_send_to_console;
 
-static char        *debugtrace_buf; /* Debug-trace buffer */
-static unsigned int debugtrace_prd; /* Producer index     */
-static unsigned int debugtrace_kilobytes = 128, debugtrace_bytes;
-static unsigned int debugtrace_used;
+struct debugtrace_data_s {
+    unsigned long bytes; /* Size of buffer. */
+    unsigned long prd;   /* Producer index. */
+    char          buf[];
+};
+
+static struct debugtrace_data_s *debtr_data;
+
+static unsigned int debugtrace_kilobytes = 128;
+static bool debugtrace_used;
 static DEFINE_SPINLOCK(debugtrace_lock);
 integer_param("debugtrace", debugtrace_kilobytes);
 
 static void debugtrace_dump_worker(void)
 {
-    if ( (debugtrace_bytes == 0) || !debugtrace_used )
+    if ( !debtr_data || !debugtrace_used )
         return;
 
     printk("debugtrace_dump() starting\n");
 
     /* Print oldest portion of the ring. */
-    ASSERT(debugtrace_buf[debugtrace_bytes - 1] == 0);
-    sercon_puts(&debugtrace_buf[debugtrace_prd]);
+    ASSERT(debtr_data->buf[debtr_data->bytes - 1] == 0);
+    sercon_puts(&debtr_data->buf[debtr_data->prd]);
 
     /* Print youngest portion of the ring. */
-    debugtrace_buf[debugtrace_prd] = '\0';
-    sercon_puts(&debugtrace_buf[0]);
+    debtr_data->buf[debtr_data->prd] = '\0';
+    sercon_puts(&debtr_data->buf[0]);
 
-    memset(debugtrace_buf, '\0', debugtrace_bytes);
+    memset(debtr_data->buf, '\0', debtr_data->bytes);
 
     printk("debugtrace_dump() finished\n");
 }
@@ -64,7 +70,6 @@ static void debugtrace_toggle(void)
 
     spin_unlock_irqrestore(&debugtrace_lock, flags);
     watchdog_enable();
-
 }
 
 void debugtrace_dump(void)
@@ -86,10 +91,10 @@ static void debugtrace_add_to_buf(char *buf)
 
     for ( p = buf; *p != '\0'; p++ )
     {
-        debugtrace_buf[debugtrace_prd++] = *p;
+        debtr_data->buf[debtr_data->prd++] = *p;
         /* Always leave a nul byte at the end of the buffer. */
-        if ( debugtrace_prd == (debugtrace_bytes - 1) )
-            debugtrace_prd = 0;
+        if ( debtr_data->prd == (debtr_data->bytes - 1) )
+            debtr_data->prd = 0;
     }
 }
 
@@ -102,14 +107,14 @@ void debugtrace_printk(const char *fmt, ...)
     va_list       args;
     unsigned long flags;
 
-    if ( debugtrace_bytes == 0 )
+    if ( !debtr_data )
         return;
 
-    debugtrace_used = 1;
+    debugtrace_used = true;
 
     spin_lock_irqsave(&debugtrace_lock, flags);
 
-    ASSERT(debugtrace_buf[debugtrace_bytes - 1] == 0);
+    ASSERT(debtr_data->buf[debtr_data->bytes - 1] == 0);
 
     va_start(args, fmt);
     vsnprintf(buf, sizeof(buf), fmt, args);
@@ -125,14 +130,14 @@ void debugtrace_printk(const char *fmt, ...)
     {
         if ( strcmp(buf, last_buf) )
         {
-            last_prd = debugtrace_prd;
+            last_prd = debtr_data->prd;
             last_count = ++count;
             safe_strcpy(last_buf, buf);
             snprintf(cntbuf, sizeof(cntbuf), "%u ", count);
         }
         else
         {
-            debugtrace_prd = last_prd;
+            debtr_data->prd = last_prd;
             snprintf(cntbuf, sizeof(cntbuf), "%u-%u ", last_count, ++count);
         }
         debugtrace_add_to_buf(cntbuf);
@@ -150,7 +155,8 @@ static void debugtrace_key(unsigned char key)
 static int __init debugtrace_init(void)
 {
     int order;
-    unsigned int kbytes, bytes;
+    unsigned long kbytes, bytes;
+    struct debugtrace_data_s *data;
 
     /* Round size down to next power of two. */
     while ( (kbytes = (debugtrace_kilobytes & (debugtrace_kilobytes-1))) != 0 )
@@ -161,12 +167,14 @@ static int __init debugtrace_init(void)
         return 0;
 
     order = get_order_from_bytes(bytes);
-    debugtrace_buf = alloc_xenheap_pages(order, 0);
-    ASSERT(debugtrace_buf != NULL);
+    data = alloc_xenheap_pages(order, 0);
+    if ( !data )
+        return -ENOMEM;
 
-    memset(debugtrace_buf, '\0', bytes);
+    memset(data, '\0', bytes);
 
-    debugtrace_bytes = bytes;
+    data->bytes = bytes - sizeof(*data);
+    debtr_data = data;
 
     register_keyhandler('T', debugtrace_key,
                         "toggle debugtrace to console/buffer", 0);
