@@ -332,7 +332,7 @@ acpi_numa_memory_affinity_init(const struct acpi_srat_mem_affinity *ma)
 	if (!(ma->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE)) {
 		struct node *nd = &nodes[node];
 
-		if (!node_test_and_set(node, memory_nodes_parsed)) {
+		if (!nodemask_test_and_set(node, &memory_nodes_parsed)) {
 			nd->start = start;
 			nd->end = end;
 		} else {
@@ -376,7 +376,7 @@ static int __init nodes_cover_memory(void)
 
 		do {
 			found = 0;
-			for_each_node_mask(j, memory_nodes_parsed)
+			for_each_node_mask( j, &memory_nodes_parsed )
 				if (start < nodes[j].end
 				    && end > nodes[j].start) {
 					if (start >= nodes[j].start) {
@@ -480,10 +480,11 @@ int __init acpi_scan_nodes(u64 start, u64 end)
 		return -1;
 	}
 
-	nodes_or(all_nodes_parsed, memory_nodes_parsed, processor_nodes_parsed);
+	nodemask_or(&all_nodes_parsed, &memory_nodes_parsed,
+		    &processor_nodes_parsed);
 
 	/* Finally register nodes */
-	for_each_node_mask(i, all_nodes_parsed)
+	for_each_node_mask( i, &all_nodes_parsed )
 	{
 		u64 size = nodes[i].end - nodes[i].start;
 		if ( size == 0 )

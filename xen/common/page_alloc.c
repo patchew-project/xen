@@ -821,12 +821,12 @@ static struct page_info *get_free_buddy(unsigned int zone_lo,
      * may have bit set outside of node_online_map.  Clamp it.
      */
     if ( d )
-        nodes_and(nodemask, nodemask, d->node_affinity);
+        nodemask_and(&nodemask, &nodemask, &d->node_affinity);
 
     if ( node == NUMA_NO_NODE )
     {
         if ( d != NULL )
-            node = cycle_node(d->last_alloc_node, nodemask);
+            node = nodemask_cycle(d->last_alloc_node, &nodemask);
 
         if ( node >= MAX_NUMNODES )
             node = cpu_to_node(smp_processor_id());
@@ -882,19 +882,19 @@ static struct page_info *get_free_buddy(unsigned int zone_lo,
         {
             /* Very first node may be caller-specified and outside nodemask. */
             ASSERT(!nodemask_retry);
-            first = node = first_node(nodemask);
+            first = node = nodemask_first(&nodemask);
             if ( node < MAX_NUMNODES )
                 continue;
         }
-        else if ( (node = next_node(node, nodemask)) >= MAX_NUMNODES )
-            node = first_node(nodemask);
+        else if ( (node = nodemask_next(node, &nodemask)) >= MAX_NUMNODES )
+            node = nodemask_first(&nodemask);
         if ( node == first )
         {
             /* When we have tried all in nodemask, we fall back to others. */
             if ( (memflags & MEMF_exact_node) || nodemask_retry++ )
                 return NULL;
-            nodes_andnot(nodemask, node_online_map, nodemask);
-            first = node = first_node(nodemask);
+            nodemask_andnot(&nodemask, &node_online_map, &nodemask);
+            first = node = nodemask_first(&nodemask);
             if ( node >= MAX_NUMNODES )
                 return NULL;
         }
@@ -1171,7 +1171,7 @@ static unsigned int node_to_scrub(bool get_node)
         node = 0;
 
     if ( node_need_scrub[node] &&
-         (!get_node || !node_test_and_set(node, node_scrubbing)) )
+         (!get_node || !nodemask_test_and_set(node, &node_scrubbing)) )
         return node;
 
     /*
@@ -1182,7 +1182,7 @@ static unsigned int node_to_scrub(bool get_node)
     for ( ; ; )
     {
         do {
-            node = cycle_node(node, node_online_map);
+            node = nodemask_cycle(node, &node_online_map);
         } while ( !cpumask_empty(&node_to_cpumask(node)) &&
                   (node != local_node) );
 
@@ -1205,10 +1205,10 @@ static unsigned int node_to_scrub(bool get_node)
              * then we'd need to take this lock every time we come in here.
              */
             if ( (dist < shortest || closest == NUMA_NO_NODE) &&
-                 !node_test_and_set(node, node_scrubbing) )
+                 !nodemask_test_and_set(node, &node_scrubbing) )
             {
                 if ( closest != NUMA_NO_NODE )
-                    node_clear(closest, node_scrubbing);
+                    nodemask_clear(closest, &node_scrubbing);
                 shortest = dist;
                 closest = node;
             }
@@ -1360,7 +1360,7 @@ bool scrub_free_pages(void)
     spin_unlock(&heap_lock);
 
  out_nolock:
-    node_clear(node, node_scrubbing);
+    nodemask_clear(node, &node_scrubbing);
     return node_to_scrub(false) != NUMA_NO_NODE;
 }
 
@@ -2010,7 +2010,7 @@ static void __init scrub_heap_pages(void)
             continue;
 
         last_distance = INT_MAX;
-        best_node = first_node(node_online_map);
+        best_node = nodemask_first(&node_online_map);
         /* Figure out which NODE CPUs are close. */
         for_each_online_node ( j )
         {

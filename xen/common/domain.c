@@ -630,7 +630,7 @@ void domain_update_node_affinity(struct domain *d)
 int domain_set_node_affinity(struct domain *d, const nodemask_t *affinity)
 {
     /* Being affine with no nodes is just wrong */
-    if ( nodes_empty(*affinity) )
+    if ( nodemask_empty(affinity) )
         return -EINVAL;
 
     spin_lock(&d->node_affinity_lock);
@@ -639,7 +639,7 @@ int domain_set_node_affinity(struct domain *d, const nodemask_t *affinity)
      * Being/becoming explicitly affine to all nodes is not particularly
      * useful. Let's take it as the `reset node affinity` command.
      */
-    if ( nodes_full(*affinity) )
+    if ( nodemask_full(affinity) )
     {
         d->auto_node_affinity = 1;
         goto out;

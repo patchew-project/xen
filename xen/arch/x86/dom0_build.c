@@ -247,10 +247,10 @@ unsigned int __init dom0_max_vcpus(void)
     for ( i = 0; i < dom0_nr_pxms; ++i )
         if ( (node = pxm_to_node(dom0_pxms[i])) != NUMA_NO_NODE )
             __nodemask_set(node, &dom0_nodes);
-    nodes_and(dom0_nodes, dom0_nodes, node_online_map);
-    if ( nodes_empty(dom0_nodes) )
+    nodemask_and(&dom0_nodes, &dom0_nodes, &node_online_map);
+    if ( nodemask_empty(&dom0_nodes) )
         dom0_nodes = node_online_map;
-    for_each_node_mask ( node, dom0_nodes )
+    for_each_node_mask ( node, &dom0_nodes )
         cpumask_or(&dom0_cpus, &dom0_cpus, &node_to_cpumask(node));
     cpumask_and(&dom0_cpus, &dom0_cpus, cpupool0->cpu_valid);
     if ( cpumask_empty(&dom0_cpus) )
@@ -344,7 +344,7 @@ unsigned long __init dom0_compute_nr_pages(
     if ( !dom0_mem_set && CONFIG_DOM0_MEM[0] )
         parse_dom0_mem(CONFIG_DOM0_MEM);
 
-    for_each_node_mask ( node, dom0_nodes )
+    for_each_node_mask ( node, &dom0_nodes )
         avail += avail_domheap_pages_region(node, 0, 0) +
                  initial_images_nrpages(node);
 
