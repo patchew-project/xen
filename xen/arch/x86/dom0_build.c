@@ -231,7 +231,7 @@ unsigned int __init dom0_max_vcpus(void)
 
     if ( pv_shim )
     {
-        nodes_setall(dom0_nodes);
+        dom0_nodes = NODEMASK_ALL;
 
         /*
          * When booting in shim mode APs are not started until the guest brings

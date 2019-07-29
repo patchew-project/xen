@@ -384,7 +384,7 @@ struct domain *domain_create(domid_t domid,
     INIT_PAGE_LIST_HEAD(&d->xenpage_list);
 
     spin_lock_init(&d->node_affinity_lock);
-    d->node_affinity = NODE_MASK_ALL;
+    d->node_affinity = NODEMASK_ALL;
     d->auto_node_affinity = 1;
 
     spin_lock_init(&d->shutdown_lock);
@@ -615,7 +615,7 @@ void domain_update_node_affinity(struct domain *d)
         dom_affinity = cpumask_empty(dom_cpumask_soft) ?
                            dom_cpumask : dom_cpumask_soft;
 
-        nodes_clear(d->node_affinity);
+        d->node_affinity = NODEMASK_NONE;
         for_each_cpu ( cpu, dom_affinity )
             node_set(cpu_to_node(cpu), d->node_affinity);
     }

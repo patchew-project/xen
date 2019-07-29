@@ -12,8 +12,6 @@
  *
  * void node_set(node, mask)		turn on bit 'node' in mask
  * void node_clear(node, mask)		turn off bit 'node' in mask
- * void nodes_setall(mask)		set all bits
- * void nodes_clear(mask)		clear all bits
  * bool nodemask_test(node, mask)	true iff bit 'node' set in mask
  * int node_test_and_set(node, mask)	test and set bit 'node' in mask
  *
@@ -36,9 +34,9 @@
  * int cycle_node(node, mask)		Next node cycling from 'node', or
  *					MAX_NUMNODES
  *
- * nodemask_t nodemask_of_node(node)	Return nodemask with bit 'node' set
- * NODE_MASK_ALL			Initializer - all bits set
- * NODE_MASK_NONE			Initializer - no bits set
+ * nodemask_t NODEMASK_OF(node)		Initializer - bit 'node' set
+ * NODEMASK_ALL				Initializer - all bits set
+ * NODEMASK_NONE			Initializer - no bits set
  * unsigned long *nodemask_bits(mask)	Array of unsigned long's in mask
  *
  * for_each_node_mask(node, mask)	for-loop node over mask
@@ -67,7 +65,34 @@ typedef struct { DECLARE_BITMAP(bits, MAX_NUMNODES); } nodemask_t;
 
 #define nodemask_bits(src) ((src)->bits)
 
-extern nodemask_t _unused_nodemask_arg_;
+#define NODEMASK_LAST_WORD BITMAP_LAST_WORD_MASK(MAX_NUMNODES)
+
+#define NODEMASK_NONE                                                   \
+((nodemask_t) {{                                                        \
+        [0 ... BITS_TO_LONGS(MAX_NUMNODES) - 1] = 0                     \
+}})
+
+#if MAX_NUMNODES <= BITS_PER_LONG
+
+#define NODEMASK_ALL      ((nodemask_t) {{ NODEMASK_LAST_WORD }})
+#define NODEMASK_OF(node) ((nodemask_t) {{ 1UL << (node) }})
+
+#else /* MAX_NUMNODES > BITS_PER_LONG */
+
+#define NODEMASK_ALL                                                    \
+((nodemask_t) {{                                                        \
+        [0 ... BITS_TO_LONGS(MAX_NUMNODES) - 2] = ~0UL,                 \
+        [BITS_TO_LONGS(MAX_NUMNODES) - 1] = NODEMASK_LAST_WORD          \
+}})
+
+#define NODEMASK_OF(node)                                               \
+({                                                                      \
+    nodemask_t m = NODES_NONE;                                          \
+    m.bits[(node) / BITS_PER_LONG] = 1UL << ((node) % BITS_PER_LONG);   \
+    m;                                                                  \
+})
+
+#endif /* MAX_NUMNODES */
 
 #define node_set(node, dst) __node_set((node), &(dst))
 static inline void __node_set(int node, volatile nodemask_t *dstp)
@@ -79,18 +104,6 @@ static inline void __node_set(int node, volatile nodemask_t *dstp)
 static inline void __node_clear(int node, volatile nodemask_t *dstp)
 {
 	clear_bit(node, dstp->bits);
-}
-
-#define nodes_setall(dst) __nodes_setall(&(dst), MAX_NUMNODES)
-static inline void __nodes_setall(nodemask_t *dstp, int nbits)
-{
-	bitmap_fill(dstp->bits, nbits);
-}
-
-#define nodes_clear(dst) __nodes_clear(&(dst), MAX_NUMNODES)
-static inline void __nodes_clear(nodemask_t *dstp, int nbits)
-{
-	bitmap_zero(dstp->bits, nbits);
 }
 
 static inline bool nodemask_test(unsigned int node, const nodemask_t *dst)
@@ -213,18 +226,6 @@ static inline int __last_node(const nodemask_t *srcp, int nbits)
 	return pnode;
 }
 
-#define nodemask_of_node(node)						\
-({									\
-	typeof(_unused_nodemask_arg_) m;				\
-	if (sizeof(m) == sizeof(unsigned long)) {			\
-		m.bits[0] = 1UL<<(node);				\
-	} else {							\
-		nodes_clear(m);						\
-		node_set((node), m);					\
-	}								\
-	m;								\
-})
-
 #define cycle_node(n, src) __cycle_node((n), &(src), MAX_NUMNODES)
 static inline int __cycle_node(int n, const nodemask_t *maskp, int nbits)
 {
@@ -234,30 +235,6 @@ static inline int __cycle_node(int n, const nodemask_t *maskp, int nbits)
         nxt = __first_node(maskp, nbits);
     return nxt;
 }
-
-#define NODE_MASK_LAST_WORD BITMAP_LAST_WORD_MASK(MAX_NUMNODES)
-
-#if MAX_NUMNODES <= BITS_PER_LONG
-
-#define NODE_MASK_ALL							\
-((nodemask_t) { {							\
-	[BITS_TO_LONGS(MAX_NUMNODES)-1] = NODE_MASK_LAST_WORD		\
-} })
-
-#else
-
-#define NODE_MASK_ALL							\
-((nodemask_t) { {							\
-	[0 ... BITS_TO_LONGS(MAX_NUMNODES)-2] = ~0UL,			\
-	[BITS_TO_LONGS(MAX_NUMNODES)-1] = NODE_MASK_LAST_WORD		\
-} })
-
-#endif
-
-#define NODE_MASK_NONE							\
-((nodemask_t) { {							\
-	[0 ... BITS_TO_LONGS(MAX_NUMNODES)-1] =  0UL			\
-} })
 
 #if MAX_NUMNODES > 1
 #define for_each_node_mask(node, mask)			\

@@ -269,8 +269,7 @@ void __init numa_initmem_init(unsigned long start_pfn, unsigned long end_pfn)
     /* setup dummy node covering all memory */
     memnode_shift = BITS_PER_LONG - 1;
     memnodemap = _memnodemap;
-    nodes_clear(node_online_map);
-    node_set_online(0);
+    node_online_map = NODEMASK_OF(0);
     for ( i = 0; i < nr_cpu_ids; i++ )
         numa_set_node(i, 0);
     cpumask_copy(&node_to_cpumask[0], cpumask_of(0));
