@@ -370,6 +370,8 @@ ASSERT(IS_ALIGNED(__2M_rwdata_end,   SECTION_ALIGN), "__2M_rwdata_end misaligned
 
 ASSERT(IS_ALIGNED(cpu0_stack, STACK_SIZE), "cpu0_stack misaligned")
 
+ASSERT(IS_ALIGNED(per_cpu__init_tss, PAGE_SIZE), "per_cpu(init_tss) misaligned")
+
 ASSERT(IS_ALIGNED(__init_begin, PAGE_SIZE), "__init_begin misaligned")
 ASSERT(IS_ALIGNED(__init_end,   PAGE_SIZE), "__init_end misaligned")
 
