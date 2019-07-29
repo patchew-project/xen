@@ -1,11 +1,11 @@
-#ifndef __LINUX_NODEMASK_H
-#define __LINUX_NODEMASK_H
+#ifndef XEN_NODEMASK_H
+#define XEN_NODEMASK_H
 
 /*
  * Nodemasks provide a bitmap suitable for representing the
  * set of Node's in a system, one bit position per Node number.
  *
- * See detailed comments in the file linux/bitmap.h describing the
+ * See detailed comments in the file xen/bitmap.h describing the
  * data type on which these nodemasks are based.
  *
  * The available nodemask operations are:
@@ -255,4 +255,13 @@ extern nodemask_t node_online_map;
 
 #define for_each_online_node(node) for_each_node_mask(node, &node_online_map)
 
-#endif /* __LINUX_NODEMASK_H */
+#endif /* XEN_NODEMASK_H */
+
+/*
+ * Local variables:
+ * mode: C
+ * c-file-style: "BSD"
+ * c-basic-offset: 4
+ * indent-tabs-mode: nil
+ * End:
+ */
