@@ -617,7 +617,7 @@ void domain_update_node_affinity(struct domain *d)
 
         d->node_affinity = NODEMASK_NONE;
         for_each_cpu ( cpu, dom_affinity )
-            node_set(cpu_to_node(cpu), d->node_affinity);
+            __nodemask_set(cpu_to_node(cpu), &d->node_affinity);
     }
 
     spin_unlock(&d->node_affinity_lock);

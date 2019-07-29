@@ -246,7 +246,7 @@ unsigned int __init dom0_max_vcpus(void)
 
     for ( i = 0; i < dom0_nr_pxms; ++i )
         if ( (node = pxm_to_node(dom0_pxms[i])) != NUMA_NO_NODE )
-            node_set(node, dom0_nodes);
+            __nodemask_set(node, &dom0_nodes);
     nodes_and(dom0_nodes, dom0_nodes, node_online_map);
     if ( nodes_empty(dom0_nodes) )
         dom0_nodes = node_online_map;

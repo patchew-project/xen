@@ -11,7 +11,9 @@
  * The available nodemask operations are:
  *
  * void node_set(node, mask)		turn on bit 'node' in mask
+ * void __nodemask_set(node, mask)	turn on bit 'node' in mask (unlocked)
  * void node_clear(node, mask)		turn off bit 'node' in mask
+ * void __nodemask_clear(node, mask)	turn off bit 'node' in mask (unlocked)
  * bool nodemask_test(node, mask)	true iff bit 'node' set in mask
  * int node_test_and_set(node, mask)	test and set bit 'node' in mask
  *
@@ -100,10 +102,20 @@ static inline void __node_set(int node, volatile nodemask_t *dstp)
 	set_bit(node, dstp->bits);
 }
 
+static inline void __nodemask_set(unsigned int node, nodemask_t *dst)
+{
+    __set_bit(node, dst->bits);
+}
+
 #define node_clear(node, dst) __node_clear((node), &(dst))
 static inline void __node_clear(int node, volatile nodemask_t *dstp)
 {
 	clear_bit(node, dstp->bits);
+}
+
+static inline void __nodemask_clear(unsigned int node, nodemask_t *dst)
+{
+    __clear_bit(node, dst->bits);
 }
 
 static inline bool nodemask_test(unsigned int node, const nodemask_t *dst)
