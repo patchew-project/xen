@@ -811,10 +811,17 @@ static struct page_info *get_free_buddy(unsigned int zone_lo,
                                         const struct domain *d)
 {
     nodeid_t first, node = MEMF_get_node(memflags), req_node = node;
-    nodemask_t nodemask = d ? d->node_affinity : node_online_map;
+    nodemask_t nodemask = node_online_map;
     unsigned int j, zone, nodemask_retry = 0;
     struct page_info *pg;
     bool use_unscrubbed = (memflags & MEMF_no_scrub);
+
+    /*
+     * d->node_affinity is our preferred allocation set if provided, but it
+     * may have bit set outside of node_online_map.  Clamp it.
+     */
+    if ( d )
+        nodes_and(nodemask, nodemask, d->node_affinity);
 
     if ( node == NUMA_NO_NODE )
     {
