@@ -1682,6 +1682,14 @@ gnttab_unpopulate_status_frames(struct domain *d, struct grant_table *gt)
         struct page_info *pg = virt_to_page(gt->status[i]);
         gfn_t gfn = gnttab_get_frame_gfn(gt, true, i);
 
+        if ( !get_page(pg, d) )
+        {
+            gprintk(XENLOG_ERR,
+                    "Could not get a reference to status frame %u\n", i);
+            domain_crash(d);
+            return -EINVAL;
+        }
+
         /*
          * For translated domains, recovering from failure after partial
          * changes were made is more complicated than it seems worth
@@ -1708,6 +1716,7 @@ gnttab_unpopulate_status_frames(struct domain *d, struct grant_table *gt)
 
         BUG_ON(page_get_owner(pg) != d);
         put_page_alloc_ref(pg);
+        put_page(pg);
 
         if ( pg->count_info & ~PGC_xen_heap )
         {
