@@ -433,6 +433,9 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
         goto out;
     }
 
+    mc_amd->equiv_cpu_table_size = 0;
+    mc_amd->equiv_cpu_table = NULL;
+
     /*
      * Multiple container file support:
      * 1. check if this container file has equiv_cpu_id match
@@ -479,6 +482,8 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
 
     if ( error )
     {
+        if ( mc_amd->equiv_cpu_table_size )
+            xfree(mc_amd->equiv_cpu_table);
         xfree(mc_amd);
         goto out;
     }
@@ -549,11 +554,14 @@ static int cpu_request_microcode(unsigned int cpu, const void *buf,
 
     if ( save_error )
     {
-        xfree(mc_amd);
         uci->mc.mc_amd = mc_old;
+        mc_old = mc_amd;
     }
-    else
-        xfree(mc_old);
+
+    if ( mc_old->mpb_size )
+        xfree(mc_old->mpb);
+    xfree(mc_old->equiv_cpu_table);
+    xfree(mc_old);
 
   out:
 #if CONFIG_HVM
