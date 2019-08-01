@@ -346,7 +346,7 @@ void console_giveback(int id)
         serial_steal_fn = NULL;
 }
 
-static void sercon_puts(const char *s)
+void console_serial_puts(const char *s)
 {
     if ( serial_steal_fn != NULL )
         (*serial_steal_fn)(s);
@@ -389,7 +389,7 @@ static void dump_console_ring_key(unsigned char key)
     }
     buf[sofar] = '\0';
 
-    sercon_puts(buf);
+    console_serial_puts(buf);
     video_puts(buf);
 
     free_xenheap_pages(buf, order);
@@ -548,7 +548,7 @@ static long guest_console_write(XEN_GUEST_HANDLE_PARAM(char) buffer, int count)
             /* Use direct console output as it could be interactive */
             spin_lock_irq(&console_lock);
 
-            sercon_puts(kbuf);
+            console_serial_puts(kbuf);
             video_puts(kbuf);
 
 #ifdef CONFIG_X86
@@ -669,7 +669,7 @@ static void __putstr(const char *str)
 {
     ASSERT(spin_is_locked(&console_lock));
 
-    sercon_puts(str);
+    console_serial_puts(str);
     video_puts(str);
 
 #ifdef CONFIG_X86
@@ -1182,11 +1182,11 @@ static void debugtrace_dump_worker(void)
 
     /* Print oldest portion of the ring. */
     ASSERT(debugtrace_buf[debugtrace_bytes - 1] == 0);
-    sercon_puts(&debugtrace_buf[debugtrace_prd]);
+    console_serial_puts(&debugtrace_buf[debugtrace_prd]);
 
     /* Print youngest portion of the ring. */
     debugtrace_buf[debugtrace_prd] = '\0';
-    sercon_puts(&debugtrace_buf[0]);
+    console_serial_puts(&debugtrace_buf[0]);
 
     memset(debugtrace_buf, '\0', debugtrace_bytes);
 
@@ -1267,8 +1267,8 @@ void debugtrace_printk(const char *fmt, ...)
     if ( debugtrace_send_to_console )
     {
         snprintf(cntbuf, sizeof(cntbuf), "%u ", ++count);
-        serial_puts(sercon_handle, cntbuf);
-        serial_puts(sercon_handle, buf);
+        console_serial_puts(cntbuf);
+        console_serial_puts(buf);
     }
     else
     {
