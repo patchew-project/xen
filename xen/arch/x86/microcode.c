@@ -204,24 +204,6 @@ static struct microcode_patch *microcode_parse_blob(const char *buf,
     return NULL;
 }
 
-int microcode_resume_cpu(void)
-{
-    int err;
-    struct cpu_signature *sig = &this_cpu(cpu_sig);
-
-    if ( !microcode_ops )
-        return 0;
-
-    spin_lock(&microcode_mutex);
-
-    err = microcode_ops->collect_cpu_info(sig);
-    if ( likely(!err) )
-        err = microcode_ops->apply_microcode(microcode_cache);
-    spin_unlock(&microcode_mutex);
-
-    return err;
-}
-
 void microcode_free_patch(struct microcode_patch *microcode_patch)
 {
     microcode_ops->free_patch(microcode_patch->mc);
@@ -402,7 +384,16 @@ static int __init microcode_init(void)
 }
 __initcall(microcode_init);
 
-int __init early_microcode_update_cpu(bool start_update)
+/* Load a cached update to current cpu */
+int microcode_update_one(void)
+{
+    return microcode_ops ? microcode_update_cpu(NULL) : 0;
+}
+
+/*
+ * BSP calls this function to parse ucode blob and then apply an update.
+ */
+int __init early_microcode_update_cpu(void)
 {
     int rc = 0;
     void *data = NULL;
@@ -421,11 +412,6 @@ int __init early_microcode_update_cpu(bool start_update)
         len = ucode_mod.mod_end;
         data = bootstrap_map(&ucode_mod);
     }
-
-    microcode_ops->collect_cpu_info(&this_cpu(cpu_sig));
-
-    if ( !start_update )
-        return microcode_update_cpu(NULL);
 
     if ( data )
     {
@@ -480,7 +466,7 @@ int __init early_microcode_init(void)
         microcode_ops->collect_cpu_info(&this_cpu(cpu_sig));
 
         if ( ucode_mod.mod_end || ucode_blob.size )
-            rc = early_microcode_update_cpu(true);
+            rc = early_microcode_update_cpu();
     }
 
     return rc;
