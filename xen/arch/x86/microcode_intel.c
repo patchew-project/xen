@@ -257,13 +257,13 @@ static int microcode_sanity_check(void *mc)
 
 static bool match_cpu(const struct microcode_patch *patch)
 {
-    const struct ucode_cpu_info *uci = &this_cpu(ucode_cpu_info);
+    const struct cpu_signature *sig = &this_cpu(cpu_sig);
 
     if ( !patch )
         return false;
 
-    return microcode_update_match(&patch->mc_intel->hdr, uci->cpu_sig.sig,
-                                uci->cpu_sig.pf, uci->cpu_sig.rev) == NEW_UCODE;
+    return microcode_update_match(&patch->mc_intel->hdr,
+                                  sig->sig, sig->pf, sig->rev) == NEW_UCODE;
 }
 
 static void free_patch(void *mc)
@@ -287,7 +287,7 @@ static enum microcode_match_result compare_patch(
  */
 static int get_matching_microcode(const void *mc, unsigned int cpu)
 {
-    struct ucode_cpu_info *uci = &per_cpu(ucode_cpu_info, cpu);
+    struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
     const struct microcode_header_intel *mc_header = mc;
     unsigned long total_size = get_totalsize(mc_header);
     void *new_mc = xmalloc_bytes(total_size);
@@ -303,8 +303,8 @@ static int get_matching_microcode(const void *mc, unsigned int cpu)
     new_patch->mc_intel = new_mc;
 
     /* Make sure that this patch covers current CPU */
-    if ( microcode_update_match(&new_patch->mc_intel->hdr, uci->cpu_sig.sig,
-                                uci->cpu_sig.pf, uci->cpu_sig.rev) == MIS_UCODE )
+    if ( microcode_update_match(&new_patch->mc_intel->hdr, sig->sig,
+                                sig->pf, sig->rev) == MIS_UCODE )
     {
         microcode_free_patch(new_patch);
         return 0;
@@ -314,17 +314,8 @@ static int get_matching_microcode(const void *mc, unsigned int cpu)
 
     pr_debug("microcode: CPU%d found a matching microcode update with"
              " version %#x (current=%#x)\n",
-             cpu, mc_header->rev, uci->cpu_sig.rev);
-    new_mc = xmalloc_bytes(total_size);
-    if ( new_mc == NULL )
-    {
-        printk(KERN_ERR "microcode: error! Can not allocate memory\n");
-        return -ENOMEM;
-    }
+             cpu, mc_header->rev, sig->rev);
 
-    memcpy(new_mc, mc, total_size);
-    xfree(uci->mc.mc_intel);
-    uci->mc.mc_intel = new_mc;
     return 1;
 }
 
@@ -334,7 +325,7 @@ static int apply_microcode(unsigned int cpu)
     uint64_t msr_content;
     unsigned int val[2];
     unsigned int cpu_num = raw_smp_processor_id();
-    struct ucode_cpu_info *uci = &per_cpu(ucode_cpu_info, cpu_num);
+    struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
     const struct microcode_intel *mc_intel;
     const struct microcode_patch *patch = microcode_get_cache();
 
@@ -365,14 +356,14 @@ static int apply_microcode(unsigned int cpu)
     {
         printk(KERN_ERR "microcode: CPU%d update from revision "
                "%#x to %#x failed. Resulting revision is %#x.\n", cpu_num,
-               uci->cpu_sig.rev, mc_intel->hdr.rev, val[1]);
+               sig->rev, mc_intel->hdr.rev, val[1]);
         return -EIO;
     }
     printk(KERN_INFO "microcode: CPU%d updated from revision "
            "%#x to %#x, date = %04x-%02x-%02x \n",
-           cpu_num, uci->cpu_sig.rev, val[1], mc_intel->hdr.year,
+           cpu_num, sig->rev, val[1], mc_intel->hdr.year,
            mc_intel->hdr.month, mc_intel->hdr.day);
-    uci->cpu_sig.rev = val[1];
+    sig->rev = val[1];
 
     return 0;
 }
