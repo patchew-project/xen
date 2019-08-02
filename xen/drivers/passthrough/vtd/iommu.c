@@ -1969,6 +1969,7 @@ static int rmrr_identity_mapping(struct domain *d, bool_t map,
     unsigned long end_pfn = PAGE_ALIGN_4K(rmrr->end_address) >> PAGE_SHIFT_4K;
     struct mapped_rmrr *mrmrr;
     struct domain_iommu *hd = dom_iommu(d);
+    unsigned int flush_flags = 0;
 
     ASSERT(pcidevs_locked());
     ASSERT(rmrr->base_address < rmrr->end_address);
@@ -1982,7 +1983,7 @@ static int rmrr_identity_mapping(struct domain *d, bool_t map,
         if ( mrmrr->base == rmrr->base_address &&
              mrmrr->end == rmrr->end_address )
         {
-            int ret = 0;
+            int ret = 0, err;
 
             if ( map )
             {
@@ -1995,13 +1996,20 @@ static int rmrr_identity_mapping(struct domain *d, bool_t map,
 
             while ( base_pfn < end_pfn )
             {
-                if ( clear_identity_p2m_entry(d, base_pfn) )
-                    ret = -ENXIO;
+                if ( paging_mode_translate(d) )
+                    ret = clear_identity_p2m_entry(d, base_pfn);
+                else
+                    ret = iommu_unmap(d, _dfn(base_pfn), PAGE_ORDER_4K,
+                                      &flush_flags);
                 base_pfn++;
             }
 
             list_del(&mrmrr->list);
             xfree(mrmrr);
+            /* Keep the previous error code if there's one. */
+            err = iommu_iotlb_flush_all(d, flush_flags);
+            if ( !ret )
+                ret = err;
             return ret;
         }
     }
@@ -2011,8 +2019,13 @@ static int rmrr_identity_mapping(struct domain *d, bool_t map,
 
     while ( base_pfn < end_pfn )
     {
-        int err = set_identity_p2m_entry(d, base_pfn, p2m_access_rw, flag);
+        int err;
 
+        if ( paging_mode_translate(d) )
+            err = set_identity_p2m_entry(d, base_pfn, p2m_access_rw, flag);
+        else
+            err = iommu_map(d, _dfn(base_pfn), _mfn(base_pfn), PAGE_ORDER_4K,
+                            IOMMUF_readable | IOMMUF_writable, &flush_flags);
         if ( err )
             return err;
         base_pfn++;
@@ -2026,7 +2039,7 @@ static int rmrr_identity_mapping(struct domain *d, bool_t map,
     mrmrr->count = 1;
     list_add_tail(&mrmrr->list, &hd->arch.mapped_rmrrs);
 
-    return 0;
+    return iommu_iotlb_flush_all(d, flush_flags);
 }
 
 static int intel_iommu_add_device(u8 devfn, struct pci_dev *pdev)
