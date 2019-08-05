@@ -249,17 +249,20 @@ static void __init noreturn efi_arch_post_exit_boot(void)
                    "or     $"__stringify(X86_CR4_PGE)", %[cr4]\n\t"
                    "mov    %[cr4], %%cr4\n\t"
 #endif
-                   "movabs $__start_xen, %[rip]\n\t"
+                   /* Load data segments. */
                    "lgdt   gdt_descr(%%rip)\n\t"
-                   "mov    stack_start(%%rip), %%rsp\n\t"
                    "mov    %[ds], %%ss\n\t"
                    "mov    %[ds], %%ds\n\t"
                    "mov    %[ds], %%es\n\t"
                    "mov    %[ds], %%fs\n\t"
                    "mov    %[ds], %%gs\n\t"
-                   "movl   %[cs], 8(%%rsp)\n\t"
-                   "mov    %[rip], (%%rsp)\n\t"
-                   "lretq  %[stkoff]-16"
+
+                   /* Switch stack, reload %cs and jump. */
+                   "lea    %c[stkoff] + cpu0_stack(%%rip), %%rsp\n\t"
+                   "lea    __start_xen(%%rip), %[rip]\n\t"
+                   "push   %[cs]\n\t"
+                   "push   %[rip]\n\t"
+                   "lretq"
                    : [rip] "=&r" (efer/* any dead 64-bit variable */),
                      [cr4] "+&r" (cr4)
                    : [cr3] "r" (idle_pg_table),
@@ -268,7 +271,7 @@ static void __init noreturn efi_arch_post_exit_boot(void)
                      [stkoff] "i" (STACK_SIZE - sizeof(struct cpu_info)),
                      "D" (&mbi)
                    : "memory" );
-    for( ; ; ); /* not reached */
+    unreachable();
 }
 
 static void __init efi_arch_cfg_file_early(EFI_FILE_HANDLE dir_handle, char *section)
