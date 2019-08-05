@@ -250,7 +250,7 @@ static void __init noreturn efi_arch_post_exit_boot(void)
                    "mov    %[cr4], %%cr4\n\t"
 #endif
                    /* Load data segments. */
-                   "lgdt   gdt_descr(%%rip)\n\t"
+                   "lgdt   boot_gdtr(%%rip)\n\t"
                    "mov    %[ds], %%ss\n\t"
                    "mov    %[ds], %%ds\n\t"
                    "mov    %[ds], %%es\n\t"
