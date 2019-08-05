@@ -486,7 +486,29 @@ DEFINE_XEN_GUEST_HANDLE(mmuext_op_t);
 /* ` } */
 
 /*
- * Commands to HYPERVISOR_console_io().
+ * ` int
+ * ` HYPERVISOR_console_io(unsigned int cmd,
+ * `                       unsigned int count,
+ * `                       char buffer[]);
+ *
+ * @cmd: Command (see below)
+ * @count: Size of the buffer to read/write
+ * @buffer: Pointer in the guest memory
+ *
+ * List of commands:
+ *
+ *  * CONSOLEIO_write: Write the buffer on Xen console.
+ *      For the hardware domain, all the characters in the buffer will
+ *      be written. Characters will be printed to directly to the
+ *      console.
+ *      For all the other domains, only the printable characters will be
+ *      written. Characters may be buffered until a newline (i.e '\n') is
+ *      found.
+ *      @return 0 on success, otherwise return an error code.
+ *  * CONSOLEIO_read: Attempts to read up @count characters from Xen console.
+ *      The maximum buffer size (i.e @count) supported is 2GB.
+ *      @return the number of character read on success, otherwise return
+ *      an error code.
  */
 #define CONSOLEIO_write         0
 #define CONSOLEIO_read          1
