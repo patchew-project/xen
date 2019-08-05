@@ -128,12 +128,14 @@ static int __init parse_spec_ctrl(const char *s)
             opt_msr_sc_pv = val;
             opt_rsb_pv = val;
             opt_md_clear_pv = val;
+            opt_eager_fpu = val;
         }
         else if ( (val = parse_boolean("hvm", s, ss)) >= 0 )
         {
             opt_msr_sc_hvm = val;
             opt_rsb_hvm = val;
             opt_md_clear_hvm = val;
+            opt_eager_fpu = val;
         }
         else if ( (val = parse_boolean("msr-sc", s, ss)) >= 0 )
         {
