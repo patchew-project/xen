@@ -431,17 +431,23 @@ Load the specified file as the ramdisk.
 
 =item B<cmdline="STRING">
 
-Append B<STRING> to the kernel command line. (Note: the meaning of
-this is guest specific). It can replace B<root="STRING">
-along with B<extra="STRING"> and is preferred. When B<cmdline="STRING"> is set,
-B<root="STRING"> and B<extra="STRING"> will be ignored.
+Use B<STRING> as the kernel command line. (Note: the meaning of this is guest
+specific).
+
+When this option is specified, B<root="STRING"> will be ignored.
 
 =item B<root="STRING">
+
+This option is deprecated and its use is discouraged.  It will be ignored if
+B<cmdline=> is specified.
 
 Append B<root=STRING> to the kernel command line (Note: the meaning of this
 is guest specific).
 
 =item B<extra="STRING">
+
+This option is deprecated and its use in configuration files is discouraged.
+It may however be useful to use on the command line for B<xl create>.
 
 Append B<STRING> to the kernel command line. (Note: the meaning of this
 is guest specific).

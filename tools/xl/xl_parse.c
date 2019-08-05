@@ -287,10 +287,14 @@ static char *parse_cmdline(XLU_Config *config)
     xlu_cfg_get_string (config, "extra", &extra, 0);
 
     if (buf) {
-        cmdline = strdup(buf);
-        if (root || extra)
-            fprintf(stderr, "Warning: ignoring root= and extra= "
-                    "in favour of cmdline=\n");
+        if (root)
+            fprintf(stderr, "Warning: ignoring root= in favour of cmdline=\n");
+
+        if (extra) {
+            xasprintf(&cmdline, "%s %s", buf, extra);
+        } else {
+            cmdline = strdup(buf);
+        }
     } else {
         if (root && extra) {
             xasprintf(&cmdline, "root=%s %s", root, extra);
