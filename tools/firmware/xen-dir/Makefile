@@ -38,7 +38,7 @@ linkfarm.stamp: $(DEP_DIRS) $(DEP_FILES) FORCE
 		}
 
 # Copy enough of the tree to build the shim hypervisor
-$(D): linkfarm.stamp
+$(D) $(D)/xen/arch/x86/configs/pvshim_defconfig: linkfarm.stamp
 	$(MAKE) -C $(D)/xen distclean
 
 $(D)/xen/.config: $(D)
