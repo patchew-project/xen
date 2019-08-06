@@ -1153,17 +1153,25 @@ static int __init map_range_to_domain(const struct dt_device_node *dev,
     struct map_range_data *mr_data = data;
     struct domain *d = mr_data->d;
     bool need_mapping = !dt_device_for_passthrough(dev);
+    const struct dt_device_node *parent = dt_get_parent(dev);
     int res;
 
-    res = iomem_permit_access(d, paddr_to_pfn(addr),
-                              paddr_to_pfn(PAGE_ALIGN(addr + len - 1)));
-    if ( res )
+    /*
+     * Don't give iomem permissions for reserved-memory ranges until
+     * reserved-memory support is complete.
+     */
+    if ( dt_node_cmp(dt_node_name(parent), "reserved-memory") == 0 )
     {
-        printk(XENLOG_ERR "Unable to permit to dom%d access to"
-               " 0x%"PRIx64" - 0x%"PRIx64"\n",
-               d->domain_id,
-               addr & PAGE_MASK, PAGE_ALIGN(addr + len) - 1);
-        return res;
+        res = iomem_permit_access(d, paddr_to_pfn(addr),
+                                  paddr_to_pfn(PAGE_ALIGN(addr + len - 1)));
+        if ( res )
+        {
+            printk(XENLOG_ERR "Unable to permit to dom%d access to"
+                   " 0x%"PRIx64" - 0x%"PRIx64"\n",
+                   d->domain_id,
+                   addr & PAGE_MASK, PAGE_ALIGN(addr + len) - 1);
+            return res;
+        }
     }
 
     if ( need_mapping )
