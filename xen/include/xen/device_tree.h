@@ -159,8 +159,10 @@ typedef int (*device_tree_node_func)(const void *fdt,
 extern const void *device_tree_flattened;
 
 int device_tree_for_each_node(const void *fdt,
-                                     device_tree_node_func func,
-                                     void *data);
+                              int node, int depth,
+                              u32 address_cells, u32 size_cells,
+                              device_tree_node_func func,
+                              void *data);
 
 /**
  * dt_unflatten_host_device_tree - Unflatten the host device tree
