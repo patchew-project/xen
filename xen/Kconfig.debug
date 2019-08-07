@@ -44,6 +44,13 @@ config COVERAGE
 
 	  If unsure, say N here.
 
+config SPINLOCK_DEBUG
+	bool "Spinlock debugging"
+	default DEBUG
+	---help---
+	  Enable debugging features of spinlock handling.  Some additional
+          checks will be performed when acquiring and releasing locks.
+
 config LOCK_PROFILE
 	bool "Lock Profiling"
 	---help---

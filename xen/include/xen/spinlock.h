@@ -6,7 +6,7 @@
 #include <asm/types.h>
 #include <xen/percpu.h>
 
-#ifndef NDEBUG
+#ifdef CONFIG_SPINLOCK_DEBUG
 union lock_debug {
     unsigned short val;
     struct {
