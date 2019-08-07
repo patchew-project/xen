@@ -362,10 +362,13 @@ static void spinlock_profile_iterate(lock_profile_subfunc *sub, void *par)
 static void spinlock_profile_print_elem(struct lock_profile *data,
     int32_t type, int32_t idx, void *par)
 {
-    if ( type == LOCKPROF_TYPE_GLOBAL )
-        printk("%s %s:\n", lock_profile_ancs[type].name, data->name);
-    else
-        printk("%s %d %s:\n", lock_profile_ancs[type].name, idx, data->name);
+    struct spinlock *lock = data->lock;
+
+    printk("%s ", lock_profile_ancs[type].name);
+    if ( type != LOCKPROF_TYPE_GLOBAL )
+        printk("%d ", idx);
+    printk("%s: addr=%p, lockval=%04x, cpu=%d\n", data->name, lock,
+           lock->tickets.head_tail, lock->debug.cpu);
     printk("  lock:%12"PRId64"(%08X:%08X), block:%12"PRId64"(%08X:%08X)\n",
            data->lock_cnt, (u32)(data->time_hold >> 32), (u32)data->time_hold,
            data->block_cnt, (u32)(data->time_block >> 32),

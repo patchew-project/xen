@@ -130,6 +130,7 @@ struct lock_profile_qhead { };
 #define spin_lock_init_prof(s, l) spin_lock_init(&((s)->l))
 #define lock_profile_register_struct(type, ptr, idx, print)
 #define lock_profile_deregister_struct(type, ptr)
+#define spinlock_profile_printall(key)
 
 #endif
 
