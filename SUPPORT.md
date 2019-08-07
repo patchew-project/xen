@@ -639,7 +639,7 @@ to be used in addition to QEMU.
 
 	Status: Experimental
 
-### ARM/Non-PCI device passthrough
+### ARM/Non-PCI device passthrough and other iomem configurations
 
     Status: Supported, not security supported
 
