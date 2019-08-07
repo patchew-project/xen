@@ -21,7 +21,7 @@ static inline void name(volatile type *addr, type val) \
 #define build_add_sized(name, size, type, reg) \
     static inline void name(volatile type *addr, type val)              \
     {                                                                   \
-        asm volatile("add" size " %1,%0"                                \
+        asm volatile("lock add" size " %1,%0"                           \
                      : "=m" (*addr)                                     \
                      : reg (val));                                      \
     }
