@@ -7,14 +7,20 @@
 #include <xen/percpu.h>
 
 #ifndef NDEBUG
-struct lock_debug {
-    s16 irq_safe; /* +1: IRQ-safe; 0: not IRQ-safe; -1: don't know yet */
+union lock_debug {
+    unsigned short val;
+    struct {
+        unsigned short unused:1;
+        unsigned short irq_safe:1;
+        unsigned short pad:2;
+        unsigned short cpu:12;
+    };
 };
-#define _LOCK_DEBUG { -1 }
+#define _LOCK_DEBUG { 0xffff }
 void spin_debug_enable(void);
 void spin_debug_disable(void);
 #else
-struct lock_debug { };
+union lock_debug { };
 #define _LOCK_DEBUG { }
 #define spin_debug_enable() ((void)0)
 #define spin_debug_disable() ((void)0)
@@ -143,7 +149,7 @@ typedef struct spinlock {
 #define SPINLOCK_NO_CPU 0xfffu
     u16 recurse_cnt:4;
 #define SPINLOCK_MAX_RECURSE 0xfu
-    struct lock_debug debug;
+    union lock_debug debug;
 #ifdef CONFIG_LOCK_PROFILE
     struct lock_profile *profile;
 #endif
