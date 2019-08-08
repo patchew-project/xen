@@ -126,6 +126,7 @@ static bool read_file(EFI_FILE_HANDLE dir_handle, CHAR16 *name,
 static size_t wstrlen(const CHAR16 * s);
 static int set_color(u32 mask, int bpp, u8 *pos, u8 *sz);
 static bool match_guid(const EFI_GUID *guid1, const EFI_GUID *guid2);
+static void efi_early_parse_cmdline(const char *cmdline);
 
 static void efi_init(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable);
 static void efi_console_set_mode(void);
@@ -1386,6 +1387,10 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
 static bool __initdata efi_map_uc;
 
+/*
+ * Warning: this function must be idempotent as it may be called multiple
+ * times.
+ */
 static int __init parse_efi_param(const char *s)
 {
     const char *ss;
@@ -1412,15 +1417,31 @@ static int __init parse_efi_param(const char *s)
             else
                 rc = -EINVAL;
         }
+        else if ( (val = parse_boolean("mapbs", s, ss)) >= 0 )
+        {
+            map_bs = val;
+        }
         else
             rc = -EINVAL;
 
         s = ss + 1;
-    } while ( *ss );
+        /*
+         * End parsing on both '\0' and ' ',
+         * to make efi_early_parse_cmdline simpler.
+         */
+    } while ( *ss && *ss != ' ');
 
     return rc;
 }
 custom_param("efi", parse_efi_param);
+
+/* Extract efi= param early in the boot */
+static void __init efi_early_parse_cmdline(const char *cmdline)
+{
+    const char *efi_opt = strstr(cmdline, "efi=");
+    if ( efi_opt )
+        parse_efi_param(efi_opt + 4);
+}
 
 #ifndef USE_SET_VIRTUAL_ADDRESS_MAP
 static __init void copy_mapping(unsigned long mfn, unsigned long end,

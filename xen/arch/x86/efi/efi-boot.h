@@ -315,8 +315,10 @@ static void __init efi_arch_handle_cmdline(CHAR16 *image_name,
         name.s = "xen";
     place_string(&mbi.cmdline, name.s);
 
-    if ( mbi.cmdline )
+    if ( mbi.cmdline ) {
         mbi.flags |= MBI_CMDLINE;
+        efi_early_parse_cmdline(mbi.cmdline);
+    }
     /*
      * These must not be initialized statically, since the value must
      * not get relocated when processing base relocations later.
@@ -675,7 +677,8 @@ static bool __init efi_arch_use_config_file(EFI_SYSTEM_TABLE *SystemTable)
 
 static void __init efi_arch_flush_dcache_area(const void *vaddr, UINTN size) { }
 
-void __init efi_multiboot2(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
+void __init efi_multiboot2(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable,
+                           const char *cmdline)
 {
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
     UINTN cols, gop_mode = ~0, rows;
@@ -684,6 +687,9 @@ void __init efi_multiboot2(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     __set_bit(EFI_RS, &efi_flags);
 
     efi_init(ImageHandle, SystemTable);
+
+    if (cmdline)
+        efi_early_parse_cmdline(cmdline);
 
     efi_console_set_mode();
 

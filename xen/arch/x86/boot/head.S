@@ -224,9 +224,10 @@ __efi64_mb2_start:
         jmp     x86_32_switch
 
 .Lefi_multiboot2_proto:
-        /* Zero EFI SystemTable and EFI ImageHandle addresses. */
+        /* Zero EFI SystemTable, EFI ImageHandle and cmdline addresses. */
         xor     %esi,%esi
         xor     %edi,%edi
+        xor     %rdx,%rdx
 
         /* Skip Multiboot2 information fixed part. */
         lea     (MB2_fixed_sizeof+MULTIBOOT2_TAG_ALIGN-1)(%rbx),%ecx
@@ -241,7 +242,7 @@ __efi64_mb2_start:
 
         /* Are EFI boot services available? */
         cmpl    $MULTIBOOT2_TAG_TYPE_EFI_BS,MB2_tag_type(%rcx)
-        jne     .Lefi_mb2_st
+        jne     .Lefi_mb2_cmdline
 
         /* We are on EFI platform and EFI boot services are available. */
         incb    efi_platform(%rip)
@@ -253,6 +254,14 @@ __efi64_mb2_start:
         incb    skip_realmode(%rip)
         jmp     .Lefi_mb2_next_tag
 
+.Lefi_mb2_cmdline:
+        /* Get cmdline address from Multiboot2 information. */
+        cmpl    $MULTIBOOT2_TAG_TYPE_CMDLINE,MB2_tag_type(%rcx)
+        jne     .Lefi_mb2_st
+
+        lea     MB2_string(%rcx),%rdx
+        jmp     .Lefi_mb2_next_tag
+
 .Lefi_mb2_st:
         /* Get EFI SystemTable address from Multiboot2 information. */
         cmpl    $MULTIBOOT2_TAG_TYPE_EFI64,MB2_tag_type(%rcx)
@@ -261,6 +270,11 @@ __efi64_mb2_start:
 
         /* Get EFI ImageHandle address from Multiboot2 information. */
         cmpl    $MULTIBOOT2_TAG_TYPE_EFI64_IH,MB2_tag_type(%rcx)
+        cmove   MB2_efi64_ih(%rcx),%rdi
+        je      .Lefi_mb2_next_tag
+
+        /* Get cmdline address from Multiboot2 information. */
+        cmpl    $MULTIBOOT2_TAG_TYPE_CMDLINE,MB2_tag_type(%rcx)
         cmove   MB2_efi64_ih(%rcx),%rdi
         je      .Lefi_mb2_next_tag
 
@@ -327,7 +341,8 @@ __efi64_mb2_start:
 
         /*
          * efi_multiboot2() is called according to System V AMD64 ABI:
-         *   - IN:  %rdi - EFI ImageHandle, %rsi - EFI SystemTable.
+         *   - IN:  %rdi - EFI ImageHandle, %rsi - EFI SystemTable,
+         *          %rdx - MB2 cmdline.
          */
         call    efi_multiboot2
 

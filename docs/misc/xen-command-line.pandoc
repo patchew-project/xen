@@ -886,7 +886,7 @@ disable it (edid=no). This option should not normally be required
 except for debugging purposes.
 
 ### efi
-    = List of [ rs=<bool>, attr=no|uc ]
+    = List of [ rs=<bool>, attr=no|uc, mapbs=<bool> ]
 
 Controls for interacting with the system Extended Firmware Interface.
 
@@ -898,6 +898,10 @@ Controls for interacting with the system Extended Firmware Interface.
     unknown/unrecognised cacheability.  `attr=no` is the default and will
     leave the memory regions unmapped, while `attr=uc` will map them as fully
     uncacheable.
+
+*   The `mapbs=` boolean controls whether EfiBootServices{Code,Data} should
+    remain mapped after Exit() BootServices call. By default those memory regions
+    will not be mapped after Exit() BootServices call.
 
 ### ept
 > `= List of [ ad=<bool>, pml=<bool> ]`
