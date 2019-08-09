@@ -1328,6 +1328,29 @@ static void load_segments(struct vcpu *n)
     dirty_segment_mask = per_cpu(dirty_segment_mask, cpu);
     per_cpu(dirty_segment_mask, cpu) = 0;
 
+    /*
+     * CPUs which suffer from stale segment register leakage have two copies
+     * of each segment register [Correct at the time of writing - Aug 2019].
+     *
+     * We must write to both of them to scrub state from the previous vcpu.
+     * However, two writes in quick succession stall the pipeline, as only one
+     * write per segment can be speculatively outstanding.
+     *
+     * Split the two sets of writes to each register to maximise the chance
+     * that these writes have retired before the second set starts, thus
+     * reducing the chance of stalling.
+     */
+    if ( opt_stale_seg_clear )
+    {
+        asm volatile ( "mov %[sel], %%ds;"
+                       "mov %[sel], %%es;"
+                       "mov %[sel], %%fs;"
+                       "mov %[sel], %%gs;"
+                       :: [sel] "r" (0) );
+        /* Force a reload of all segments to be the second scrubbing write. */
+        dirty_segment_mask = ~0;
+    }
+
 #ifdef CONFIG_HVM
     if ( cpu_has_svm && !is_pv_32bit_vcpu(n) &&
          !(read_cr4() & X86_CR4_FSGSBASE) && !((uregs->fs | uregs->gs) & ~3) )

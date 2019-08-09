@@ -57,6 +57,7 @@
 #include <asm/event.h>
 #include <asm/mce.h>
 #include <asm/monitor.h>
+#include <asm/spec_ctrl.h>
 #include <public/arch-x86/cpuid.h>
 
 static bool_t __initdata opt_force_ept;
@@ -872,11 +873,38 @@ static void vmx_ctxt_switch_from(struct vcpu *v)
 
 static void vmx_ctxt_switch_to(struct vcpu *v)
 {
+    /*
+     * CPUs which suffer from stale segment register leakage have two copies
+     * of each segment register [Correct at the time of writing - Aug 2019].
+     *
+     * We must write to both of them to scrub state from the previous vcpu.
+     * However, two writes in quick succession stall the pipeline, as only one
+     * write per segment can be speculatively outstanding.
+     *
+     * Split the two sets of writes to each register to maximise the chance
+     * that these writes have retired before the second set starts, thus
+     * reducing the chance of stalling.
+     */
+    if ( opt_stale_seg_clear )
+        asm volatile ( "mov %[sel], %%ds;"
+                       "mov %[sel], %%es;"
+                       "mov %[sel], %%fs;"
+                       "mov %[sel], %%gs;"
+                       :: [sel] "r" (0) );
+
     vmx_restore_guest_msrs(v);
     vmx_restore_dr(v);
 
     if ( v->domain->arch.hvm.pi_ops.flags & PI_CSW_TO )
         vmx_pi_switch_to(v);
+
+    /* Should be last in the function.  See above. */
+    if ( opt_stale_seg_clear )
+        asm volatile ( "mov %[sel], %%ds;"
+                       "mov %[sel], %%es;"
+                       "mov %[sel], %%fs;"
+                       "mov %[sel], %%gs;"
+                       :: [sel] "r" (0) );
 }
 
 

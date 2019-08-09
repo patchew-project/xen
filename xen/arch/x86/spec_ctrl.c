@@ -66,6 +66,9 @@ static unsigned int __initdata l1d_maxphysaddr;
 static bool __initdata cpu_has_bug_msbds_only; /* => minimal HT impact. */
 static bool __initdata cpu_has_bug_mds; /* Any other M{LP,SB,FB}DS combination. */
 
+static bool __initdata cpu_has_bug_stale_seg;
+int8_t opt_stale_seg_clear = -1;
+
 static int __init parse_spec_ctrl(const char *s)
 {
     const char *ss;
@@ -111,6 +114,7 @@ static int __init parse_spec_ctrl(const char *s)
             opt_ibpb = false;
             opt_ssbd = false;
             opt_l1d_flush = 0;
+            opt_stale_seg_clear = 0;
         }
         else if ( val > 0 )
             rc = -EINVAL;
@@ -175,6 +179,8 @@ static int __init parse_spec_ctrl(const char *s)
             opt_eager_fpu = val;
         else if ( (val = parse_boolean("l1d-flush", s, ss)) >= 0 )
             opt_l1d_flush = val;
+        else if ( (val = parse_boolean("stale-seg-clear", s, ss)) >= 0 )
+            opt_stale_seg_clear = val;
         else if ( (val = parse_boolean("l1tf-barrier", s, ss)) >= 0 )
             opt_l1tf_barrier = val;
         else
@@ -337,7 +343,7 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
                "\n");
 
     /* Settings for Xen's protection, irrespective of guests. */
-    printk("  Xen settings: BTI-Thunk %s, SPEC_CTRL: %s%s, Other:%s%s%s%s\n",
+    printk("  Xen settings: BTI-Thunk %s, SPEC_CTRL: %s%s, Other:%s%s%s%s%s\n",
            thunk == THUNK_NONE      ? "N/A" :
            thunk == THUNK_RETPOLINE ? "RETPOLINE" :
            thunk == THUNK_LFENCE    ? "LFENCE" :
@@ -349,6 +355,7 @@ static void __init print_details(enum ind_thunk thunk, uint64_t caps)
            opt_ibpb                                  ? " IBPB"  : "",
            opt_l1d_flush                             ? " L1D_FLUSH" : "",
            opt_md_clear_pv || opt_md_clear_hvm       ? " VERW"  : "",
+           opt_stale_seg_clear                       ? " SEG-CLEAR" : "",
            opt_l1tf_barrier                          ? " L1TF_BARRIER" : "");
 
     /* L1TF diagnostics, printed if vulnerable or PV shadowing is in use. */
@@ -864,6 +871,83 @@ static __init void mds_calculations(uint64_t caps)
     }
 }
 
+/* Calculate whether this CPU leaks segment registers between contexts. */
+static void __init stale_segment_calculations(void)
+{
+    /*
+     * Assume all unrecognised processors are ok.  This is only known to
+     * affect Intel Family 6 processors.
+     */
+    if ( boot_cpu_data.x86_vendor != X86_VENDOR_INTEL ||
+         boot_cpu_data.x86 != 6 )
+        return;
+
+    switch ( boot_cpu_data.x86_model )
+    {
+        /*
+         * Core processors since at least Nehalem are vulnerable.
+         */
+    case 0x1e: /* Nehalem */
+    case 0x1f: /* Auburndale / Havendale */
+    case 0x1a: /* Nehalem EP */
+    case 0x2e: /* Nehalem EX */
+    case 0x25: /* Westmere */
+    case 0x2c: /* Westmere EP */
+    case 0x2f: /* Westmere EX */
+    case 0x2a: /* SandyBridge */
+    case 0x2d: /* SandyBridge EP/EX */
+    case 0x3a: /* IvyBridge */
+    case 0x3e: /* IvyBridge EP/EX */
+    case 0x3c: /* Haswell */
+    case 0x3f: /* Haswell EX/EP */
+    case 0x45: /* Haswell D */
+    case 0x46: /* Haswell H */
+    case 0x3d: /* Broadwell */
+    case 0x47: /* Broadwell H */
+    case 0x4f: /* Broadwell EP/EX */
+    case 0x56: /* Broadwell D */
+    case 0x4e: /* Skylake M */
+    case 0x55: /* Skylake X */
+    case 0x5e: /* Skylake D */
+    case 0x66: /* Cannonlake */
+    case 0x67: /* Cannonlake? */
+    case 0x8e: /* Kabylake M */
+    case 0x9e: /* Kabylake D */
+        cpu_has_bug_stale_seg = true;
+        break;
+
+        /*
+         * Atom processors are not vulnerable.
+         */
+    case 0x1c: /* Pineview */
+    case 0x26: /* Lincroft */
+    case 0x27: /* Penwell */
+    case 0x35: /* Cloverview */
+    case 0x36: /* Cedarview */
+    case 0x37: /* Baytrail / Valleyview (Silvermont) */
+    case 0x4d: /* Avaton / Rangely (Silvermont) */
+    case 0x4c: /* Cherrytrail / Brasswell */
+    case 0x4a: /* Merrifield */
+    case 0x5a: /* Moorefield */
+    case 0x5c: /* Goldmont */
+    case 0x5f: /* Denverton */
+    case 0x7a: /* Gemini Lake */
+        break;
+
+        /*
+         * Knights processors are not vulnerable.
+         */
+    case 0x57: /* Knights Landing */
+    case 0x85: /* Knights Mill */
+        break;
+
+    default:
+        printk("Unrecognised CPU model %#x - assuming vulnerable to StaleSeg\n",
+               boot_cpu_data.x86_model);
+        break;
+    }
+}
+
 void __init init_speculation_mitigations(void)
 {
     enum ind_thunk thunk = THUNK_DEFAULT;
@@ -1097,6 +1181,12 @@ void __init init_speculation_mitigations(void)
             "Booted on MLPDS/MFBDS-vulnerable hardware with SMT/Hyperthreading\n"
             "enabled.  Mitigations will not be fully effective.  Please\n"
             "choose an explicit smt=<bool> setting.  See XSA-297.\n");
+
+    stale_segment_calculations();
+
+    /* Scrub segment registers by default on leaky hardware. */
+    if ( opt_stale_seg_clear == -1 )
+        opt_stale_seg_clear = cpu_has_bug_stale_seg;
 
     print_details(thunk, caps);
 

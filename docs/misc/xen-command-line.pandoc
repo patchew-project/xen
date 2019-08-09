@@ -1914,7 +1914,7 @@ By default SSBD will be mitigated at runtime (i.e `ssbd=runtime`).
 ### spec-ctrl (x86)
 > `= List of [ <bool>, xen=<bool>, {pv,hvm,msr-sc,rsb,md-clear}=<bool>,
 >              bti-thunk=retpoline|lfence|jmp, {ibrs,ibpb,ssbd,eager-fpu,
->              l1d-flush,l1tf-barrier}=<bool> ]`
+>              l1d-flush,stale-seg-clear,l1tf-barrier}=<bool> ]`
 
 Controls for speculative execution sidechannel mitigations.  By default, Xen
 will pick the most appropriate mitigations based on compiled in support,
@@ -1985,6 +1985,12 @@ or prevent Xen from issuing an L1 data cache flush on each VMEntry.
 Irrespective of Xen's setting, the feature is virtualised for HVM guests to
 use.  By default, Xen will enable this mitigation on hardware believed to be
 vulnerable to L1TF.
+
+On all hardware, the `stale-seg-clear=` option can be used to force or prevent
+Xen from clearing the microarchitectural segment register copies on context
+switch.  By default, Xen will choose to use stale segment clearing on affected
+hardware.  The clearing logic is tuned to microarchitectural details of the
+affected CPUs.
 
 On hardware vulnerable to L1TF, the `l1tf-barrier=` option can be used to force
 or prevent Xen from protecting evaluations inside the hypervisor with a barrier
