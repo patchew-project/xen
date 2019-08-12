@@ -566,100 +566,17 @@ ENDPROC(cpu_init)
  *   x19: paddr(start)
  *   x20: phys offset
  *
- * Clobbers x0 - x4, x25
- *
- * Register usage within this function:
- *   x25: Identity map in place
+ * Clobbers x0 - x4
  */
 create_page_tables:
-        /*
-         * If Xen is loaded at exactly XEN_VIRT_START then we don't
-         * need an additional 1:1 mapping, the virtual mapping will
-         * suffice.
-         */
-        cmp   x19, #XEN_VIRT_START
-        cset  x25, eq                /* x25 := identity map in place, or not */
+        /* Prepare the page-tables for mapping Xen */
+        ldr   x0, =XEN_VIRT_START
+        create_table_entry boot_pgtable, boot_first, x0, ZEROETH_SHIFT, x1, x2, x3
+        create_table_entry boot_first, boot_second, x0, FIRST_SHIFT, x1, x2, x3
+        create_table_entry boot_second, boot_third, x0, SECOND_SHIFT, x1, x2, x3
 
-        load_paddr x4, boot_pgtable
-
-        /* Setup boot_pgtable: */
-        load_paddr x1, boot_first
-
-        /* ... map boot_first in boot_pgtable[0] */
-        mov   x3, #PT_PT             /* x2 := table map of boot_first */
-        orr   x2, x1, x3             /*       + rights for linear PT */
-        str   x2, [x4, #0]           /* Map it in slot 0 */
-
-        /* ... map of paddr(start) in boot_pgtable+boot_first_id */
-        lsr   x1, x19, #ZEROETH_SHIFT/* Offset of base paddr in boot_pgtable */
-        cbz   x1, 1f                 /* It's in slot 0, map in boot_first
-                                      * or boot_second later on */
-
-        /*
-         * Level zero does not support superpage mappings, so we have
-         * to use an extra first level page in which we create a 1GB mapping.
-         */
-        load_paddr x2, boot_first_id
-
-        mov   x3, #PT_PT             /* x2 := table map of boot_first_id */
-        orr   x2, x2, x3             /*       + rights for linear PT */
-        str   x2, [x4, x1, lsl #3]
-
-        load_paddr x4, boot_first_id
-
-        lsr   x1, x19, #FIRST_SHIFT  /* x1 := Offset of base paddr in boot_first_id */
-        lsl   x2, x1, #FIRST_SHIFT   /* x2 := Base address for 1GB mapping */
-        mov   x3, #PT_MEM            /* x2 := Section map */
-        orr   x2, x2, x3
-        and   x1, x1, #LPAE_ENTRY_MASK /* x1 := Slot offset */
-        str   x2, [x4, x1, lsl #3]   /* Mapping of paddr(start) */
-        mov   x25, #1                /* x25 := identity map now in place */
-
-1:      /* Setup boot_first: */
-        load_paddr x4, boot_first   /* Next level into boot_first */
-
-        /* ... map boot_second in boot_first[0] */
-        load_paddr x1, boot_second
-        mov   x3, #PT_PT             /* x2 := table map of boot_second */
-        orr   x2, x1, x3             /*       + rights for linear PT */
-        str   x2, [x4, #0]           /* Map it in slot 0 */
-
-        /* ... map of paddr(start) in boot_first */
-        cbnz  x25, 1f                /* x25 is set if already created */
-        lsr   x2, x19, #FIRST_SHIFT  /* x2 := Offset of base paddr in boot_first */
-        and   x1, x2, #LPAE_ENTRY_MASK /* x1 := Slot to use */
-        cbz   x1, 1f                 /* It's in slot 0, map in boot_second */
-
-        lsl   x2, x2, #FIRST_SHIFT   /* Base address for 1GB mapping */
-        mov   x3, #PT_MEM            /* x2 := Section map */
-        orr   x2, x2, x3
-        str   x2, [x4, x1, lsl #3]   /* Create mapping of paddr(start)*/
-        mov   x25, #1                /* x25 := identity map now in place */
-
-1:      /* Setup boot_second: */
-        load_paddr x4, boot_second
-
-        /* ... map boot_third in boot_second[1] */
-        load_paddr x1, boot_third
-        mov   x3, #PT_PT             /* x2 := table map of boot_third */
-        orr   x2, x1, x3             /*       + rights for linear PT */
-        str   x2, [x4, #8]           /* Map it in slot 1 */
-
-        /* ... map of paddr(start) in boot_second */
-        cbnz  x25, 1f                /* x25 is set if already created */
-        lsr   x2, x19, #SECOND_SHIFT /* x2 := Offset of base paddr in boot_second */
-        and   x1, x2, #LPAE_ENTRY_MASK /* x1 := Slot to use */
-        cmp   x1, #1
-        b.eq  virtphys_clash         /* It's in slot 1, which we cannot handle */
-
-        lsl   x2, x2, #SECOND_SHIFT  /* Base address for 2MB mapping */
-        mov   x3, #PT_MEM            /* x2 := Section map */
-        orr   x2, x2, x3
-        str   x2, [x4, x1, lsl #3]   /* Create mapping of paddr(start)*/
-        mov   x25, #1                /* x25 := identity map now in place */
-
-1:      /* Setup boot_third: */
-        load_paddr x4, boot_third
+        /* Map Xen */
+        adr_l x4, boot_third
 
         lsr   x2, x19, #THIRD_SHIFT  /* Base address for 4K mapping */
         lsl   x2, x2, #THIRD_SHIFT
@@ -674,21 +591,80 @@ create_page_tables:
         cmp   x1, #(LPAE_ENTRIES<<3) /* 512 entries per page */
         b.lt  1b
 
-        /* Defer fixmap and dtb mapping until after paging enabled, to
-         * avoid them clashing with the 1:1 mapping. */
+        /*
+         * If Xen is loaded at exactly XEN_VIRT_START then we don't
+         * need an additional 1:1 mapping, the virtual mapping will
+         * suffice.
+         */
+        cmp   x19, #XEN_VIRT_START
+        bne   1f
+        ret
+1:
+        /*
+         * Only the first page of Xen will be part of the 1:1 mapping.
+         * All the boot_*_id tables are linked together even if they may
+         * not be all used. They will then be linked to the boot page
+         * tables at the correct level.
+         */
+        create_table_entry boot_first_id, boot_second_id, x19, FIRST_SHIFT, x0, x1, x2
+        create_table_entry boot_second_id, boot_third_id, x19, SECOND_SHIFT, x0, x1, x2
+        create_mapping_entry boot_third_id, x19, x19, x0, x1, x2
 
-        /* boot pagetable setup complete */
+        /*
+         * Find the zeroeth slot used. Link boot_first_id into
+         * boot_pgtable if the slot is not XEN_ZEROETH_SLOT. For slot
+         * XEN_ZEROETH_SLOT, the tables associated with the 1:1 mapping
+         * will need to be linked in boot_first or boot_second.
+         */
+        lsr   x0, x19, #ZEROETH_SHIFT   /* x0 := zeroeth slot */
+        cmp   x0, #XEN_ZEROETH_SLOT
+        beq   1f
+        /*
+         * It is not in slot XEN_ZEROETH_SLOT. Link boot_first_id
+         * into boot_pgtable.
+         */
+        create_table_entry boot_pgtable, boot_first_id, x19, ZEROETH_SHIFT, x0, x1, x2
+        ret
 
-        cbnz  x25, 1f                /* Did we manage to create an identity mapping ? */
-        PRINT("Unable to build boot page tables - Failed to identity map Xen.\r\n")
-        b     fail
+1:
+        /*
+         * Find the first slot used. Link boot_second_id into boot_first
+         * if the slot is not XEN_FIRST_SLOT. For slot XEN_FIRST_SLOT,
+         * the tables associated with the 1:1 mapping will need to be
+         * linked in boot_second.
+         */
+        lsr   x0, x19, #FIRST_SHIFT
+        and   x0, x0, #LPAE_ENTRY_MASK  /* x0 := first slot */
+        cmp   x0, #XEN_FIRST_SLOT
+        beq   1f
+        /*
+         * It is not in slot XEN_FIRST_SLOT. Link boot_second_id into
+         * boot_first
+         */
+        create_table_entry boot_first, boot_second_id, x19, FIRST_SHIFT, x0, x1, x2
+        ret
+
+1:
+        /*
+         * Find the second slot used. Link boot_third_id into boot_second
+         * if the slot is not XEN_SECOND_SLOT. For slot XEN_SECOND_SLOT,
+         * Xen is not yet able to handle it.
+         */
+        lsr   x0, x19, #SECOND_SHIFT
+        and   x0, x0, #LPAE_ENTRY_MASK  /* x0 := first slot */
+        cmp   x0, #XEN_SECOND_SLOT
+        beq   virtphys_clash
+        /*
+         * It is not in slot XEN_SECOND_SLOT. Link boot_third_id into
+         * boot_second.
+         */
+        create_table_entry boot_second, boot_third_id, x19, SECOND_SHIFT, x0, x1, x2
+        ret
+
 virtphys_clash:
         /* Identity map clashes with boot_third, which we cannot handle yet */
         PRINT("- Unable to build boot page tables - virt and phys addresses clash. -\r\n")
         b     fail
-
-1:
-        ret
 ENDPROC(create_page_tables)
 
 /*
