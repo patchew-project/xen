@@ -825,7 +825,7 @@ ENTRY(switch_ttbr)
 /*
  * Initialize the UART. Should only be called on the boot CPU.
  *
- * Ouput:
+ * Output:
  *  x23: Early UART base physical address
  *
  * Clobbers x0 - x1
