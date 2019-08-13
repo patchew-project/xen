@@ -1817,8 +1817,9 @@ static void __init dtb_load(struct kernel_info *kinfo)
 {
     unsigned long left;
 
-    printk("Loading dom0 DTB to 0x%"PRIpaddr"-0x%"PRIpaddr"\n",
-           kinfo->dtb_paddr, kinfo->dtb_paddr + fdt_totalsize(kinfo->fdt));
+    printk("Loading %pd DTB to 0x%"PRIpaddr"-0x%"PRIpaddr"\n",
+           kinfo->d, kinfo->dtb_paddr,
+           kinfo->dtb_paddr + fdt_totalsize(kinfo->fdt));
 
     left = copy_to_guest_phys_flush_dcache(kinfo->d, kinfo->dtb_paddr,
                                            kinfo->fdt,
