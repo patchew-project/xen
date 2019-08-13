@@ -1446,20 +1446,6 @@ void do_page_fault(struct cpu_user_regs *regs)
               error_code, _p(addr));
     }
 
-    if ( unlikely(current->domain->arch.suppress_spurious_page_faults) )
-    {
-        pf_type = spurious_page_fault(addr, regs);
-        if ( (pf_type == smep_fault) || (pf_type == smap_fault))
-        {
-            printk(XENLOG_G_ERR "%pv fatal SM%cP violation\n",
-                   current, (pf_type == smep_fault) ? 'E' : 'A');
-
-            domain_crash(current->domain);
-        }
-        if ( pf_type != real_fault )
-            return;
-    }
-
     if ( unlikely(regs->error_code & PFEC_reserved_bit) )
         reserved_bit_page_fault(addr, regs);
 
