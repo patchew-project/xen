@@ -313,11 +313,19 @@ static int sanitise_domain_config(struct xen_domctl_createdomain *config)
         return -EINVAL;
     }
 
-    if ( !(config->flags & XEN_DOMCTL_CDF_hvm_guest) &&
-         (config->flags & XEN_DOMCTL_CDF_hap) )
+    if ( !(config->flags & XEN_DOMCTL_CDF_hvm_guest) )
     {
-        dprintk(XENLOG_INFO, "HAP enabled for non-HVM guest\n");
-        return -EINVAL;
+        if ( config->flags & XEN_DOMCTL_CDF_hap )
+        {
+            dprintk(XENLOG_INFO, "HAP enabled for non-HVM guest\n");
+            return -EINVAL;
+        }
+
+        /*
+         * It is only meaningful for XEN_DOMCTL_CDF_oos_off to be clear
+         * for HVM guests.
+         */
+        config->flags |= XEN_DOMCTL_CDF_oos_off;
     }
 
     return arch_sanitise_domain_config(config);
