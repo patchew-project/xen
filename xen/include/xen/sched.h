@@ -954,6 +954,11 @@ static inline bool is_hvm_vcpu(const struct vcpu *v)
     return is_hvm_domain(v->domain);
 }
 
+static inline bool hap_enabled(const struct domain *d)
+{
+    return evaluate_nospec(d->options & XEN_DOMCTL_CDF_hap);
+}
+
 static inline bool is_hwdom_pinned_vcpu(const struct vcpu *v)
 {
     return (is_hardware_domain(v->domain) &&
