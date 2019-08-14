@@ -159,7 +159,7 @@ static void __hwdom_init check_hwdom_reqs(struct domain *d)
     iommu_hwdom_strict = true;
 }
 
-int iommu_domain_init(struct domain *d)
+int iommu_domain_init(struct domain *d, unsigned int opts)
 {
     struct domain_iommu *hd = dom_iommu(d);
     int ret = 0;
@@ -177,6 +177,15 @@ int iommu_domain_init(struct domain *d)
         return ret;
 
     /*
+     * Use shared page tables for HAP and IOMMU if the global option
+     * is enabled (from which we can infer the h/w is capable) and
+     * the domain options do not disallow it. HAP must, of course, also
+     * be enabled.
+     */
+    hd->hap_pt_share = hap_enabled(d) && iommu_hap_pt_share &&
+        !(opts & XEN_DOMCTL_IOMMU_no_sharept);
+
+    /*
      * NB: 'relaxed' h/w domains don't need the IOMMU mappings to be kept
      *     in-sync with their assigned pages because all host RAM will be
      *     mapped during hwdom_init().
@@ -186,6 +195,8 @@ int iommu_domain_init(struct domain *d)
 
     if ( !is_hardware_domain(d) || iommu_hwdom_strict )
         hd->need_sync = !iommu_use_hap_pt(d);
+
+    ASSERT(!(hd->need_sync && hd->hap_pt_share));
 
     return 0;
 }

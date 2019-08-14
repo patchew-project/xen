@@ -67,7 +67,7 @@ extern unsigned int iommu_dev_iotlb_timeout;
 int iommu_setup(void);
 int iommu_hardware_setup(void);
 
-int iommu_domain_init(struct domain *d);
+int iommu_domain_init(struct domain *d, unsigned int opts);
 void iommu_hwdom_init(struct domain *d);
 void iommu_domain_destroy(struct domain *d);
 
@@ -257,9 +257,17 @@ struct domain_iommu {
     DECLARE_BITMAP(features, IOMMU_FEAT_count);
 
     /*
-     * Does the guest reqire mappings to be synchonized, to maintain
-     * the default dfn == pfn map. (See comment on dfn at the top of
-     * include/xen/mm.h).
+     * Does the guest share HAP mapping with the IOMMU? This is always
+     * true for ARM systems and may be true for x86 systems where the
+     * the hardware is capable.
+     */
+    bool hap_pt_share;
+
+    /*
+     * Does the guest require mappings to be synchronized, to maintain
+     * the default dfn == pfn map? (See comment on dfn at the top of
+     * include/xen/mm.h). Note that hap_pt_share == false does not
+     * necessarily imply this is true.
      */
     bool need_sync;
 };
@@ -269,8 +277,7 @@ struct domain_iommu {
 #define iommu_clear_feature(d, f) clear_bit(f, dom_iommu(d)->features)
 
 /* Are we using the domain P2M table as its IOMMU pagetable? */
-#define iommu_use_hap_pt(d) \
-    (hap_enabled(d) && is_iommu_enabled(d) && iommu_hap_pt_share)
+#define iommu_use_hap_pt(d)       (dom_iommu(d)->hap_pt_share)
 
 /* Does the IOMMU pagetable need to be kept synchronized with the P2M */
 #ifdef CONFIG_HAS_PASSTHROUGH

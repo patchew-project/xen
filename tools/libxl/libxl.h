@@ -395,6 +395,11 @@
 #define LIBXL_HAVE_EXTENDED_VKB 1
 
 /*
+ * libxl_domain_create_info has libxl_passthrough enumeration.
+ */
+#define LIBXL_HAVE_CREATEINFO_PASSTHROUGH 1
+
+/*
  * libxl ABI compatibility
  *
  * The only guarantee which libxl makes regarding ABI compatibility

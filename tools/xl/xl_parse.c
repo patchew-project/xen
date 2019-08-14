@@ -2326,6 +2326,44 @@ skip_vfb:
         }
     }
 
+    if (!xlu_cfg_get_string(config, "passthrough", &buf, 0)) {
+        libxl_passthrough o;
+
+        e = libxl_passthrough_from_string(buf, &o);
+        if (e) {
+            fprintf(stderr,
+                    "ERROR: unknown passthrough option '%s'\n",
+                    buf);
+            exit(-ERROR_FAIL);
+        }
+
+        switch (o) {
+        case LIBXL_PASSTHROUGH_DISABLED:
+            if (d_config->num_pcidevs || d_config->num_dtdevs) {
+                fprintf(stderr,
+                        "ERROR: passthrough disabled but devices are specified\n");
+                exit(-ERROR_FAIL);
+            }
+        case LIBXL_PASSTHROUGH_SHARE_PT:
+            if (c_info->type == LIBXL_DOMAIN_TYPE_PV) {
+                fprintf(stderr,
+                        "ERROR: passthrough=\"share_pt\" not valid for PV domain\n");
+                exit(-ERROR_FAIL);
+            }
+        default:
+            break;
+        }
+
+        c_info->passthrough = o;
+    } else if (d_config->num_pcidevs || d_config->num_dtdevs) {
+        /*
+         * Passthrough devices are specified so set an appropriate
+         * default value.
+         */
+        c_info->passthrough = (c_info->type == LIBXL_DOMAIN_TYPE_PV) ?
+            LIBXL_PASSTHROUGH_SYNC_PT : LIBXL_PASSTHROUGH_SHARE_PT;
+    }
+
     if (!xlu_cfg_get_list(config, "usbctrl", &usbctrls, 0, 0)) {
         d_config->num_usbctrls = 0;
         d_config->usbctrls = NULL;

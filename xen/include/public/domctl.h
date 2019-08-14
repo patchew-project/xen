@@ -38,7 +38,7 @@
 #include "hvm/save.h"
 #include "memory.h"
 
-#define XEN_DOMCTL_INTERFACE_VERSION 0x00000011
+#define XEN_DOMCTL_INTERFACE_VERSION 0x00000012
 
 /*
  * NB. xen_domctl.domain is an IN/OUT parameter for this operation.
@@ -69,6 +69,10 @@ struct xen_domctl_createdomain {
 #define XEN_DOMCTL_CDF_iommu          (1U<<_XEN_DOMCTL_CDF_iommu)
 
     uint32_t flags;
+
+#define _XEN_DOMCTL_IOMMU_no_sharept  0
+#define XEN_DOMCTL_IOMMU_no_sharept   (1U<<_XEN_DOMCTL_IOMMU_no_sharept)
+    uint32_t iommu_opts;
 
     /*
      * Various domain limits, which impact the quantity of resources (global
