@@ -56,6 +56,11 @@
 #define GLOBAL(name)                            \
   .globl name;                                  \
   name:
+
+#define ENDDATA(name)                           \
+    .type name, STT_OBJECT;                     \
+    .size name, . - name
+
 #endif
 
 #define NR_hypercalls 64

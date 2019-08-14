@@ -98,7 +98,7 @@ l1_identmap:
         .endif
         pfn = pfn + 1
         .endr
-        .size l1_identmap, . - l1_identmap
+ENDDATA(l1_identmap)
 
 /*
  * __page_tables_start does not cover l1_identmap because it (l1_identmap)
@@ -119,7 +119,7 @@ GLOBAL(l2_identmap)
         idx = idx + 1
         .endr
         .fill 4 * L2_PAGETABLE_ENTRIES - 8, 8, 0
-        .size l2_identmap, . - l2_identmap
+ENDDATA(l2_identmap)
 
 /*
  * L2 mapping the 1GB Xen text/data/bss region.  At boot it maps 16MB from
@@ -134,7 +134,7 @@ GLOBAL(l2_xenmap)
         idx = idx + 1
         .endr
         .fill L2_PAGETABLE_ENTRIES - 8, 8, 0
-        .size l2_xenmap, . - l2_xenmap
+ENDDATA(l2_xenmap)
 
 /* L2 mapping the fixmap.  Uses 1x 4k page. */
 l2_fixmap:
@@ -147,7 +147,7 @@ l2_fixmap:
         .endif
         idx = idx + 1
         .endr
-        .size l2_fixmap, . - l2_fixmap
+ENDDATA(l2_fixmap)
 
 /* Identity map, covering the 4 l2_identmap tables.  Uses 1x 4k page. */
 l3_identmap:
@@ -157,7 +157,7 @@ l3_identmap:
         idx = idx + 1
         .endr
         .fill L3_PAGETABLE_ENTRIES - 4, 8, 0
-        .size l3_identmap, . - l3_identmap
+ENDDATA(l3_identmap)
 
 /* L3 mapping the fixmap.  Uses 1x 4k page. */
 l3_xenmap:
@@ -172,7 +172,7 @@ l3_xenmap:
         .endif
         idx = idx + 1
         .endr
-        .size l3_xenmap, . - l3_xenmap
+ENDDATA(l3_xenmap)
 
 /* Top-level master (and idle-domain) page directory. */
 GLOBAL(idle_pg_table)
@@ -188,7 +188,7 @@ GLOBAL(idle_pg_table)
         .endif
         idx = idx + 1
         .endr
-        .size idle_pg_table, . - idle_pg_table
+ENDDATA(idle_pg_table)
 
 GLOBAL(__page_tables_end)
 
@@ -198,8 +198,8 @@ GLOBAL(__page_tables_end)
 
 GLOBAL(l2_bootmap)
         .fill 4 * L2_PAGETABLE_ENTRIES, 8, 0
-        .size l2_bootmap, . - l2_bootmap
+ENDDATA(l2_bootmap)
 
 GLOBAL(l3_bootmap)
         .fill L3_PAGETABLE_ENTRIES, 8, 0
-        .size l3_bootmap, . - l3_bootmap
+ENDDATA(l3_bootmap)
