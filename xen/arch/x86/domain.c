@@ -466,6 +466,13 @@ int arch_sanitise_domain_config(struct xen_domctl_createdomain *config)
         return -EINVAL;
     }
 
+    if ( (config->flags & XEN_DOMCTL_CDF_s3_integrity) &&
+         !IS_ENABLED(CONFIG_TBOOT) )
+    {
+        dprintk(XENLOG_INFO, "S3 integrity check not valid without CONFIG_TBOOT\n");
+        return -EINVAL;
+    }
+
     return 0;
 }
 
@@ -543,8 +550,6 @@ int arch_domain_create(struct domain *d,
                "Dom%d may compromise security on this CPU.\n",
                d->domain_id);
     }
-
-    d->arch.s3_integrity = config->flags & XEN_DOMCTL_CDF_s3_integrity;
 
     emflags = config->arch.emulation_flags;
 
