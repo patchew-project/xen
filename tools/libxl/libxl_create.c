@@ -555,6 +555,7 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
             .max_grant_frames = b_info->max_grant_frames,
             .max_maptrack_frames = b_info->max_maptrack_frames,
         };
+        libxl_physinfo physinfo;
 
         if (info->type != LIBXL_DOMAIN_TYPE_PV) {
             create.flags |= XEN_DOMCTL_CDF_hvm_guest;
@@ -563,6 +564,13 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
             create.flags |=
                 libxl_defbool_val(info->oos) ? 0 : XEN_DOMCTL_CDF_oos_off;
         }
+
+        rc = libxl_get_physinfo(ctx, &physinfo);
+        if (rc < 0)
+            goto out;
+
+        if (physinfo.cap_hvm_directio)
+            create.flags |= XEN_DOMCTL_CDF_iommu;
 
         /* Ultimately, handle is an array of 16 uint8_t, same as uuid */
         libxl_uuid_copy(ctx, (libxl_uuid *)&create.handle, &info->uuid);
