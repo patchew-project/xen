@@ -1993,7 +1993,7 @@ static int __init construct_domain(struct domain *d, struct kernel_info *kinfo)
         cpu = cpumask_cycle(cpu, &cpu_online_map);
         if ( vcpu_create(d, i, cpu) == NULL )
         {
-            printk("Failed to allocate dom0 vcpu %d on pcpu %d\n", i, cpu);
+            printk("Failed to allocate %pd vcpu %d on pcpu %d\n", d, i, cpu);
             break;
         }
 
