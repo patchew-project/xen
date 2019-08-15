@@ -25,10 +25,13 @@ sub normalize ($$);
 sub insert ($$$$);
 sub hastag ($$);
 
-# Tool Variables
-my $get_maintainer      = "./scripts/get_maintainer.pl";
-
+# Tool Variables 
 my $tool = $0;
+my $get_maintainer = $tool; 
+$get_maintainer =~ s/add_maintainers/get_maintainer/; 
+
+print $get_maintainer."\n";
+
 my $usage = <<EOT;
 OPTIONS:
 --------

@@ -266,8 +266,17 @@ if ($email &&
 }
 
 if (!top_of_tree($xen_path)) {
-    die "$P: The current directory does not appear to be "
-	. "a Xen source tree.\n";
+    # Do not exit, but print an error message to STDERR to allow calling 
+    # the tool from xen-related repos such as mini-os.git, 
+    # live patch-build-tools.git, etc
+    print STDERR "$P:\n".
+          "=====================================================\n".
+          "WARNING: The current directory does not appear to be \n".
+	  "the xen.git source tree.\n\n".
+          "The tool works outside of the xen.git tree, if the\n".
+          "MAINTAINERS file follows the same format as that of\n".
+          "xen.git. Use at your own peril.\n".
+          "=====================================================\n";
 }
 
 ## Read MAINTAINERS for type/value pairs
