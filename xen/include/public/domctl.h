@@ -64,6 +64,10 @@ struct xen_domctl_createdomain {
  /* Is this a xenstore domain? */
 #define _XEN_DOMCTL_CDF_xs_domain     4
 #define XEN_DOMCTL_CDF_xs_domain      (1U<<_XEN_DOMCTL_CDF_xs_domain)
+ /* Should this domain be permitted to use the IOMMU? */
+#define _XEN_DOMCTL_CDF_iommu         5
+#define XEN_DOMCTL_CDF_iommu          (1U<<_XEN_DOMCTL_CDF_iommu)
+
     uint32_t flags;
 
     /*

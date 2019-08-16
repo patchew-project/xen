@@ -301,7 +301,8 @@ static int sanitise_domain_config(struct xen_domctl_createdomain *config)
                            XEN_DOMCTL_CDF_hap |
                            XEN_DOMCTL_CDF_s3_integrity |
                            XEN_DOMCTL_CDF_oos_off |
-                           XEN_DOMCTL_CDF_xs_domain) )
+                           XEN_DOMCTL_CDF_xs_domain |
+                           XEN_DOMCTL_CDF_iommu) )
     {
         dprintk(XENLOG_INFO, "Unknown CDF flags %#x\n", config->flags);
         return -EINVAL;
@@ -326,6 +327,12 @@ static int sanitise_domain_config(struct xen_domctl_createdomain *config)
          * for HVM guests.
          */
         config->flags |= XEN_DOMCTL_CDF_oos_off;
+    }
+
+    if ( (config->flags & XEN_DOMCTL_CDF_iommu) && !iommu_enabled )
+    {
+        dprintk(XENLOG_INFO, "IOMMU is not enabled\n");
+        return -EINVAL;
     }
 
     return arch_sanitise_domain_config(config);
