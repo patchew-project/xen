@@ -102,8 +102,10 @@ static int __init parse_iommu_param(const char *s)
             iommu_hwdom_passthrough = val;
         else if ( (val = parse_boolean("dom0-strict", s, ss)) >= 0 )
             iommu_hwdom_strict = val;
+#ifndef CONFIG_ARM
         else if ( (val = parse_boolean("sharept", s, ss)) >= 0 )
             iommu_hap_pt_share = val;
+#endif
         else
             rc = -EINVAL;
 
