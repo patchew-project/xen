@@ -275,12 +275,18 @@ if (!top_of_tree($xen_path)) {
 my @typevalue = ();
 my %keyword_hash;
 
-open (my $maint, '<', "${xen_path}MAINTAINERS")
-    or die "$P: Can't open MAINTAINERS: $!\n";
+my $maint;
+my $maintainers_file = "MAINTAINERS";
+if (! open ($maint, '<', ${xen_path}.$maintainers_file)) {
+    $maintainers_file = "MAINTAINERS.md";
+    open ($maint, '<', ${xen_path}.$maintainers_file)
+        or die "$P: Can't open MAINTAINERS or MAINTAINERS.md: $!\n";
+}
+
 while (<$maint>) {
     my $line = $_;
 
-    if ($line =~ m/^([A-Z]):\s*(.*)/) {
+    if ($line =~ m/^\s*([A-Z]):\s*(.*)/) {
 	my $type = $1;
 	my $value = $2;
 
@@ -412,7 +418,7 @@ foreach my $file (@ARGV) {
     }
     if ($from_filename) {
 	push(@files, $file);
-	if ($file ne "MAINTAINERS" && -f $file && ($keywords || $file_emails)) {
+	if ($file ne $maintainers_file && -f $file && ($keywords || $file_emails)) {
 	    open(my $f, '<', $file)
 		or die "$P: Can't open $file: $!\n";
 	    my $text = do { local($/) ; <$f> };
