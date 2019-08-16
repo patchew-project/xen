@@ -564,6 +564,15 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
                 libxl_defbool_val(info->oos) ? 0 : XEN_DOMCTL_CDF_oos_off;
         }
 
+        LOG(DETAIL, "passthrough: %s",
+            libxl_passthrough_to_string(info->passthrough));
+
+        if (info->passthrough != LIBXL_PASSTHROUGH_DISABLED)
+            create.flags |= XEN_DOMCTL_CDF_iommu;
+
+        if (info->passthrough == LIBXL_PASSTHROUGH_SYNC_PT)
+            create.iommu_opts |= XEN_DOMCTL_IOMMU_no_sharept;
+
         /* Ultimately, handle is an array of 16 uint8_t, same as uuid */
         libxl_uuid_copy(ctx, (libxl_uuid *)&create.handle, &info->uuid);
 
