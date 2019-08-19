@@ -269,7 +269,7 @@ static void early_init_intel(struct cpuinfo_x86 *c)
 				 MSR_IA32_MISC_ENABLE_XD_DISABLE);
 	if (disable) {
 		wrmsrl(MSR_IA32_MISC_ENABLE, misc_enable & ~disable);
-		bootsym(trampoline_misc_enable_off) |= disable;
+		bootsym(misc_enable_off) |= disable;
 	}
 
 	if (disable & MSR_IA32_MISC_ENABLE_LIMIT_CPUID)

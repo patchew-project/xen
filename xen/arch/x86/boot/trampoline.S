@@ -85,7 +85,7 @@ trampoline_gdt:
         .long   trampoline_gdt + BOOT_PSEUDORM_DS + 2 - .
         .popsection
 
-GLOBAL(trampoline_misc_enable_off)
+GLOBAL(misc_enable_off)
         .quad   0
 
 GLOBAL(cpuid_ext_features)
@@ -117,8 +117,8 @@ trampoline_protmode_entry:
         mov     %eax,%cr3
 
         /* Adjust IA32_MISC_ENABLE if needed (for NX enabling below). */
-        mov     bootsym_rel(trampoline_misc_enable_off,4,%esi)
-        mov     bootsym_rel(trampoline_misc_enable_off+4,4,%edi)
+        mov     bootsym_rel(misc_enable_off,4,%esi)
+        mov     bootsym_rel(misc_enable_off+4,4,%edi)
         mov     %esi,%eax
         or      %edi,%eax
         jz      1f
