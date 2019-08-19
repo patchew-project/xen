@@ -189,12 +189,19 @@ static DEFINE_SPINLOCK(microcode_mutex);
 
 DEFINE_PER_CPU(struct cpu_signature, cpu_sig);
 
-struct microcode_info {
-    unsigned int cpu;
-    uint32_t buffer_size;
-    int error;
-    char buffer[1];
-};
+/*
+ * Return a patch that covers current CPU. If there are multiple patches,
+ * return the one with the highest revision number. Return error If no
+ * patch is found and an error occurs during the parsing process. Otherwise
+ * return NULL.
+ */
+static struct microcode_patch *parse_blob(const char *buf, uint32_t len)
+{
+    if ( likely(!microcode_ops->collect_cpu_info(&this_cpu(cpu_sig))) )
+        return microcode_ops->cpu_request_microcode(buf, len);
+
+    return NULL;
+}
 
 int microcode_resume_cpu(void)
 {
@@ -220,13 +227,6 @@ void microcode_free_patch(struct microcode_patch *microcode_patch)
     xfree(microcode_patch);
 }
 
-const struct microcode_patch *microcode_get_cache(void)
-{
-    ASSERT(spin_is_locked(&microcode_mutex));
-
-    return microcode_cache;
-}
-
 /* Return true if cache gets updated. Otherwise, return false */
 bool microcode_update_cache(struct microcode_patch *patch)
 {
@@ -250,49 +250,71 @@ bool microcode_update_cache(struct microcode_patch *patch)
     return true;
 }
 
-static int microcode_update_cpu(const void *buf, size_t size)
+/*
+ * Load a microcode update to current CPU.
+ *
+ * If no patch is provided, the cached patch will be loaded. Microcode update
+ * during APs bringup and CPU resuming falls into this case.
+ */
+static int microcode_update_cpu(const struct microcode_patch *patch)
 {
-    int err;
-    unsigned int cpu = smp_processor_id();
-    struct cpu_signature *sig = &per_cpu(cpu_sig, cpu);
+    int err = microcode_ops->collect_cpu_info(&this_cpu(cpu_sig));
 
-    spin_lock(&microcode_mutex);
+    if ( unlikely(err) )
+        return err;
 
-    err = microcode_ops->collect_cpu_info(sig);
-    if ( likely(!err) )
-        err = microcode_ops->cpu_request_microcode(buf, size);
-    spin_unlock(&microcode_mutex);
+    if ( patch )
+        err = microcode_ops->apply_microcode(patch);
+    else if ( microcode_cache )
+    {
+        spin_lock(&microcode_mutex);
+        err = microcode_ops->apply_microcode(microcode_cache);
+        if ( err == -EIO )
+        {
+            microcode_free_patch(microcode_cache);
+            microcode_cache = NULL;
+        }
+        spin_unlock(&microcode_mutex);
+    }
+    else
+        /* No patch to update */
+        err = -ENOENT;
 
     return err;
 }
 
-static long do_microcode_update(void *_info)
+static long do_microcode_update(void *patch)
 {
-    struct microcode_info *info = _info;
-    int error;
+    unsigned int cpu;
 
-    BUG_ON(info->cpu != smp_processor_id());
-
-    error = microcode_update_cpu(info->buffer, info->buffer_size);
-    if ( error )
-        info->error = error;
+    /* Store the patch after a successful loading */
+    if ( !microcode_update_cpu(patch) && patch )
+    {
+        spin_lock(&microcode_mutex);
+        microcode_update_cache(patch);
+        spin_unlock(&microcode_mutex);
+        patch = NULL;
+    }
 
     if ( microcode_ops->end_update )
         microcode_ops->end_update();
 
-    info->cpu = cpumask_next(info->cpu, &cpu_online_map);
-    if ( info->cpu < nr_cpu_ids )
-        return continue_hypercall_on_cpu(info->cpu, do_microcode_update, info);
+    cpu = cpumask_next(smp_processor_id(), &cpu_online_map);
+    if ( cpu < nr_cpu_ids )
+        return continue_hypercall_on_cpu(cpu, do_microcode_update, patch);
 
-    error = info->error;
-    xfree(info);
-    return error;
+    /* Free the patch if no CPU has loaded it successfully. */
+    if ( patch )
+        microcode_free_patch(patch);
+
+    return 0;
 }
 
 int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void) buf, unsigned long len)
 {
     int ret;
-    struct microcode_info *info;
+    void *buffer;
+    struct microcode_patch *patch;
 
     if ( len != (uint32_t)len )
         return -E2BIG;
@@ -300,32 +322,44 @@ int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void) buf, unsigned long len)
     if ( microcode_ops == NULL )
         return -EINVAL;
 
-    info = xmalloc_bytes(sizeof(*info) + len);
-    if ( info == NULL )
+    buffer = xmalloc_bytes(len);
+    if ( !buffer )
         return -ENOMEM;
 
-    ret = copy_from_guest(info->buffer, buf, len);
-    if ( ret != 0 )
+    if ( copy_from_guest(buffer, buf, len) )
     {
-        xfree(info);
-        return ret;
+        ret = -EFAULT;
+        goto free;
     }
-
-    info->buffer_size = len;
-    info->error = 0;
-    info->cpu = cpumask_first(&cpu_online_map);
 
     if ( microcode_ops->start_update )
     {
         ret = microcode_ops->start_update();
         if ( ret != 0 )
-        {
-            xfree(info);
-            return ret;
-        }
+            goto free;
     }
 
-    return continue_hypercall_on_cpu(info->cpu, do_microcode_update, info);
+    patch = parse_blob(buffer, len);
+    if ( IS_ERR(patch) )
+    {
+        ret = PTR_ERR(patch);
+        printk(XENLOG_INFO "Parsing microcode blob error %d\n", ret);
+        goto free;
+    }
+
+    if ( !patch )
+    {
+        printk(XENLOG_INFO "No ucode found. Update aborted!\n");
+        ret = -EINVAL;
+        goto free;
+    }
+
+    ret = continue_hypercall_on_cpu(cpumask_first(&cpu_online_map),
+                                    do_microcode_update, patch);
+
+ free:
+    xfree(buffer);
+    return ret;
 }
 
 static int __init microcode_init(void)
@@ -372,23 +406,46 @@ int __init early_microcode_update_cpu(bool start_update)
 
     microcode_ops->collect_cpu_info(&this_cpu(cpu_sig));
 
-    if ( data )
+    if ( !data )
+        return -ENOMEM;
+
+    if ( start_update )
     {
-        if ( start_update && microcode_ops->start_update )
+        struct microcode_patch *patch;
+
+        if ( microcode_ops->start_update )
             rc = microcode_ops->start_update();
 
         if ( rc )
             return rc;
 
-        rc = microcode_update_cpu(data, len);
+        patch = parse_blob(data, len);
+        if ( IS_ERR(patch) )
+        {
+            printk(XENLOG_INFO "Parsing microcode blob error %ld\n",
+                   PTR_ERR(patch));
+            return PTR_ERR(patch);
+        }
 
-        if ( microcode_ops->end_update )
-            microcode_ops->end_update();
+        if ( !patch )
+        {
+            printk(XENLOG_INFO "No ucode found. Update aborted!\n");
+            return -EINVAL;
+        }
 
-        return rc;
+        spin_lock(&microcode_mutex);
+        rc = microcode_update_cache(patch);
+        spin_unlock(&microcode_mutex);
+
+        ASSERT(rc);
     }
-    else
-        return -ENOMEM;
+
+    rc = microcode_update_cpu(NULL);
+
+    if ( microcode_ops->end_update )
+        microcode_ops->end_update();
+
+    return rc;
 }
 
 int __init early_microcode_init(void)

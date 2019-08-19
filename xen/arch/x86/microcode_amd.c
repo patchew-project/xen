@@ -447,9 +447,11 @@ static bool_t check_final_patch_levels(unsigned int cpu)
     return 0;
 }
 
-static int cpu_request_microcode(const void *buf, size_t bufsize)
+static struct microcode_patch *cpu_request_microcode(const void *buf,
+                                                     size_t bufsize)
 {
     struct microcode_amd *mc_amd;
+    struct microcode_patch *patch = NULL;
     size_t offset = 0;
     int error = 0;
     unsigned int current_cpu_id;
@@ -548,18 +550,21 @@ static int cpu_request_microcode(const void *buf, size_t bufsize)
             break;
         }
 
-        /* Update cache if this patch covers current CPU */
-        if ( microcode_fits(new_patch->mc_amd) != MIS_UCODE )
-            microcode_update_cache(new_patch);
-        else
-            microcode_free_patch(new_patch);
-
-        if ( match_cpu(microcode_get_cache()) )
+        /*
+         * If the new patch covers current CPU, compare patches and store the
+         * one with higher revision.
+         */
+        if ( (microcode_fits(new_patch->mc_amd) != MIS_UCODE) &&
+             (!patch || (compare_patch(new_patch, patch) == NEW_UCODE)) )
         {
-            error = apply_microcode(microcode_get_cache());
-            if ( error )
-                break;
+            struct microcode_patch *tmp = patch;
+
+            patch = new_patch;
+            new_patch = tmp;
         }
+
+        if ( new_patch )
+            microcode_free_patch(new_patch);
 
         if ( offset >= bufsize )
             break;
@@ -593,13 +598,10 @@ static int cpu_request_microcode(const void *buf, size_t bufsize)
     xfree(mc_amd);
 
   out:
-    /*
-     * In some cases we may return an error even if processor's microcode has
-     * been updated. For example, the first patch in a container file is loaded
-     * successfully but subsequent container file processing encounters a
-     * failure.
-     */
-    return error;
+    if ( error && !patch )
+        patch = ERR_PTR(error);
+
+    return patch;
 }
 
 static int start_update(void)
