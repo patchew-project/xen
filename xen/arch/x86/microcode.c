@@ -203,24 +203,6 @@ static struct microcode_patch *parse_blob(const char *buf, uint32_t len)
     return NULL;
 }
 
-int microcode_resume_cpu(void)
-{
-    int err;
-    struct cpu_signature *sig = &this_cpu(cpu_sig);
-
-    if ( !microcode_ops )
-        return 0;
-
-    spin_lock(&microcode_mutex);
-
-    err = microcode_ops->collect_cpu_info(sig);
-    if ( likely(!err) )
-        err = microcode_ops->apply_microcode(microcode_cache);
-    spin_unlock(&microcode_mutex);
-
-    return err;
-}
-
 void microcode_free_patch(struct microcode_patch *microcode_patch)
 {
     microcode_ops->free_patch(microcode_patch->mc);
@@ -384,11 +366,29 @@ static int __init microcode_init(void)
 }
 __initcall(microcode_init);
 
-int __init early_microcode_update_cpu(bool start_update)
+/* Load a cached update to current cpu */
+int microcode_update_one(void)
+{
+    int rc;
+
+    if ( !microcode_ops )
+        return -EOPNOTSUPP;
+
+    rc = microcode_update_cpu(NULL);
+
+    if ( microcode_ops->end_update )
+        microcode_ops->end_update();
+
+    return rc;
+}
+
+/* BSP calls this function to parse ucode blob and then apply an update. */
+int __init early_microcode_update_cpu(void)
 {
     int rc = 0;
     void *data = NULL;
     size_t len;
+    struct microcode_patch *patch;
 
     if ( !microcode_ops )
         return -ENOSYS;
@@ -409,43 +409,33 @@ int __init early_microcode_update_cpu(bool start_update)
     if ( !data )
         return -ENOMEM;
 
-    if ( start_update )
+    if ( microcode_ops->start_update )
+        rc = microcode_ops->start_update();
+
+    if ( rc )
+        return rc;
+
+    patch = parse_blob(data, len);
+    if ( IS_ERR(patch) )
     {
-        struct microcode_patch *patch;
-
-        if ( microcode_ops->start_update )
-            rc = microcode_ops->start_update();
-
-        if ( rc )
-            return rc;
-
-        patch = parse_blob(data, len);
-        if ( IS_ERR(patch) )
-        {
-            printk(XENLOG_INFO "Parsing microcode blob error %ld\n",
-                   PTR_ERR(patch));
-            return PTR_ERR(patch);
-        }
-
-        if ( !patch )
-        {
-            printk(XENLOG_INFO "No ucode found. Update aborted!\n");
-            return -EINVAL;
-        }
-
-        spin_lock(&microcode_mutex);
-        rc = microcode_update_cache(patch);
-        spin_unlock(&microcode_mutex);
-
-        ASSERT(rc);
+        printk(XENLOG_INFO "Parsing microcode blob error %ld\n",
+               PTR_ERR(patch));
+        return PTR_ERR(patch);
     }
 
-    rc = microcode_update_cpu(NULL);
+    if ( !patch )
+    {
+        printk(XENLOG_INFO "No ucode found. Update aborted!\n");
+        return -EINVAL;
+    }
 
-    if ( microcode_ops->end_update )
-        microcode_ops->end_update();
+    spin_lock(&microcode_mutex);
+    rc = microcode_update_cache(patch);
+    spin_unlock(&microcode_mutex);
 
-    return rc;
+    ASSERT(rc);
+
+    return microcode_update_one();
 }
 
 int __init early_microcode_init(void)
@@ -465,7 +455,7 @@ int __init early_microcode_init(void)
         microcode_ops->collect_cpu_info(&this_cpu(cpu_sig));
 
         if ( ucode_mod.mod_end || ucode_blob.size )
-            rc = early_microcode_update_cpu(true);
+            rc = early_microcode_update_cpu();
     }
 
     return rc;
