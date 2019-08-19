@@ -1182,11 +1182,12 @@ static void debugtrace_dump_worker(void)
 
     /* Print oldest portion of the ring. */
     ASSERT(debugtrace_buf[debugtrace_bytes - 1] == 0);
-    sercon_puts(&debugtrace_buf[debugtrace_prd]);
+    sercon_puts(&debugtrace_buf[debugtrace_prd],
+                strlen(&debugtrace_buf[debugtrace_prd]));
 
     /* Print youngest portion of the ring. */
     debugtrace_buf[debugtrace_prd] = '\0';
-    sercon_puts(&debugtrace_buf[0]);
+    sercon_puts(&debugtrace_buf[0], debugtrace_prd);
 
     memset(debugtrace_buf, '\0', debugtrace_bytes);
 
