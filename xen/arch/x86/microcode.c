@@ -277,6 +277,9 @@ static long do_microcode_update(void *_info)
     if ( error )
         info->error = error;
 
+    if ( microcode_ops->end_update )
+        microcode_ops->end_update();
+
     info->cpu = cpumask_next(info->cpu, &cpu_online_map);
     if ( info->cpu < nr_cpu_ids )
         return continue_hypercall_on_cpu(info->cpu, do_microcode_update, info);
@@ -377,7 +380,12 @@ int __init early_microcode_update_cpu(bool start_update)
         if ( rc )
             return rc;
 
-        return microcode_update_cpu(data, len);
+        rc = microcode_update_cpu(data, len);
+
+        if ( microcode_ops->end_update )
+            microcode_ops->end_update();
+
+        return rc;
     }
     else
         return -ENOMEM;

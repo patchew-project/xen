@@ -594,10 +594,6 @@ static int cpu_request_microcode(const void *buf, size_t bufsize)
     xfree(mc_amd);
 
   out:
-#if CONFIG_HVM
-    svm_host_osvw_init();
-#endif
-
     /*
      * In some cases we may return an error even if processor's microcode has
      * been updated. For example, the first patch in a container file is loaded
@@ -609,27 +605,28 @@ static int cpu_request_microcode(const void *buf, size_t bufsize)
 
 static int start_update(void)
 {
-#if CONFIG_HVM
     /*
-     * We assume here that svm_host_osvw_init() will be called on each cpu (from
-     * cpu_request_microcode()).
-     *
-     * Note that if collect_cpu_info() returns an error then
-     * cpu_request_microcode() will not invoked thus leaving OSVW bits not
-     * updated. Currently though collect_cpu_info() will not fail on processors
-     * supporting OSVW so we will not deal with this possibility.
+     * svm_host_osvw_init() will be called on each cpu by calling '.end_update'
+     * in common code.
      */
     svm_host_osvw_reset();
-#endif
 
     return 0;
+}
+
+static void end_update(void)
+{
+    svm_host_osvw_init();
 }
 
 static const struct microcode_ops microcode_amd_ops = {
     .cpu_request_microcode            = cpu_request_microcode,
     .collect_cpu_info                 = collect_cpu_info,
     .apply_microcode                  = apply_microcode,
+#if CONFIG_HVM
     .start_update                     = start_update,
+    .end_update                       = end_update,
+#endif
     .free_patch                       = free_patch,
     .compare_patch                    = compare_patch,
     .match_cpu                        = match_cpu,
