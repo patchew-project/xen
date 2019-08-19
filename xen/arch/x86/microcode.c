@@ -38,6 +38,7 @@
 
 #include <asm/delay.h>
 #include <asm/msr.h>
+#include <asm/nmi.h>
 #include <asm/processor.h>
 #include <asm/setup.h>
 #include <asm/microcode.h>
@@ -339,13 +340,7 @@ static int microcode_update_cpu(const struct microcode_patch *patch)
 
 static int slave_thread_fn(void)
 {
-    unsigned int cpu = smp_processor_id();
     unsigned int master = cpumask_first(this_cpu(cpu_sibling_mask));
-
-    while ( loading_state != LOADING_CALLIN )
-        cpu_relax();
-
-    cpumask_set_cpu(cpu, &cpu_callin_map);
 
     while ( loading_state != LOADING_EXIT )
         cpu_relax();
@@ -398,6 +393,8 @@ static int control_thread_fn(const struct microcode_patch *patch)
     smp_mb();
 
     cpumask_set_cpu(cpu, &cpu_callin_map);
+
+    smp_send_nmi_allbutself();
 
     /* Waiting for all threads calling in */
     ret = wait_for_condition(wait_cpu_callin,
@@ -481,12 +478,28 @@ static int do_microcode_update(void *patch)
     return ret;
 }
 
+static int microcode_nmi_callback(const struct cpu_user_regs *regs, int cpu)
+{
+    /* The first thread of a core is to load an update. Don't block it. */
+    if ( cpu == cpumask_first(per_cpu(cpu_sibling_mask, cpu)) ||
+         loading_state != LOADING_CALLIN )
+        return 0;
+
+    cpumask_set_cpu(cpu, &cpu_callin_map);
+
+    while ( loading_state != LOADING_EXIT )
+        cpu_relax();
+
+    return 0;
+}
+
 int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void) buf, unsigned long len)
 {
     int ret;
     void *buffer;
     unsigned int cpu, updated;
     struct microcode_patch *patch;
+    nmi_callback_t *saved_nmi_callback;
 
     if ( len != (uint32_t)len )
         return -E2BIG;
@@ -551,6 +564,8 @@ int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void) buf, unsigned long len)
      * watchdog timeout.
      */
     watchdog_disable();
+
+    saved_nmi_callback = set_nmi_callback(microcode_nmi_callback);
     /*
      * Late loading dance. Why the heavy-handed stop_machine effort?
      *
@@ -563,6 +578,7 @@ int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void) buf, unsigned long len)
      *   conservative and good.
      */
     ret = stop_machine_run(do_microcode_update, patch, NR_CPUS);
+    set_nmi_callback(saved_nmi_callback);
     watchdog_enable();
 
     updated = atomic_read(&cpu_updated);
