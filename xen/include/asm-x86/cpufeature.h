@@ -136,6 +136,9 @@
 
 #define cpu_has_msr_tsc_aux     (cpu_has_rdtscp || cpu_has_rdpid)
 
+/* Bugs. */
+#define cpu_bug_fpu_ptr_leak    boot_cpu_has(X86_BUG_FPU_PTR_LEAK)
+
 enum _cache_type {
     CACHE_TYPE_NULL = 0,
     CACHE_TYPE_DATA = 1,
