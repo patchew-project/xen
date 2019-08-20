@@ -367,7 +367,7 @@ static bool_t ept_invalidate_emt(struct p2m_domain *p2m, mfn_t mfn,
         e.emt = MTRR_NUM_TYPES;
         if ( recalc )
             e.recalc = 1;
-        rc = atomic_write_ept_entry(p2m, &epte[i], e, level);
+        rc = atomic_write_ept_entry(p2m, &epte[i], e, level - 1);
         ASSERT(rc == 0);
         changed = 1;
     }
