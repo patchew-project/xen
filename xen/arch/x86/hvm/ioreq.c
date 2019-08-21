@@ -486,6 +486,38 @@ static int hvm_add_ioreq_gfn(struct hvm_ioreq_server *s, bool buf)
     return rc;
 }
 
+int hvm_add_ioreq_handler(struct domain *d, ioservid_t id,
+                          int (*handler)(struct vcpu *v, ioreq_t *))
+{
+    struct hvm_ioreq_server *s;
+    int rc = 0;
+
+    spin_lock_recursive(&d->arch.hvm.ioreq_server.lock);
+    s = get_ioreq_server(d, id);
+    if ( !s )
+    {
+        rc = -ENOENT;
+        goto out;
+    }
+    if ( !s->internal )
+    {
+        rc = -EINVAL;
+        goto out;
+    }
+    if ( s->handler != NULL )
+    {
+        rc = -EBUSY;
+        goto out;
+    }
+
+    s->handler = handler;
+
+ out:
+    spin_unlock_recursive(&d->arch.hvm.ioreq_server.lock);
+
+    return rc;
+}
+
 static void hvm_update_ioreq_evtchn(struct hvm_ioreq_server *s,
                                     struct hvm_ioreq_vcpu *sv)
 {

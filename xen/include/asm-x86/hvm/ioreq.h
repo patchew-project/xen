@@ -55,6 +55,9 @@ unsigned int hvm_broadcast_ioreq(ioreq_t *p, bool buffered);
 
 void hvm_ioreq_init(struct domain *d);
 
+int hvm_add_ioreq_handler(struct domain *d, ioservid_t id,
+                          int (*handler)(struct vcpu *v, ioreq_t *));
+
 #endif /* __ASM_X86_HVM_IOREQ_H__ */
 
 /*
