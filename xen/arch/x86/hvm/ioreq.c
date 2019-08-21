@@ -1305,6 +1305,7 @@ struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
     uint8_t type;
     uint64_t addr;
     unsigned int id;
+    bool internal = true;
 
     if ( p->type != IOREQ_TYPE_COPY && p->type != IOREQ_TYPE_PIO )
         return NULL;
@@ -1345,11 +1346,12 @@ struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
         addr = p->addr;
     }
 
+ retry:
     FOR_EACH_IOREQ_SERVER(d, id, s)
     {
         struct rangeset *r;
 
-        if ( !s->enabled )
+        if ( !s->enabled || s->internal != internal )
             continue;
 
         r = s->range[type];
@@ -1385,6 +1387,12 @@ struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
 
             break;
         }
+    }
+
+    if ( internal )
+    {
+        internal = false;
+        goto retry;
     }
 
     return NULL;
@@ -1492,8 +1500,17 @@ int hvm_send_ioreq(struct hvm_ioreq_server *s, ioreq_t *proto_p,
 
     ASSERT(s);
 
+    if ( s->internal && buffered )
+    {
+        ASSERT_UNREACHABLE();
+        return X86EMUL_UNHANDLEABLE;
+    }
+
     if ( buffered )
         return hvm_send_buffered_ioreq(s, proto_p);
+
+    if ( s->internal )
+        return s->handler(curr, proto_p);
 
     if ( unlikely(!vcpu_start_shutdown_deferral(curr)) )
         return X86EMUL_RETRY;
