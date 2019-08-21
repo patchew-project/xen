@@ -244,7 +244,7 @@ static bool __hwdom_init hwdom_iommu_map(const struct domain *d,
      * TODO: runtime added MMCFG regions are not checked to make sure they
      * don't overlap with already mapped regions, thus preventing trapping.
      */
-    if ( has_vpci(d) && vpci_is_mmcfg_address(d, pfn_to_paddr(pfn)) )
+    if ( hvm_is_mmcfg_address(d, pfn_to_paddr(pfn)) )
         return false;
 
     return true;

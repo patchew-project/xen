@@ -11,6 +11,7 @@
 #include <asm/current.h>
 #include <asm/io_apic.h>
 #include <asm/msi.h>
+#include <asm/hvm/ioreq.h>
 #include <asm/hvm/irq.h>
 #include <asm/hypercall.h>
 #include <public/xen.h>
@@ -562,9 +563,9 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
              * For HVM (PVH) domains try to add the newly found MMCFG to the
              * domain.
              */
-            ret = register_vpci_mmcfg_handler(currd, info.address,
-                                              info.start_bus, info.end_bus,
-                                              info.segment);
+            ret = hvm_ioreq_register_mmcfg(currd, info.address,
+                                           info.start_bus, info.end_bus,
+                                           info.segment);
         }
 
         break;

@@ -29,6 +29,7 @@
 
 #include <asm/bzimage.h>
 #include <asm/dom0_build.h>
+#include <asm/hvm/ioreq.h>
 #include <asm/hvm/support.h>
 #include <asm/io_apic.h>
 #include <asm/p2m.h>
@@ -1117,10 +1118,10 @@ static void __hwdom_init pvh_setup_mmcfg(struct domain *d)
 
     for ( i = 0; i < pci_mmcfg_config_num; i++ )
     {
-        rc = register_vpci_mmcfg_handler(d, pci_mmcfg_config[i].address,
-                                         pci_mmcfg_config[i].start_bus_number,
-                                         pci_mmcfg_config[i].end_bus_number,
-                                         pci_mmcfg_config[i].pci_segment);
+        rc = hvm_ioreq_register_mmcfg(d, pci_mmcfg_config[i].address,
+                                      pci_mmcfg_config[i].start_bus_number,
+                                      pci_mmcfg_config[i].end_bus_number,
+                                      pci_mmcfg_config[i].pci_segment);
         if ( rc )
             printk("Unable to setup MMCFG handler at %#lx for segment %u\n",
                    pci_mmcfg_config[i].address,

@@ -23,6 +23,9 @@ typedef int vpci_register_init_t(struct pci_dev *dev);
   static vpci_register_init_t *const x##_entry  \
                __used_section(".data.vpci." p) = x
 
+/* Register vPCI handler wit ioreq. */
+int vpci_register_ioreq(struct domain *d);
+
 /* Add vPCI handlers to device. */
 int __must_check vpci_add_handlers(struct pci_dev *dev);
 

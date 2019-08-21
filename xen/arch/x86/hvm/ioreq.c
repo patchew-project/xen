@@ -1707,6 +1707,11 @@ int hvm_ioreq_register_mmcfg(struct domain *d, paddr_t addr,
     return 0;
 }
 
+bool hvm_is_mmcfg_address(const struct domain *d, paddr_t addr)
+{
+    return mmcfg_find(d, addr);
+}
+
 /*
  * Local variables:
  * mode: C
