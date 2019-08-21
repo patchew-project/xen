@@ -58,6 +58,12 @@ void hvm_ioreq_init(struct domain *d);
 int hvm_add_ioreq_handler(struct domain *d, ioservid_t id,
                           int (*handler)(struct vcpu *v, ioreq_t *));
 
+int hvm_ioreq_register_mmcfg(struct domain *d, paddr_t addr,
+                             unsigned int start_bus, unsigned int end_bus,
+                             unsigned int seg);
+
+void hvm_ioreq_free_mmcfg(struct domain *d);
+
 #endif /* __ASM_X86_HVM_IOREQ_H__ */
 
 /*

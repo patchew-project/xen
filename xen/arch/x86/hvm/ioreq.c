@@ -690,6 +690,22 @@ static void hvm_ioreq_server_free_rangesets(struct hvm_ioreq_server *s)
         rangeset_destroy(s->range[i]);
 }
 
+void hvm_ioreq_free_mmcfg(struct domain *d)
+{
+    struct list_head *mmcfg_regions = &d->arch.hvm.mmcfg_regions;
+
+    write_lock(&d->arch.hvm.mmcfg_lock);
+    while ( !list_empty(mmcfg_regions) )
+    {
+        struct hvm_mmcfg *mmcfg = list_first_entry(mmcfg_regions,
+                                                   struct hvm_mmcfg, next);
+
+        list_del(&mmcfg->next);
+        xfree(mmcfg);
+    }
+    write_unlock(&d->arch.hvm.mmcfg_lock);
+}
+
 static int hvm_ioreq_server_alloc_rangesets(struct hvm_ioreq_server *s,
                                             ioservid_t id)
 {
@@ -1329,6 +1345,19 @@ void hvm_destroy_all_ioreq_servers(struct domain *d)
     spin_unlock_recursive(&d->arch.hvm.ioreq_server.lock);
 }
 
+static const struct hvm_mmcfg *mmcfg_find(const struct domain *d,
+                                          paddr_t addr)
+{
+    const struct hvm_mmcfg *mmcfg;
+
+    list_for_each_entry ( mmcfg, &d->arch.hvm.mmcfg_regions, next )
+        if ( addr >= mmcfg->addr && addr < mmcfg->addr + mmcfg->size )
+            return mmcfg;
+
+    return NULL;
+}
+
+
 struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
                                                  ioreq_t *p)
 {
@@ -1338,27 +1367,34 @@ struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
     uint64_t addr;
     unsigned int id;
     bool internal = true;
+    const struct hvm_mmcfg *mmcfg;
 
     if ( p->type != IOREQ_TYPE_COPY && p->type != IOREQ_TYPE_PIO )
         return NULL;
 
     cf8 = d->arch.hvm.pci_cf8;
 
-    if ( p->type == IOREQ_TYPE_PIO &&
-         (p->addr & ~3) == 0xcfc &&
-         CF8_ENABLED(cf8) )
+    read_lock(&d->arch.hvm.mmcfg_lock);
+    if ( (p->type == IOREQ_TYPE_PIO &&
+          (p->addr & ~3) == 0xcfc &&
+          CF8_ENABLED(cf8)) ||
+         (p->type == IOREQ_TYPE_COPY &&
+          (mmcfg = mmcfg_find(d, p->addr)) != NULL) )
     {
         uint32_t x86_fam;
         pci_sbdf_t sbdf;
         unsigned int reg;
 
-        reg = hvm_pci_decode_addr(cf8, p->addr, &sbdf);
+        reg = p->type == IOREQ_TYPE_PIO ? hvm_pci_decode_addr(cf8, p->addr,
+                                                              &sbdf)
+                                        : hvm_mmcfg_decode_addr(mmcfg, p->addr,
+                                                                &sbdf);
 
         /* PCI config data cycle */
         type = XEN_DMOP_IO_RANGE_PCI;
         addr = ((uint64_t)sbdf.sbdf << 32) | reg;
         /* AMD extended configuration space access? */
-        if ( CF8_ADDR_HI(cf8) &&
+        if ( p->type == IOREQ_TYPE_PIO && CF8_ADDR_HI(cf8) &&
              d->arch.cpuid->x86_vendor == X86_VENDOR_AMD &&
              (x86_fam = get_cpu_family(
                  d->arch.cpuid->basic.raw_fms, NULL, NULL)) > 0x10 &&
@@ -1377,6 +1413,7 @@ struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
                 XEN_DMOP_IO_RANGE_PORT : XEN_DMOP_IO_RANGE_MEMORY;
         addr = p->addr;
     }
+    read_unlock(&d->arch.hvm.mmcfg_lock);
 
  retry:
     FOR_EACH_IOREQ_SERVER(d, id, s)
@@ -1627,6 +1664,47 @@ void hvm_ioreq_init(struct domain *d)
     spin_lock_init(&d->arch.hvm.ioreq_server.lock);
 
     register_portio_handler(d, 0xcf8, 4, hvm_access_cf8);
+}
+
+int hvm_ioreq_register_mmcfg(struct domain *d, paddr_t addr,
+                             unsigned int start_bus, unsigned int end_bus,
+                             unsigned int seg)
+{
+    struct hvm_mmcfg *mmcfg, *new;
+
+    if ( start_bus > end_bus )
+        return -EINVAL;
+
+    new = xmalloc(struct hvm_mmcfg);
+    if ( !new )
+        return -ENOMEM;
+
+    new->addr = addr + (start_bus << 20);
+    new->start_bus = start_bus;
+    new->segment = seg;
+    new->size = (end_bus - start_bus + 1) << 20;
+
+    write_lock(&d->arch.hvm.mmcfg_lock);
+    list_for_each_entry ( mmcfg, &d->arch.hvm.mmcfg_regions, next )
+        if ( new->addr < mmcfg->addr + mmcfg->size &&
+             mmcfg->addr < new->addr + new->size )
+        {
+            int ret = -EEXIST;
+
+            if ( new->addr == mmcfg->addr &&
+                 new->start_bus == mmcfg->start_bus &&
+                 new->segment == mmcfg->segment &&
+                 new->size == mmcfg->size )
+                ret = 0;
+            write_unlock(&d->arch.hvm.mmcfg_lock);
+            xfree(new);
+            return ret;
+        }
+
+    list_add(&new->next, &d->arch.hvm.mmcfg_regions);
+    write_unlock(&d->arch.hvm.mmcfg_lock);
+
+    return 0;
 }
 
 /*

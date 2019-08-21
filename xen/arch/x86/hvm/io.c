@@ -279,6 +279,18 @@ unsigned int hvm_pci_decode_addr(unsigned int cf8, unsigned int addr,
     return CF8_ADDR_LO(cf8) | (addr & 3);
 }
 
+unsigned int hvm_mmcfg_decode_addr(const struct hvm_mmcfg *mmcfg,
+                                   paddr_t addr, pci_sbdf_t *sbdf)
+{
+    addr -= mmcfg->addr;
+    sbdf->bdf = MMCFG_BDF(addr);
+    sbdf->bus += mmcfg->start_bus;
+    sbdf->seg = mmcfg->segment;
+
+    return addr & (PCI_CFG_SPACE_EXP_SIZE - 1);
+}
+
+
 /* Do some sanity checks. */
 static bool vpci_access_allowed(unsigned int reg, unsigned int len)
 {
@@ -382,14 +394,6 @@ void register_vpci_portio_handler(struct domain *d)
     handler->type = IOREQ_TYPE_PIO;
     handler->ops = &vpci_portio_ops;
 }
-
-struct hvm_mmcfg {
-    struct list_head next;
-    paddr_t addr;
-    unsigned int size;
-    uint16_t segment;
-    uint8_t start_bus;
-};
 
 /* Handlers to trap PCI MMCFG config accesses. */
 static const struct hvm_mmcfg *vpci_mmcfg_find(const struct domain *d,
@@ -556,22 +560,6 @@ int register_vpci_mmcfg_handler(struct domain *d, paddr_t addr,
     write_unlock(&d->arch.hvm.mmcfg_lock);
 
     return 0;
-}
-
-void destroy_vpci_mmcfg(struct domain *d)
-{
-    struct list_head *mmcfg_regions = &d->arch.hvm.mmcfg_regions;
-
-    write_lock(&d->arch.hvm.mmcfg_lock);
-    while ( !list_empty(mmcfg_regions) )
-    {
-        struct hvm_mmcfg *mmcfg = list_first_entry(mmcfg_regions,
-                                                   struct hvm_mmcfg, next);
-
-        list_del(&mmcfg->next);
-        xfree(mmcfg);
-    }
-    write_unlock(&d->arch.hvm.mmcfg_lock);
 }
 
 /*
