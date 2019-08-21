@@ -24,7 +24,7 @@ bool handle_hvm_io_completion(struct vcpu *v);
 bool is_ioreq_server_page(struct domain *d, const struct page_info *page);
 
 int hvm_create_ioreq_server(struct domain *d, int bufioreq_handling,
-                            ioservid_t *id);
+                            ioservid_t *id, bool internal);
 int hvm_destroy_ioreq_server(struct domain *d, ioservid_t id);
 int hvm_get_ioreq_server_info(struct domain *d, ioservid_t id,
                               unsigned long *ioreq_gfn,
@@ -34,14 +34,14 @@ int hvm_get_ioreq_server_frame(struct domain *d, ioservid_t id,
                                unsigned long idx, mfn_t *mfn);
 int hvm_map_io_range_to_ioreq_server(struct domain *d, ioservid_t id,
                                      uint32_t type, uint64_t start,
-                                     uint64_t end);
+                                     uint64_t end, bool internal);
 int hvm_unmap_io_range_from_ioreq_server(struct domain *d, ioservid_t id,
                                          uint32_t type, uint64_t start,
-                                         uint64_t end);
+                                         uint64_t end, bool internal);
 int hvm_map_mem_type_to_ioreq_server(struct domain *d, ioservid_t id,
                                      uint32_t type, uint32_t flags);
 int hvm_set_ioreq_server_state(struct domain *d, ioservid_t id,
-                               bool enabled);
+                               bool enabled, bool internal);
 
 int hvm_all_ioreq_servers_add_vcpu(struct domain *d, struct vcpu *v);
 void hvm_all_ioreq_servers_remove_vcpu(struct domain *d, struct vcpu *v);
