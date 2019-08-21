@@ -186,18 +186,29 @@ bool handle_hvm_io_completion(struct vcpu *v)
     enum hvm_io_completion io_completion;
     unsigned int id;
 
-    if ( has_vpci(d) && vpci_process_pending(v) )
-    {
-        raise_softirq(SCHEDULE_SOFTIRQ);
-        return false;
-    }
-
     FOR_EACH_IOREQ_SERVER(d, id, s)
     {
         struct hvm_ioreq_vcpu *sv;
 
         if ( s->internal )
+        {
+            if ( s->pending && s->pending(v) )
+            {
+                /*
+                 * Need to raise a scheduler irq in order to prevent the guest
+                 * vcpu from resuming execution.
+                 *
+                 * Note this is not required for external ioreq operations
+                 * because in that case the vcpu is marked as blocked, but this
+                 * cannot be done for long-running internal operations, since
+                 * it would prevent the vcpu from being scheduled and thus the
+                 * long running operation from finishing.
+                 */
+                raise_softirq(SCHEDULE_SOFTIRQ);
+                return false;
+            }
             continue;
+        }
 
         list_for_each_entry ( sv,
                               &s->ioreq_vcpu_list,
@@ -511,6 +522,38 @@ int hvm_add_ioreq_handler(struct domain *d, ioservid_t id,
     }
 
     s->handler = handler;
+
+ out:
+    spin_unlock_recursive(&d->arch.hvm.ioreq_server.lock);
+
+    return rc;
+}
+
+int hvm_add_ioreq_pending_handler(struct domain *d, ioservid_t id,
+                                  bool (*pending)(struct vcpu *v))
+{
+    struct hvm_ioreq_server *s;
+    int rc = 0;
+
+    spin_lock_recursive(&d->arch.hvm.ioreq_server.lock);
+    s = get_ioreq_server(d, id);
+    if ( !s )
+    {
+        rc = -ENOENT;
+        goto out;
+    }
+    if ( !s->internal )
+    {
+        rc = -EINVAL;
+        goto out;
+    }
+    if ( s->pending != NULL )
+    {
+        rc = -EBUSY;
+        goto out;
+    }
+
+    s->pending = pending;
 
  out:
     spin_unlock_recursive(&d->arch.hvm.ioreq_server.lock);

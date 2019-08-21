@@ -73,6 +73,7 @@ struct hvm_ioreq_server {
         };
         struct {
             int (*handler)(struct vcpu *v, ioreq_t *);
+            bool (*pending)(struct vcpu *v);
         };
     };
 };

@@ -57,6 +57,8 @@ void hvm_ioreq_init(struct domain *d);
 
 int hvm_add_ioreq_handler(struct domain *d, ioservid_t id,
                           int (*handler)(struct vcpu *v, ioreq_t *));
+int hvm_add_ioreq_pending_handler(struct domain *d, ioservid_t id,
+                                  bool (*pending)(struct vcpu *v));
 
 int hvm_ioreq_register_mmcfg(struct domain *d, paddr_t addr,
                              unsigned int start_bus, unsigned int end_bus,

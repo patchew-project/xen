@@ -510,6 +510,9 @@ int vpci_register_ioreq(struct domain *d)
     rc = hvm_add_ioreq_handler(d, id, ioreq_handler);
     if ( rc )
         return rc;
+    rc = hvm_add_ioreq_pending_handler(d, id, vpci_process_pending);
+    if ( rc )
+        return rc;
 
     if ( is_hardware_domain(d) )
     {
