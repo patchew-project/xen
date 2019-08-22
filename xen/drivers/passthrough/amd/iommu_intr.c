@@ -685,8 +685,7 @@ static struct amd_iommu *_find_iommu_for_device(int seg, int bdf)
     if ( iommu )
         return iommu;
 
-    AMD_IOMMU_DEBUG("No IOMMU for MSI dev = %04x:%02x:%02x.%u\n",
-                    seg, PCI_BUS(bdf), PCI_SLOT(bdf), PCI_FUNC(bdf));
+    AMD_IOMMU_DEBUG("No IOMMU for MSI dev = %pp\n", &PCI_SBDF2(seg, bdf));
     return ERR_PTR(-EINVAL);
 }
 
