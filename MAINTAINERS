@@ -168,6 +168,7 @@ F:	xen/common/argo.c
 ARINC653 SCHEDULER
 M:	Josh Whitehead <josh.whitehead@dornerworks.com>
 M:	Robert VanVossen <robert.vanvossen@dornerworks.com>
+M:	DornerWorks Xen-Devel <xen-devel@dornerworks.com>
 S:	Supported
 F:	xen/common/sched_arinc653.c
 F:	tools/libxc/xc_arinc653.c
