@@ -938,7 +938,7 @@ static void _show_registers(const struct cpu_user_regs *regs,
     printk(" TTBR0_EL2: %016"PRIx64"\n", READ_SYSREG64(TTBR0_EL2));
     printk("\n");
     printk("   ESR_EL2: %08"PRIx32"\n", regs->hsr);
-    printk(" HPFAR_EL2: %016"PRIregister"\n", READ_SYSREG(HPFAR_EL2));
+    printk(" HPFAR_EL2: %"PRIregister"\n", READ_SYSREG(HPFAR_EL2));
 
 #ifdef CONFIG_ARM_32
     printk("     HDFAR: %08"PRIx32"\n", READ_CP32(HDFAR));
