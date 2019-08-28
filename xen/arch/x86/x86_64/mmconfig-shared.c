@@ -26,33 +26,34 @@
 
 #include "mmconfig.h"
 
+static bool_t __read_mostly force_mmcfg = true;
 unsigned int pci_probe = PCI_PROBE_CONF1 | PCI_PROBE_MMCONF;
 
 static int __init parse_mmcfg(const char *s)
 {
     const char *ss;
-    int rc = 0;
+    int val, rc = 0;
 
     do {
         ss = strchr(s, ',');
         if ( !ss )
             ss = strchr(s, '\0');
 
-        switch ( parse_bool(s, ss) )
-        {
-        case 0:
-            pci_probe &= ~PCI_PROBE_MMCONF;
-            break;
-        case 1:
-            break;
-        default:
-            if ( !cmdline_strcmp(s, "amd_fam10") ||
-                 !cmdline_strcmp(s, "amd-fam10") )
+        if ( (val = parse_bool(s, ss)) >= 0 ) {
+            if ( val )
+               pci_probe |= PCI_PROBE_MMCONF;
+            else
+               pci_probe &= ~PCI_PROBE_MMCONF;
+        } else if ( (val = parse_boolean("amd_fam10", s, ss)) >= 0 ||
+                    (val = parse_boolean("amd-fam10", s, ss)) >= 0 ) {
+            if ( val )
                 pci_probe |= PCI_CHECK_ENABLE_AMD_MMCONF;
             else
-                rc = -EINVAL;
-            break;
-        }
+                pci_probe &= ~PCI_CHECK_ENABLE_AMD_MMCONF;
+        } else if ( (val = parse_boolean("force", s, ss)) >= 0)
+            force_mmcfg = val;
+        else
+            rc = -EINVAL;
 
         s = ss + 1;
     } while ( *ss );
@@ -355,6 +356,11 @@ static int __init is_mmconf_reserved(
                    (unsigned int)cfg->start_bus_number,
                    (unsigned int)cfg->end_bus_number);
         }
+    } else if (!e820_any_mapped(addr, addr + old_size - 1, 0)) {
+        if (!force_mmcfg)
+            printk(KERN_WARNING "PCI: MCFG area at %lx is not reserved in E820, "
+                   "use mmcfg=force option\n", addr);
+        valid = force_mmcfg;
     }
 
     return valid;

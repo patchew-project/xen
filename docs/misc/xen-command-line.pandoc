@@ -1424,11 +1424,13 @@ ordinary DomU, control domain, hardware domain, and - when supported
 by the platform - DomU with pass-through device assigned).
 
 ### mmcfg (x86)
-> `= <boolean>[,amd-fam10]`
+> `= List of [ <boolean>, force, amd-fam10 ]`
 
-> Default: `1`
+> Default: `true,force`
 
-Specify if the MMConfig space should be enabled.
+Specify if the MMConfig space should be enabled. If force option is specified
+(default) MMConfig space will be used by Xen early in boot even if it's
+not reserved by firmware in the E820 table.
 
 ### mmio-relax (x86)
 > `= <boolean> | all`
