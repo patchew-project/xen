@@ -632,13 +632,7 @@ struct hvm_msr {
         uint32_t index;
         uint32_t _rsvd;
         uint64_t val;
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-    } msr[];
-#elif defined(__GNUC__)
-    } msr[0];
-#else
-    } msr[1 /* variable size */];
-#endif
+    } msr[__XEN_VARLEN_ARRAY_SIZE];
 };
 
 #define CPU_MSR_CODE  20
