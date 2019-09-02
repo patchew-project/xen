@@ -418,13 +418,21 @@ void vpci_write(pci_sbdf_t sbdf, unsigned int reg, unsigned int size,
         return;
     }
 
-    /*
-     * Find the PCI dev matching the address.
-     * Passthrough everything that's not trapped.
-     */
+    /* Find the PCI dev matching the address. */
     pdev = pci_get_pdev_by_domain(d, sbdf.seg, sbdf.bus, sbdf.devfn);
     if ( !pdev )
     {
+        const unsigned long *ro_map = pci_get_ro_map(sbdf.seg);
+
+        if ( ro_map && test_bit(sbdf.bdf, ro_map) )
+            /* Ignore writes to read-only devices. */
+            return;
+
+        /*
+         * Let the hardware domain access config space regions for non-existent
+         * devices.
+         * TODO: revisit for domU support.
+         */
         vpci_write_hw(sbdf, reg, size, data);
         return;
     }
