@@ -2171,6 +2171,12 @@ void tsc_get_info(struct domain *d, uint32_t *tsc_mode,
         *elapsed_nsec = 0;
 }
 
+static inline int frequency_same_with_tolerance(int64_t khz1, int64_t khz2)
+{
+    int64_t ppm = (khz2 - khz1) * 1000000 / khz2;
+    return -100 < ppm && ppm < 100;
+}
+
 /*
  * This may be called as many as three times for a domain, once when the
  * hypervisor creates the domain, once when the toolstack creates the
@@ -2207,7 +2213,7 @@ int tsc_set_info(struct domain *d,
          * d->arch.tsc_khz == cpu_khz. Thus no need to check incarnation.
          */
         if ( tsc_mode == TSC_MODE_DEFAULT && host_tsc_is_safe() &&
-             (d->arch.tsc_khz == cpu_khz ||
+             (frequency_same_with_tolerance(d->arch.tsc_khz, cpu_khz) ||
               (is_hvm_domain(d) &&
                hvm_get_tsc_scaling_ratio(d->arch.tsc_khz))) )
         {
