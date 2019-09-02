@@ -319,7 +319,21 @@ uint32_t vpci_read(pci_sbdf_t sbdf, unsigned int reg, unsigned int size)
     /* Find the PCI dev matching the address. */
     pdev = pci_get_pdev_by_domain(d, sbdf.seg, sbdf.bus, sbdf.devfn);
     if ( !pdev )
+    {
+        pcidevs_lock();
+        pdev = pci_get_pdev(sbdf.seg, sbdf.bus, sbdf.devfn);
+        pcidevs_unlock();
+        if ( pdev )
+            /* Drop reads to devices not assigned to the domain. */
+            return data;
+
+        /*
+         * Let the hardware domain access config space regions for non-existent
+         * devices.
+         * TODO: revisit for domU support.
+         */
         return vpci_read_hw(sbdf, reg, size);
+    }
 
     spin_lock(&pdev->vpci->lock);
 
@@ -418,13 +432,22 @@ void vpci_write(pci_sbdf_t sbdf, unsigned int reg, unsigned int size,
         return;
     }
 
-    /*
-     * Find the PCI dev matching the address.
-     * Passthrough everything that's not trapped.
-     */
+    /* Find the PCI dev matching the address. */
     pdev = pci_get_pdev_by_domain(d, sbdf.seg, sbdf.bus, sbdf.devfn);
     if ( !pdev )
     {
+        pcidevs_lock();
+        pdev = pci_get_pdev(sbdf.seg, sbdf.bus, sbdf.devfn);
+        pcidevs_unlock();
+        if ( pdev )
+            /* Ignore writes to devices not assigned to the domain. */
+            return;
+
+        /*
+         * Let the hardware domain access config space regions for non-existent
+         * devices.
+         * TODO: revisit for domU support.
+         */
         vpci_write_hw(sbdf, reg, size, data);
         return;
     }
