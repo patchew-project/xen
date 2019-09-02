@@ -1339,7 +1339,7 @@ void setup_ept_dump(void)
     register_keyhandler('D', ept_dump_p2m_table, "dump VT-x EPT tables", 0);
 }
 
-void p2m_init_altp2m_ept(struct domain *d, unsigned int i)
+void p2m_init_altp2m_ept(struct domain *d, unsigned int i, bool set_sve)
 {
     struct p2m_domain *p2m = d->arch.altp2m_p2m[i];
     struct p2m_domain *hostp2m = p2m_get_hostp2m(d);
@@ -1355,6 +1355,23 @@ void p2m_init_altp2m_ept(struct domain *d, unsigned int i)
     ept = &p2m->ept;
     ept->mfn = pagetable_get_pfn(p2m_get_pagetable(p2m));
     d->arch.altp2m_eptp[i] = ept->eptp;
+
+    if ( set_sve )
+    {
+        unsigned long gfn = 0, max_gpfn = domain_get_maximum_gpfn(d);
+
+        for( ; gfn < max_gpfn; ++gfn )
+        {
+            mfn_t mfn;
+            p2m_access_t a;
+            p2m_type_t t;
+
+            altp2m_get_effective_entry(p2m, _gfn(gfn), &mfn, &t, &a,
+                                       AP2MGET_query);
+            p2m->set_entry(p2m, _gfn(gfn), mfn, PAGE_ORDER_4K, t, a, true);
+
+        }
+    }
 }
 
 unsigned int p2m_find_altp2m_by_eptp(struct domain *d, uint64_t eptp)

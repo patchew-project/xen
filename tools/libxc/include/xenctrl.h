@@ -1925,6 +1925,9 @@ int xc_altp2m_set_vcpu_disable_notify(xc_interface *handle, uint32_t domid,
                                       uint32_t vcpuid);
 int xc_altp2m_create_view(xc_interface *handle, uint32_t domid,
                           xenmem_access_t default_access, uint16_t *view_id);
+int xc_altp2m_create_view_set_sve(xc_interface *handle, uint32_t domid,
+                                  xenmem_access_t default_access,
+                                  uint16_t *view_id, bool set_sve);
 int xc_altp2m_destroy_view(xc_interface *handle, uint32_t domid,
                            uint16_t view_id);
 /* Switch all vCPUs of the domain to the specified altp2m view */

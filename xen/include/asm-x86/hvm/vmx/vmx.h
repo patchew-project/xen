@@ -598,7 +598,7 @@ void ept_p2m_uninit(struct p2m_domain *p2m);
 void ept_walk_table(struct domain *d, unsigned long gfn);
 bool_t ept_handle_misconfig(uint64_t gpa);
 void setup_ept_dump(void);
-void p2m_init_altp2m_ept(struct domain *d, unsigned int i);
+void p2m_init_altp2m_ept(struct domain *d, unsigned int i, bool set_sve);
 /* Locate an alternate p2m by its EPTP */
 unsigned int p2m_find_altp2m_by_eptp(struct domain *d, uint64_t eptp);
 

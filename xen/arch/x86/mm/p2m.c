@@ -2528,7 +2528,7 @@ void p2m_flush_altp2m(struct domain *d)
     altp2m_list_unlock(d);
 }
 
-static int p2m_activate_altp2m(struct domain *d, unsigned int idx)
+static int p2m_activate_altp2m(struct domain *d, unsigned int idx, bool set_sve)
 {
     struct p2m_domain *hostp2m, *p2m;
     int rc;
@@ -2554,7 +2554,7 @@ static int p2m_activate_altp2m(struct domain *d, unsigned int idx)
         goto out;
     }
 
-    p2m_init_altp2m_ept(d, idx);
+    p2m_init_altp2m_ept(d, idx, set_sve);
 
  out:
     p2m_unlock(p2m);
@@ -2572,13 +2572,13 @@ int p2m_init_altp2m_by_id(struct domain *d, unsigned int idx)
     altp2m_list_lock(d);
 
     if ( d->arch.altp2m_eptp[idx] == mfn_x(INVALID_MFN) )
-        rc = p2m_activate_altp2m(d, idx);
+        rc = p2m_activate_altp2m(d, idx, false);
 
     altp2m_list_unlock(d);
     return rc;
 }
 
-int p2m_init_next_altp2m(struct domain *d, uint16_t *idx)
+int p2m_init_next_altp2m(struct domain *d, uint16_t *idx, bool set_sve)
 {
     int rc = -EINVAL;
     unsigned int i;
@@ -2590,7 +2590,7 @@ int p2m_init_next_altp2m(struct domain *d, uint16_t *idx)
         if ( d->arch.altp2m_eptp[i] != mfn_x(INVALID_MFN) )
             continue;
 
-        rc = p2m_activate_altp2m(d, i);
+        rc = p2m_activate_altp2m(d, i, set_sve);
 
         if ( !rc )
             *idx = i;
