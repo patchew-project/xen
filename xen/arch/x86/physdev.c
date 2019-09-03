@@ -11,6 +11,7 @@
 #include <asm/current.h>
 #include <asm/io_apic.h>
 #include <asm/msi.h>
+#include <asm/hvm/ioreq.h>
 #include <asm/hvm/irq.h>
 #include <asm/hypercall.h>
 #include <public/xen.h>

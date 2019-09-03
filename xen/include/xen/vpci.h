@@ -23,6 +23,9 @@ typedef int vpci_register_init_t(struct pci_dev *dev);
   static vpci_register_init_t *const x##_entry  \
                __used_section(".data.vpci." p) = x
 
+/* Register vPCI handler with ioreq. */
+int vpci_register_ioreq(struct domain *d);
+
 /* Add vPCI handlers to device. */
 int __must_check vpci_add_handlers(struct pci_dev *dev);
 
@@ -37,11 +40,6 @@ int __must_check vpci_add_register(struct vpci *vpci,
                                    void *data);
 int __must_check vpci_remove_register(struct vpci *vpci, unsigned int offset,
                                       unsigned int size);
-
-/* Generic read/write handlers for the PCI config space. */
-uint32_t vpci_read(pci_sbdf_t sbdf, unsigned int reg, unsigned int size);
-void vpci_write(pci_sbdf_t sbdf, unsigned int reg, unsigned int size,
-                uint32_t data);
 
 /* Passthrough handlers. */
 uint32_t vpci_hw_read16(const struct pci_dev *pdev, unsigned int reg,
@@ -221,20 +219,12 @@ static inline int vpci_add_handlers(struct pci_dev *pdev)
     return 0;
 }
 
+static inline int vpci_register_ioreq(struct domain *d)
+{
+    return 0;
+}
+
 static inline void vpci_dump_msi(void) { }
-
-static inline uint32_t vpci_read(pci_sbdf_t sbdf, unsigned int reg,
-                                 unsigned int size)
-{
-    ASSERT_UNREACHABLE();
-    return ~(uint32_t)0;
-}
-
-static inline void vpci_write(pci_sbdf_t sbdf, unsigned int reg,
-                              unsigned int size, uint32_t data)
-{
-    ASSERT_UNREACHABLE();
-}
 
 static inline bool vpci_process_pending(struct vcpu *v)
 {

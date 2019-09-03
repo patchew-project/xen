@@ -20,6 +20,8 @@
 #include <xen/sched.h>
 #include <xen/vpci.h>
 
+#include <asm/hvm/ioreq.h>
+
 /* Internal struct to store the emulated PCI registers. */
 struct vpci_register {
     vpci_read_t *read;
@@ -302,7 +304,7 @@ static uint32_t merge_result(uint32_t data, uint32_t new, unsigned int size,
     return (data & ~(mask << (offset * 8))) | ((new & mask) << (offset * 8));
 }
 
-uint32_t vpci_read(pci_sbdf_t sbdf, unsigned int reg, unsigned int size)
+static uint32_t read(pci_sbdf_t sbdf, unsigned int reg, unsigned int size)
 {
     const struct domain *d = current->domain;
     const struct pci_dev *pdev;
@@ -404,8 +406,8 @@ static void vpci_write_helper(const struct pci_dev *pdev,
              r->private);
 }
 
-void vpci_write(pci_sbdf_t sbdf, unsigned int reg, unsigned int size,
-                uint32_t data)
+static void write(pci_sbdf_t sbdf, unsigned int reg, unsigned int size,
+                  uint32_t data)
 {
     const struct domain *d = current->domain;
     const struct pci_dev *pdev;
@@ -472,6 +474,67 @@ void vpci_write(pci_sbdf_t sbdf, unsigned int reg, unsigned int size,
 
     spin_unlock(&pdev->vpci->lock);
 }
+
+#ifdef __XEN__
+static int ioreq_handler(struct vcpu *v, ioreq_t *req, void *data)
+{
+    pci_sbdf_t sbdf;
+
+    if ( req->type == IOREQ_TYPE_INVALIDATE )
+        /*
+         * Ignore invalidate requests, those can be received even without
+         * having any memory ranges registered, see send_invalidate_req.
+         */
+        return X86EMUL_OKAY;
+
+    if ( req->type != IOREQ_TYPE_PCI_CONFIG || req->data_is_ptr )
+    {
+        ASSERT_UNREACHABLE();
+        return X86EMUL_UNHANDLEABLE;
+    }
+
+    sbdf.sbdf = req->addr >> 32;
+
+    if ( req->dir )
+        req->data = read(sbdf, req->addr, req->size);
+    else
+        write(sbdf, req->addr, req->size, req->data);
+
+    return X86EMUL_OKAY;
+}
+
+int vpci_register_ioreq(struct domain *d)
+{
+    ioservid_t id;
+    int rc;
+
+    if ( !has_vpci(d) )
+        return 0;
+
+    rc = hvm_create_ioreq_server(d, HVM_IOREQSRV_BUFIOREQ_OFF, &id, true);
+    if ( rc )
+        return rc;
+
+    rc = hvm_add_ioreq_handler(d, id, ioreq_handler, NULL);
+    if ( rc )
+        return rc;
+
+    if ( is_hardware_domain(d) )
+    {
+        /* Handle all devices in vpci. */
+        rc = hvm_map_io_range_to_ioreq_server(d, id, XEN_DMOP_IO_RANGE_PCI,
+                                              0, ~(uint64_t)0);
+        if ( rc )
+            return rc;
+    }
+
+    rc = hvm_set_ioreq_server_state(d, id, true);
+    if ( rc )
+        return rc;
+
+    return rc;
+}
+#endif
 
 /*
  * Local variables:

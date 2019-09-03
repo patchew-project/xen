@@ -29,6 +29,7 @@
 
 #include <asm/bzimage.h>
 #include <asm/dom0_build.h>
+#include <asm/hvm/ioreq.h>
 #include <asm/hvm/support.h>
 #include <asm/io_apic.h>
 #include <asm/p2m.h>

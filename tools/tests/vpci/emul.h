@@ -122,6 +122,10 @@ typedef union {
         tx > ty ? tx : ty;              \
 })
 
+uint32_t vpci_read(pci_sbdf_t sbdf, unsigned int reg, unsigned int size);
+void vpci_write(pci_sbdf_t sbdf, unsigned int reg, unsigned int size,
+                uint32_t data);
+
 #endif
 
 /*
