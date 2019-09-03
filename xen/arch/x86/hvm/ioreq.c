@@ -1493,8 +1493,17 @@ int hvm_send_ioreq(ioservid_t id, ioreq_t *proto_p, bool buffered)
 
     ASSERT(s);
 
+    if ( hvm_ioreq_is_internal(id) && buffered )
+    {
+        ASSERT_UNREACHABLE();
+        return X86EMUL_UNHANDLEABLE;
+    }
+
     if ( buffered )
         return hvm_send_buffered_ioreq(s, proto_p);
+
+    if ( hvm_ioreq_is_internal(id) )
+        return s->handler(curr, proto_p, s->data);
 
     if ( unlikely(!vcpu_start_shutdown_deferral(curr)) )
         return X86EMUL_RETRY;
