@@ -165,9 +165,19 @@ void stdvga_deinit(struct domain *d);
 
 extern void hvm_dpci_msi_eoi(struct domain *d, int vector);
 
-/* Decode a PCI port IO access into a bus/slot/func/reg. */
+struct hvm_mmcfg {
+    struct list_head next;
+    paddr_t addr;
+    unsigned int size;
+    uint16_t segment;
+    uint8_t start_bus;
+};
+
+/* Decode a PCI port IO or MMCFG access into a bus/slot/func/reg. */
 unsigned int hvm_pci_decode_addr(unsigned int cf8, unsigned int addr,
                                  pci_sbdf_t *sbdf);
+unsigned int hvm_mmcfg_decode_addr(const struct hvm_mmcfg *mmcfg,
+                                   paddr_t addr, pci_sbdf_t *sbdf);
 
 /*
  * HVM port IO handler that performs forwarding of guest IO ports into machine
@@ -178,15 +188,18 @@ void register_g2m_portio_handler(struct domain *d);
 /* HVM port IO handler for vPCI accesses. */
 void register_vpci_portio_handler(struct domain *d);
 
-/* HVM MMIO handler for PCI MMCFG accesses. */
-int register_vpci_mmcfg_handler(struct domain *d, paddr_t addr,
-                                unsigned int start_bus, unsigned int end_bus,
-                                unsigned int seg);
-/* Destroy tracked MMCFG areas. */
-void destroy_vpci_mmcfg(struct domain *d);
+/* HVM PCI MMCFG regions registration. */
+int hvm_register_mmcfg(struct domain *d, paddr_t addr,
+                       unsigned int start_bus, unsigned int end_bus,
+                       unsigned int seg);
+void hvm_free_mmcfg(struct domain *d);
+const struct hvm_mmcfg *hvm_mmcfg_find(const struct domain *d, paddr_t addr);
 
 /* Check if an address is between a MMCFG region for a domain. */
-bool vpci_is_mmcfg_address(const struct domain *d, paddr_t addr);
+static inline bool hvm_is_mmcfg_address(const struct domain *d, paddr_t addr)
+{
+    return hvm_mmcfg_find(d, addr);
+}
 
 #endif /* __ASM_X86_HVM_IO_H__ */
 

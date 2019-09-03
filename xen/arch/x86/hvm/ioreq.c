@@ -1090,21 +1090,34 @@ int hvm_map_io_range_to_ioreq_server(struct domain *d, ioservid_t id,
         /* PCI config space accesses are handled internally. */
         if ( start <= 0xcf8 + 8 && 0xcf8 <= end )
             goto out;
-        else
-            /* fallthrough. */
-    case XEN_DMOP_IO_RANGE_MEMORY:
-    case XEN_DMOP_IO_RANGE_PCI:
-        r = s->range[type];
         break;
 
-    default:
-        r = NULL;
+    case XEN_DMOP_IO_RANGE_MEMORY:
+    {
+        const struct hvm_mmcfg *mmcfg;
+
+        rc = -EINVAL;
+        /* PCI config space accesses are handled internally. */
+        read_lock(&d->arch.hvm.mmcfg_lock);
+        list_for_each_entry ( mmcfg, &d->arch.hvm.mmcfg_regions, next )
+            if ( start <= mmcfg->addr + mmcfg->size && mmcfg->addr <= end )
+            {
+                read_unlock(&d->arch.hvm.mmcfg_lock);
+                goto out;
+            }
+        read_unlock(&d->arch.hvm.mmcfg_lock);
         break;
     }
 
-    rc = -EINVAL;
-    if ( !r )
+    case XEN_DMOP_IO_RANGE_PCI:
+        break;
+
+    default:
+        rc = -EINVAL;
         goto out;
+    }
+
+    r = s->range[type];
 
     rc = -EEXIST;
     if ( rangeset_overlaps_range(r, start, end) )
@@ -1341,27 +1354,34 @@ ioservid_t hvm_select_ioreq_server(struct domain *d, ioreq_t *p)
     uint8_t type;
     uint64_t addr;
     unsigned int id;
+    const struct hvm_mmcfg *mmcfg;
 
     if ( p->type != IOREQ_TYPE_COPY && p->type != IOREQ_TYPE_PIO )
         return XEN_INVALID_IOSERVID;
 
     cf8 = d->arch.hvm.pci_cf8;
 
-    if ( p->type == IOREQ_TYPE_PIO &&
-         (p->addr & ~3) == 0xcfc &&
-         CF8_ENABLED(cf8) )
+    read_lock(&d->arch.hvm.mmcfg_lock);
+    if ( (p->type == IOREQ_TYPE_PIO &&
+          (p->addr & ~3) == 0xcfc &&
+          CF8_ENABLED(cf8)) ||
+         (p->type == IOREQ_TYPE_COPY &&
+          (mmcfg = hvm_mmcfg_find(d, p->addr)) != NULL) )
     {
         uint32_t x86_fam;
         pci_sbdf_t sbdf;
         unsigned int reg;
 
-        reg = hvm_pci_decode_addr(cf8, p->addr, &sbdf);
+        reg = p->type == IOREQ_TYPE_PIO ? hvm_pci_decode_addr(cf8, p->addr,
+                                                              &sbdf)
+                                        : hvm_mmcfg_decode_addr(mmcfg, p->addr,
+                                                                &sbdf);
 
         /* PCI config data cycle */
         type = XEN_DMOP_IO_RANGE_PCI;
         addr = ((uint64_t)sbdf.sbdf << 32) | reg;
         /* AMD extended configuration space access? */
-        if ( CF8_ADDR_HI(cf8) &&
+        if ( p->type == IOREQ_TYPE_PIO && CF8_ADDR_HI(cf8) &&
              d->arch.cpuid->x86_vendor == X86_VENDOR_AMD &&
              (x86_fam = get_cpu_family(
                  d->arch.cpuid->basic.raw_fms, NULL, NULL)) > 0x10 &&
@@ -1380,6 +1400,7 @@ ioservid_t hvm_select_ioreq_server(struct domain *d, ioreq_t *p)
                 XEN_DMOP_IO_RANGE_PORT : XEN_DMOP_IO_RANGE_MEMORY;
         addr = p->addr;
     }
+    read_unlock(&d->arch.hvm.mmcfg_lock);
 
     FOR_EACH_IOREQ_SERVER(d, id, s)
     {

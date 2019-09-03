@@ -741,7 +741,7 @@ void hvm_domain_destroy(struct domain *d)
         xfree(ioport);
     }
 
-    destroy_vpci_mmcfg(d);
+    hvm_free_mmcfg(d);
 }
 
 static int hvm_save_tsc_adjust(struct vcpu *v, hvm_domain_context_t *h)
