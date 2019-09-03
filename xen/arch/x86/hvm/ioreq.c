@@ -1015,6 +1015,12 @@ int hvm_map_io_range_to_ioreq_server(struct domain *d, ioservid_t id,
     switch ( type )
     {
     case XEN_DMOP_IO_RANGE_PORT:
+        rc = -EINVAL;
+        /* PCI config space accesses are handled internally. */
+        if ( start <= 0xcf8 + 8 && 0xcf8 <= end )
+            goto out;
+        else
+            /* fallthrough. */
     case XEN_DMOP_IO_RANGE_MEMORY:
     case XEN_DMOP_IO_RANGE_PCI:
         r = s->range[type];
@@ -1518,11 +1524,15 @@ static int hvm_access_cf8(
 {
     struct domain *d = current->domain;
 
-    if ( dir == IOREQ_WRITE && bytes == 4 )
-        d->arch.hvm.pci_cf8 = *val;
+    if ( bytes != 4 )
+        return X86EMUL_OKAY;
 
-    /* We always need to fall through to the catch all emulator */
-    return X86EMUL_UNHANDLEABLE;
+    if ( dir == IOREQ_WRITE )
+        d->arch.hvm.pci_cf8 = *val;
+    else
+        *val = d->arch.hvm.pci_cf8;
+
+    return X86EMUL_OKAY;
 }
 
 void hvm_ioreq_init(struct domain *d)
