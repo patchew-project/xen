@@ -254,7 +254,7 @@ static int hvmemul_do_io(
          * However, there's no cheap approach to avoid above situations in xen,
          * so the device model side needs to check the incoming ioreq event.
          */
-        struct hvm_ioreq_server *s = NULL;
+        ioservid_t id = XEN_INVALID_IOSERVID;
         p2m_type_t p2mt = p2m_invalid;
 
         if ( is_mmio )
@@ -267,9 +267,9 @@ static int hvmemul_do_io(
             {
                 unsigned int flags;
 
-                s = p2m_get_ioreq_server(currd, &flags);
+                id = p2m_get_ioreq_server(currd, &flags);
 
-                if ( s == NULL )
+                if ( id == XEN_INVALID_IOSERVID )
                 {
                     rc = X86EMUL_RETRY;
                     vio->io_req.state = STATE_IOREQ_NONE;
@@ -289,18 +289,18 @@ static int hvmemul_do_io(
             }
         }
 
-        if ( !s )
-            s = hvm_select_ioreq_server(currd, &p);
+        if ( id == XEN_INVALID_IOSERVID )
+            id = hvm_select_ioreq_server(currd, &p);
 
         /* If there is no suitable backing DM, just ignore accesses */
-        if ( !s )
+        if ( id == XEN_INVALID_IOSERVID )
         {
             rc = hvm_process_io_intercept(&null_handler, &p);
             vio->io_req.state = STATE_IOREQ_NONE;
         }
         else
         {
-            rc = hvm_send_ioreq(s, &p, 0);
+            rc = hvm_send_ioreq(id, &p, 0);
             if ( rc != X86EMUL_RETRY || currd->is_shutting_down )
                 vio->io_req.state = STATE_IOREQ_NONE;
             else if ( !hvm_ioreq_needs_completion(&vio->io_req) )

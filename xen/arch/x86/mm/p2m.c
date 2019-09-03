@@ -102,6 +102,7 @@ static int p2m_initialise(struct domain *d, struct p2m_domain *p2m)
         p2m_pt_init(p2m);
 
     spin_lock_init(&p2m->ioreq.lock);
+    p2m->ioreq.server = XEN_INVALID_IOSERVID;
 
     return ret;
 }
@@ -361,7 +362,7 @@ void p2m_memory_type_changed(struct domain *d)
 
 int p2m_set_ioreq_server(struct domain *d,
                          unsigned int flags,
-                         struct hvm_ioreq_server *s)
+                         ioservid_t id)
 {
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
     int rc;
@@ -376,16 +377,16 @@ int p2m_set_ioreq_server(struct domain *d,
     if ( flags == 0 )
     {
         rc = -EINVAL;
-        if ( p2m->ioreq.server != s )
+        if ( p2m->ioreq.server != id )
             goto out;
 
-        p2m->ioreq.server = NULL;
+        p2m->ioreq.server = XEN_INVALID_IOSERVID;
         p2m->ioreq.flags = 0;
     }
     else
     {
         rc = -EBUSY;
-        if ( p2m->ioreq.server != NULL )
+        if ( p2m->ioreq.server != XEN_INVALID_IOSERVID )
             goto out;
 
         /*
@@ -397,7 +398,7 @@ int p2m_set_ioreq_server(struct domain *d,
         if ( read_atomic(&p2m->ioreq.entry_count) )
             goto out;
 
-        p2m->ioreq.server = s;
+        p2m->ioreq.server = id;
         p2m->ioreq.flags = flags;
     }
 
@@ -409,19 +410,18 @@ int p2m_set_ioreq_server(struct domain *d,
     return rc;
 }
 
-struct hvm_ioreq_server *p2m_get_ioreq_server(struct domain *d,
-                                              unsigned int *flags)
+ioservid_t p2m_get_ioreq_server(struct domain *d, unsigned int *flags)
 {
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
-    struct hvm_ioreq_server *s;
+    ioservid_t id;
 
     spin_lock(&p2m->ioreq.lock);
 
-    s = p2m->ioreq.server;
+    id = p2m->ioreq.server;
     *flags = p2m->ioreq.flags;
 
     spin_unlock(&p2m->ioreq.lock);
-    return s;
+    return id;
 }
 
 void p2m_enable_hardware_log_dirty(struct domain *d)

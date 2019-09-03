@@ -263,7 +263,7 @@ static int set_mem_type(struct domain *d,
             return -EOPNOTSUPP;
 
         /* Do not change to HVMMEM_ioreq_server if no ioreq server mapped. */
-        if ( !p2m_get_ioreq_server(d, &flags) )
+        if ( p2m_get_ioreq_server(d, &flags) == XEN_INVALID_IOSERVID )
             return -EINVAL;
     }
 

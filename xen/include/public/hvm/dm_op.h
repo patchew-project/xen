@@ -54,6 +54,7 @@
  */
 
 typedef uint16_t ioservid_t;
+#define XEN_INVALID_IOSERVID 0xffff
 
 /*
  * XEN_DMOP_create_ioreq_server: Instantiate a new IOREQ Server for a
