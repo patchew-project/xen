@@ -493,6 +493,12 @@ static int ioreq_handler(struct vcpu *v, ioreq_t *req, void *data)
         return X86EMUL_UNHANDLEABLE;
     }
 
+    if ( v->vpci.mem )
+    {
+        ASSERT(req->state == STATE_IOREQ_INPROCESS);
+        return vpci_process_pending(v) ? X86EMUL_RETRY : X86EMUL_OKAY;
+    }
+
     sbdf.sbdf = req->addr >> 32;
 
     if ( req->dir )
@@ -500,7 +506,7 @@ static int ioreq_handler(struct vcpu *v, ioreq_t *req, void *data)
     else
         write(sbdf, req->addr, req->size, req->data);
 
-    return X86EMUL_OKAY;
+    return v->vpci.mem ? X86EMUL_RETRY : X86EMUL_OKAY;
 }
 
 int vpci_register_ioreq(struct domain *d)

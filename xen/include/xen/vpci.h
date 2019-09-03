@@ -225,12 +225,6 @@ static inline int vpci_register_ioreq(struct domain *d)
 }
 
 static inline void vpci_dump_msi(void) { }
-
-static inline bool vpci_process_pending(struct vcpu *v)
-{
-    ASSERT_UNREACHABLE();
-    return false;
-}
 #endif
 
 #endif
