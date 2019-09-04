@@ -116,17 +116,7 @@ to run without disrupting the memory used by the first kernel. This area is
 called the crash kernel region and is reserved using the crashkernel
 command line parameter to the Xen hypervisor. It has two forms:
 
-  i) crashkernel=size
-
-     This is the simplest and recommended way to reserve the crash kernel
-     region. Just specify how large the region should be and the hypervisor
-     will find a good location for it. A good size to start with is 128Mb
-
-     e.g.
-
-     crashkernel=128M
-
-  ii) crashkernel=size@base
+  i) crashkernel=size@base
 
       In this form the base address is provided in addition to
       the size. Use this if auto-placement doesn't work for some reason.
@@ -136,7 +126,7 @@ command line parameter to the Xen hypervisor. It has two forms:
 
       e.g. crashkernel=128M@256M
 
-  iii) crashkernel=size,below=offset
+  ii) crashkernel=size,below=offset
 
       This allows us to place the crash kernel within the usuable address
       space without having to worry about a specific phyiscal address.
