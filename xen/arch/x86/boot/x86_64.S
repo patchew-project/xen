@@ -84,19 +84,13 @@ GLOBAL(boot_compat_gdt)
 /*
  * Mapping of first 2 megabytes of memory. This is mapped with 4kB mappings
  * to avoid type conflicts with fixed-range MTRRs covering the lowest megabyte
- * of physical memory. In any case the VGA hole should be mapped with type UC.
- * Uses 1x 4k page.
+ * of physical memory.  Uses 1x 4k page.
  */
 l1_identmap:
-        pfn = 0
+        idx = 0
         .rept L1_PAGETABLE_ENTRIES
-        /* VGA hole (0xa0000-0xc0000) should be mapped UC-. */
-        .if pfn >= 0xa0 && pfn < 0xc0
-        .quad (pfn << PAGE_SHIFT) | PAGE_HYPERVISOR_UCMINUS | MAP_SMALL_PAGES
-        .else
-        .quad (pfn << PAGE_SHIFT) | PAGE_HYPERVISOR | MAP_SMALL_PAGES
-        .endif
-        pfn = pfn + 1
+        .quad (idx << PAGE_SHIFT) | PAGE_HYPERVISOR | MAP_SMALL_PAGES
+        idx = idx + 1
         .endr
         .size l1_identmap, . - l1_identmap
 
