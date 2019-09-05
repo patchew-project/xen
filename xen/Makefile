@@ -267,14 +267,14 @@ kconfig := silentoldconfig oldconfig config menuconfig defconfig \
 	randconfig $(notdir $(wildcard arch/$(SRCARCH)/configs/*_defconfig))
 .PHONY: $(kconfig)
 $(kconfig):
-	$(MAKE) -f $(BASEDIR)/tools/kconfig/Makefile.kconfig ARCH=$(ARCH) SRCARCH=$(SRCARCH) HOSTCC="$(HOSTCC)" HOSTCXX="$(HOSTCXX)" $@
+	$(MAKE) -f $(BASEDIR)/tools/kconfig/Makefile.kconfig ARCH=$(ARCH) SRCARCH=$(SRCARCH) $@
 
 include/config/%.conf: include/config/auto.conf.cmd $(KCONFIG_CONFIG)
-	$(MAKE) -f $(BASEDIR)/tools/kconfig/Makefile.kconfig ARCH=$(ARCH) SRCARCH=$(SRCARCH) HOSTCC="$(HOSTCC)" HOSTCXX="$(HOSTCXX)" silentoldconfig
+	$(MAKE) -f $(BASEDIR)/tools/kconfig/Makefile.kconfig ARCH=$(ARCH) SRCARCH=$(SRCARCH) silentoldconfig
 
 # Allow people to just run `make` as before and not force them to configure
 $(KCONFIG_CONFIG):
-	$(MAKE) -f $(BASEDIR)/tools/kconfig/Makefile.kconfig ARCH=$(ARCH) SRCARCH=$(SRCARCH) HOSTCC="$(HOSTCC)" HOSTCXX="$(HOSTCXX)" defconfig
+	$(MAKE) -f $(BASEDIR)/tools/kconfig/Makefile.kconfig ARCH=$(ARCH) SRCARCH=$(SRCARCH) defconfig
 
 # Break the dependency chain for the first run
 include/config/auto.conf.cmd: ;

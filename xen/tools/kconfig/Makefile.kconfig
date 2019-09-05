@@ -35,14 +35,13 @@ KBUILD_DEFCONFIG := $(ARCH)_defconfig
 # provide our shell
 CONFIG_SHELL := $(SHELL)
 
-# provide the host compiler
-HOSTCC ?= gcc
-HOSTCXX ?= g++
-
 # force target
 PHONY += FORCE
 
 FORCE:
+
+# Sets toolchain binaries to use
+include $(XEN_ROOT)/config/$(shell uname -s).mk
 
 # include the original Makefile and Makefile.host from Linux
 include $(src)/Makefile
