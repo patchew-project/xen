@@ -30,17 +30,19 @@
 int libxl__domain_create_info_setdefault(libxl__gc *gc,
                                          libxl_domain_create_info *c_info)
 {
+    int rc;
+
     if (!c_info->type) {
         LOG(ERROR, "domain type unspecified");
         return ERROR_INVAL;
     }
 
-    libxl__arch_domain_create_info_setdefault(gc, c_info);
+    rc = libxl__arch_domain_create_info_setdefault(gc, c_info);
+    if (rc)
+        return rc;
 
-    if (c_info->type != LIBXL_DOMAIN_TYPE_PV) {
-        libxl_defbool_setdefault(&c_info->hap, true);
+    if (c_info->type != LIBXL_DOMAIN_TYPE_PV)
         libxl_defbool_setdefault(&c_info->oos, true);
-    }
 
     libxl_defbool_setdefault(&c_info->run_hotplug_scripts, true);
     libxl_defbool_setdefault(&c_info->driver_domain, false);

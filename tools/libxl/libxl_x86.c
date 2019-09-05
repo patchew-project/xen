@@ -620,9 +620,20 @@ int libxl__arch_domain_finalise_hw_description(libxl__gc *gc,
     return rc;
 }
 
-void libxl__arch_domain_create_info_setdefault(libxl__gc *gc,
-                                               libxl_domain_create_info *c_info)
+int libxl__arch_domain_create_info_setdefault(libxl__gc *gc,
+                                              libxl_domain_create_info *c_info)
 {
+    libxl_physinfo pi;
+    int rc = libxl_get_physinfo(CTX, &pi);
+
+    if (rc) {
+        LOG(ERROR, "unable to get physinfo");
+        return rc;
+    }
+
+    libxl_defbool_setdefault(&c_info->hap, pi.cap_hap);
+
+    return 0;
 }
 
 void libxl__arch_domain_build_info_setdefault(libxl__gc *gc,

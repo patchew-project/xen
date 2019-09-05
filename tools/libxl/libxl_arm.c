@@ -1114,8 +1114,8 @@ int libxl__arch_domain_map_irq(libxl__gc *gc, uint32_t domid, int irq)
     return xc_domain_bind_pt_spi_irq(CTX->xch, domid, irq, irq);
 }
 
-void libxl__arch_domain_create_info_setdefault(libxl__gc *gc,
-                                               libxl_domain_create_info *c_info)
+int libxl__arch_domain_create_info_setdefault(libxl__gc *gc,
+                                              libxl_domain_create_info *c_info)
 {
     /*
      * Arm guest are now considered as PVH by the toolstack. To allow
@@ -1130,6 +1130,9 @@ void libxl__arch_domain_create_info_setdefault(libxl__gc *gc,
         c_info->type = LIBXL_DOMAIN_TYPE_PVH;
         /* All other fields can remain untouched */
     }
+    libxl_defbool_setdefault(&c_info->hap, true);
+
+    return 0;
 }
 
 void libxl__arch_domain_build_info_setdefault(libxl__gc *gc,
