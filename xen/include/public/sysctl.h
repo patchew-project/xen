@@ -90,6 +90,10 @@ struct xen_sysctl_tbuf_op {
  /* The platform supports direct access to I/O devices with IOMMU. */
 #define _XEN_SYSCTL_PHYSCAP_directio     2
 #define XEN_SYSCTL_PHYSCAP_directio  (1u<<_XEN_SYSCTL_PHYSCAP_directio)
+/* The platform supports Hardware Assisted Paging. */
+#define _XEN_SYSCTL_PHYSCAP_hap          3
+#define XEN_SYSCTL_PHYSCAP_hap           (1u<<_XEN_SYSCTL_PHYSCAP_hap)
+
 struct xen_sysctl_physinfo {
     uint32_t threads_per_core;
     uint32_t cores_per_socket;
