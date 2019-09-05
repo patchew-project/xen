@@ -39,24 +39,6 @@ DESTDIR     ?= /
 # Allow phony attribute to be listed as dependency rather than fake target
 .PHONY: .phony
 
-# If we are not cross-compiling, default HOSTC{C/XX} to C{C/XX}
-ifeq ($(XEN_TARGET_ARCH), $(XEN_COMPILE_ARCH))
-HOSTCC ?= $(CC)
-HOSTCXX ?= $(CXX)
-endif
-
-# Use Clang/LLVM instead of GCC?
-clang ?= n
-ifeq ($(clang),n)
-gcc := y
-HOSTCC ?= gcc
-HOSTCXX ?= g++
-else
-gcc := n
-HOSTCC ?= clang
-HOSTCXX ?= clang++
-endif
-
 DEPS_INCLUDE = $(addsuffix .d2, $(basename $(wildcard $(DEPS))))
 DEPS_RM = $(DEPS) $(DEPS_INCLUDE)
 
