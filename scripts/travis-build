@@ -1,6 +1,14 @@
 #!/bin/bash -ex
 
+# Set HOST{CC/CXX} in case we are cross building
+export HOSTCC=${CC}
+export HOSTCXX=${CXX}
+# Prefix environment CC/CXX with CROSS_COMPILE if present
+export CC=${CROSS_COMPILE}${CC}
+export CXX=${CROSS_COMPILE}${CXX}
+
 $CC --version
+[[ "${CC}" != "${HOSTCC}" ]] && $HOSTCC --version
 
 # random config or default config
 if [[ "${RANDCONFIG}" == "y" ]]; then

@@ -1,28 +1,31 @@
 # Use Clang/LLVM instead of GCC?
 clang     ?= n
 
-# If we are not cross-compiling, default HOSTC{C/XX} to C{C/XX}
-ifeq ($(XEN_TARGET_ARCH), $(XEN_COMPILE_ARCH))
-HOSTCC    ?= $(CC)
-HOSTCXX   ?= $(CXX)
-endif
-
 AS         = $(CROSS_COMPILE)as
 LD         = $(CROSS_COMPILE)ld
 ifeq ($(clang),y)
 gcc       := n
-CC         = $(CROSS_COMPILE)clang
-CXX        = $(CROSS_COMPILE)clang++
-LD_LTO     = $(CROSS_COMPILE)llvm-ld
-HOSTCC    ?= clang
-HOSTCXX   ?= clang++
+DEF_CC     = clang
+DEF_CXX    = clang++
+LD_LTO    ?= $(CROSS_COMPILE)llvm-ld
 else
 gcc       := y
-CC         = $(CROSS_COMPILE)gcc
-CXX        = $(CROSS_COMPILE)g++
-LD_LTO     = $(CROSS_COMPILE)ld
-HOSTCC    ?= gcc
-HOSTCXX   ?= g++
+DEF_CC     = gcc
+DEF_CXX    = g++
+LD_LTO    ?= $(CROSS_COMPILE)ld
+endif
+
+CC        ?= $(CROSS_COMPILE)$(DEF_CC)
+CXX       ?= $(CROSS_COMPILE)$(DEF_CXX)
+
+# If we are not cross-compiling, default HOSTC{C/XX} to C{C/XX}
+# else use the default values if unset
+ifeq ($(XEN_TARGET_ARCH), $(XEN_COMPILE_ARCH))
+HOSTCC    ?= $(CC)
+HOSTCXX   ?= $(CXX)
+else
+HOSTCC    ?= $(DEF_CC)
+HOSTCXX   ?= $(DEF_CXX)
 endif
 
 CPP        = $(CC) -E
