@@ -212,8 +212,9 @@ bool p2m_mem_access_check(paddr_t gpa, unsigned long gla,
     }
     if ( vm_event_check_ring(d->vm_event_monitor) &&
          d->arch.monitor.inguest_pagefault_disabled &&
-         npfec.kind != npfec_kind_with_gla ) /* don't send a mem_event */
+         npfec.kind == npfec_kind_in_gpt ) /* don't send a mem_event */
     {
+        v->arch.vm_event->send_event = true;
         hvm_emulate_one_vm_event(EMUL_KIND_NORMAL, TRAP_invalid_op, X86_EVENT_NO_EC);
 
         return true;

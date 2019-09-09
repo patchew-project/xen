@@ -543,10 +543,11 @@ static void *hvmemul_map_linear_addr(
     struct hvm_emulate_ctxt *hvmemul_ctxt)
 {
     struct vcpu *curr = current;
-    void *err, *mapping;
+    void *err = NULL, *mapping;
     unsigned int nr_frames = ((linear + bytes - !!bytes) >> PAGE_SHIFT) -
         (linear >> PAGE_SHIFT) + 1;
     unsigned int i;
+    gfn_t gfn;
 
     /*
      * mfn points to the next free slot.  All used slots have a page reference
@@ -585,7 +586,7 @@ static void *hvmemul_map_linear_addr(
         ASSERT(mfn_x(*mfn) == 0);
 
         res = hvm_translate_get_page(curr, addr, true, pfec,
-                                     &pfinfo, &page, NULL, &p2mt);
+                                     &pfinfo, &page, &gfn, &p2mt);
 
         switch ( res )
         {
@@ -599,7 +600,6 @@ static void *hvmemul_map_linear_addr(
             goto out;
 
         case HVMTRANS_bad_gfn_to_mfn:
-            err = NULL;
             goto out;
 
         case HVMTRANS_gfn_paged_out:
@@ -622,12 +622,17 @@ static void *hvmemul_map_linear_addr(
             }
 
             if ( p2mt == p2m_ioreq_server )
-            {
-                err = NULL;
                 goto out;
-            }
 
             ASSERT(p2mt == p2m_ram_logdirty || !p2m_is_readonly(p2mt));
+        }
+
+        if ( unlikely(curr->arch.vm_event) &&
+             curr->arch.vm_event->send_event &&
+             hvm_monitor_check_ept(addr, gfn, pfec, npfec_kind_with_gla) )
+        {
+            err = ERR_PTR(~X86EMUL_RETRY);
+            goto out;
         }
     }
 
