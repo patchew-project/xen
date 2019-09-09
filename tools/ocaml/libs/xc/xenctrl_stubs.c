@@ -32,6 +32,7 @@
 
 #define XC_WANT_COMPAT_MAP_FOREIGN_API
 #include <xenctrl.h>
+#include <xen-tools/libs.h>
 
 #include "mmap_stubs.h"
 
@@ -117,6 +118,31 @@ static void domain_handle_of_uuid_string(xen_domain_handle_t h,
 	}
 
 #undef X
+}
+
+/*
+ * Various fields which are a bitmap in the C ABI are converted to lists of
+ * integers in the Ocaml ABI for more idiomatic handling.
+ */
+static value c_bitmap_to_ocaml_list(unsigned int bitmap)
+{
+	CAMLparam0();
+	CAMLlocal2(list, tmp);
+
+	list = tmp = Val_emptylist;
+
+	for ( unsigned int i = 0; bitmap; i++, bitmap >>= 1 )
+	{
+		if ( !(bitmap & 1) )
+			continue;
+
+		tmp = caml_alloc_small(2, Tag_cons);
+		Field(tmp, 0) = Val_int(i);
+		Field(tmp, 1) = list;
+		list = tmp;
+	}
+
+	CAMLreturn(list);
 }
 
 CAMLprim value stub_xc_domain_create(value xch, value config)
@@ -315,16 +341,25 @@ static value alloc_domaininfo(xc_domaininfo_t * info)
 	Store_field(result, 15, tmp);
 
 #if defined(__i386__) || defined(__x86_64__)
-	/* emulation_flags: x86_arch_emulation_flags list; */
-	tmp = emul_list = Val_emptylist;
-	for (i = 0; i < 10; i++) {
-		if ((info->arch_config.emulation_flags >> i) & 1) {
-			tmp = caml_alloc_small(2, Tag_cons);
-			Field(tmp, 0) = Val_int(i);
-			Field(tmp, 1) = emul_list;
-			emul_list = tmp;
-		}
-	}
+	/*
+	 * emulation_flags: x86_arch_emulation_flags list;
+	 *
+	 * These BUILD_BUG_ON()'s map the C ABI to the Ocaml ABI.  If they
+	 * trip, xenctrl.ml{,i} need updating to match.
+	 */
+	BUILD_BUG_ON(XEN_X86_EMU_LAPIC    != (1u <<  0));
+	BUILD_BUG_ON(XEN_X86_EMU_HPET     != (1u <<  1));
+	BUILD_BUG_ON(XEN_X86_EMU_PM       != (1u <<  2));
+	BUILD_BUG_ON(XEN_X86_EMU_RTC      != (1u <<  3));
+	BUILD_BUG_ON(XEN_X86_EMU_IOAPIC   != (1u <<  4));
+	BUILD_BUG_ON(XEN_X86_EMU_PIC      != (1u <<  5));
+	BUILD_BUG_ON(XEN_X86_EMU_VGA      != (1u <<  6));
+	BUILD_BUG_ON(XEN_X86_EMU_IOMMU    != (1u <<  7));
+	BUILD_BUG_ON(XEN_X86_EMU_PIT      != (1u <<  8));
+	BUILD_BUG_ON(XEN_X86_EMU_USE_PIRQ != (1u <<  9));
+	BUILD_BUG_ON(XEN_X86_EMU_VPCI     != (1u << 10));
+	BUILD_BUG_ON(XEN_X86_EMU_ALL      != 0x7ff);
+	emul_list = c_bitmap_to_ocaml_list(info->arch_config.emulation_flags);
 
 	/* xen_x86_arch_domainconfig */
 	x86_arch_config = caml_alloc_tuple(1);
@@ -635,7 +670,7 @@ CAMLprim value stub_xc_send_debug_keys(value xch, value keys)
 CAMLprim value stub_xc_physinfo(value xch)
 {
 	CAMLparam1(xch);
-	CAMLlocal3(physinfo, cap_list, tmp);
+	CAMLlocal2(physinfo, cap_list);
 	xc_physinfo_t c_physinfo;
 	int r;
 
@@ -646,15 +681,17 @@ CAMLprim value stub_xc_physinfo(value xch)
 	if (r)
 		failwith_xc(_H(xch));
 
-	tmp = cap_list = Val_emptylist;
-	for (r = 0; r < 2; r++) {
-		if ((c_physinfo.capabilities >> r) & 1) {
-			tmp = caml_alloc_small(2, Tag_cons);
-			Field(tmp, 0) = Val_int(r);
-			Field(tmp, 1) = cap_list;
-			cap_list = tmp;
-		}
-	}
+	/*
+	 * capabilities: physinfo_cap_flag list;
+	 *
+	 * These BUILD_BUG_ON()'s map the C ABI to the Ocaml ABI.  If they
+	 * trip, xenctrl.ml{,i} need updating to match.
+	 */
+	BUILD_BUG_ON(XEN_SYSCTL_PHYSCAP_hvm      != (1u <<  0));
+	BUILD_BUG_ON(XEN_SYSCTL_PHYSCAP_pv       != (1u <<  1));
+	BUILD_BUG_ON(XEN_SYSCTL_PHYSCAP_directio != (1u <<  2));
+	BUILD_BUG_ON(XEN_SYSCTL_PHYSCAP_MAX      != XEN_SYSCTL_PHYSCAP_directio);
+	cap_list = c_bitmap_to_ocaml_list(c_physinfo.capabilities);
 
 	physinfo = caml_alloc_tuple(10);
 	Store_field(physinfo, 0, Val_int(c_physinfo.threads_per_core));
