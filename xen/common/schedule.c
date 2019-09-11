@@ -208,13 +208,36 @@ void vcpu_runstate_get(struct vcpu *v, struct vcpu_runstate_info *runstate)
 
 uint64_t get_cpu_idle_time(unsigned int cpu)
 {
-    struct vcpu_runstate_info state = { 0 };
-    struct vcpu *v = idle_vcpu[cpu];
+    struct tacc *tacc = &per_cpu(tacc, cpu);
 
-    if ( cpu_online(cpu) && v )
-        vcpu_runstate_get(v, &state);
+    return tacc->state_time[TACC_IDLE];
+}
 
-    return state.time[RUNSTATE_running];
+uint64_t get_cpu_guest_time(unsigned int cpu)
+{
+    struct tacc *tacc = &per_cpu(tacc, cpu);
+
+    return tacc->state_time[TACC_GUEST];
+}
+
+uint64_t get_cpu_hyp_time(unsigned int cpu)
+{
+    struct tacc *tacc = &per_cpu(tacc, cpu);
+
+    return tacc->state_time[TACC_HYP];
+}
+
+uint64_t get_cpu_irq_time(unsigned int cpu)
+{
+    struct tacc *tacc = &per_cpu(tacc, cpu);
+
+    return tacc->state_time[TACC_IRQ];
+}
+uint64_t get_cpu_gsync_time(unsigned int cpu)
+{
+    struct tacc *tacc = &per_cpu(tacc, cpu);
+
+    return tacc->state_time[TACC_GSYNC];
 }
 
 /*
