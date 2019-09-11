@@ -992,6 +992,33 @@ extern void dump_runq(unsigned char key);
 
 void arch_do_physinfo(struct xen_sysctl_physinfo *pi);
 
+enum TACC_STATES {
+    TACC_HYP = 0,
+    TACC_GUEST = 1,
+    TACC_IDLE = 2,
+    TACC_IRQ = 3,
+    TACC_GSYNC = 4,
+    TACC_STATES_MAX
+};
+
+struct tacc
+{
+    s_time_t state_time[TACC_STATES_MAX];
+    s_time_t state_entry_time;
+    int state;
+
+    s_time_t guest_time;
+
+    s_time_t irq_enter_time;
+    s_time_t irq_time;
+    int irq_cnt;
+};
+
+DECLARE_PER_CPU(struct tacc, tacc);
+
+void tacc_hyp(int place);
+void tacc_idle(int place);
+
 #endif /* __SCHED_H__ */
 
 /*
