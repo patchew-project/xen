@@ -945,8 +945,9 @@ burn_budget(const struct scheduler *ops, struct rt_vcpu *svc, s_time_t now)
     if ( is_idle_vcpu(svc->vcpu) )
         return;
 
+    ASSERT(svc->vcpu == current);
     /* burn at nanoseconds level */
-    delta = now - svc->last_start;
+    delta = tacc_get_guest_time_delta();
     /*
      * delta < 0 only happens in nested virtualization;
      * TODO: how should we handle delta < 0 in a better way?
@@ -960,7 +961,6 @@ burn_budget(const struct scheduler *ops, struct rt_vcpu *svc, s_time_t now)
     }
 
     svc->cur_budget -= delta;
-    svc->last_start = now;
 
     if ( svc->cur_budget <= 0 )
     {
