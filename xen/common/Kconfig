@@ -221,6 +221,9 @@ config ARGO
 menu "Schedulers"
 	visible if EXPERT = "y"
 
+config TACC_NEEDS_LOCK
+	bool
+
 config SCHED_CREDIT
 	bool "Credit scheduler support"
 	default y
