@@ -234,6 +234,7 @@ config SCHED_CREDIT
 config SCHED_CREDIT2
 	bool "Credit2 scheduler support"
 	default y
+	select TACC_NEEDS_LOCK
 	---help---
 	  The credit2 scheduler is a general purpose scheduler that is
 	  optimized for lower latency and higher VM density.
