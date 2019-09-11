@@ -227,6 +227,7 @@ config TACC_NEEDS_LOCK
 config SCHED_CREDIT
 	bool "Credit scheduler support"
 	default y
+	select TACC_NEEDS_LOCK
 	---help---
 	  The traditional credit scheduler is a general purpose scheduler.
 
