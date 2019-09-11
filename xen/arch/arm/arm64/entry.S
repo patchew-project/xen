@@ -143,12 +143,21 @@
 
         .endm
 
-        .macro  exit, hyp, compat
+        .macro  exit, hyp, compat, tacc=1
 
         .if \hyp == 0         /* Guest mode */
 
+	.if \tacc == 1
+
+        mov     x0, #1
+        bl      tacc_hyp
+
+	.endif
+
         bl      leave_hypervisor_tail /* Disables interrupts on return */
 
+	mov     x0, #1
+	bl      tacc_guest
         exit_guest \compat
 
         .endif
@@ -205,9 +214,15 @@ hyp_sync:
 
 hyp_irq:
         entry   hyp=1
+        mov     x0,#5
+        bl      tacc_irq_enter
         msr     daifclr, #4
         mov     x0, sp
         bl      do_trap_irq
+
+        mov     x0,#5
+        bl      tacc_irq_exit
+
         exit    hyp=1
 
 guest_sync:
@@ -291,6 +306,9 @@ guest_sync_slowpath:
          * to save them.
          */
         entry   hyp=0, compat=0, save_x0_x1=0
+        
+        mov     x0,#1
+        bl      tacc_gsync
         /*
          * The vSError will be checked while SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
          * is not set. If a vSError took place, the initial exception will be
@@ -307,6 +325,10 @@ guest_sync_slowpath:
 
 guest_irq:
         entry   hyp=0, compat=0
+
+        mov     x0,#6
+        bl      tacc_irq_enter
+
         /*
          * The vSError will be checked while SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
          * is not set. If a vSError took place, the initial exception will be
@@ -319,6 +341,8 @@ guest_irq:
         mov     x0, sp
         bl      do_trap_irq
 1:
+	mov	x0,#6
+        bl      tacc_irq_exit
         exit    hyp=0, compat=0
 
 guest_fiq_invalid:
@@ -334,6 +358,9 @@ guest_error:
 
 guest_sync_compat:
         entry   hyp=0, compat=1
+
+        mov     x0,#2
+        bl      tacc_gsync
         /*
          * The vSError will be checked while SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
          * is not set. If a vSError took place, the initial exception will be
@@ -350,6 +377,10 @@ guest_sync_compat:
 
 guest_irq_compat:
         entry   hyp=0, compat=1
+
+        mov     x0,#7
+        bl      tacc_irq_enter
+
         /*
          * The vSError will be checked while SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
          * is not set. If a vSError took place, the initial exception will be
@@ -362,6 +393,8 @@ guest_irq_compat:
         mov     x0, sp
         bl      do_trap_irq
 1:
+        mov     x0,#7
+        bl      tacc_irq_exit
         exit    hyp=0, compat=1
 
 guest_fiq_invalid_compat:
@@ -376,9 +409,9 @@ guest_error_compat:
         exit    hyp=0, compat=1
 
 ENTRY(return_to_new_vcpu32)
-        exit    hyp=0, compat=1
+        exit    hyp=0, compat=1, tacc=0
 ENTRY(return_to_new_vcpu64)
-        exit    hyp=0, compat=0
+        exit    hyp=0, compat=0, tacc=0
 
 return_from_trap:
         msr     daifset, #2 /* Mask interrupts */

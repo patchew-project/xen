@@ -51,11 +51,13 @@ static void do_idle(void)
     process_pending_softirqs();
 
     local_irq_disable();
+    tacc_idle(1);
     if ( cpu_is_haltable(cpu) )
     {
         dsb(sy);
         wfi();
     }
+    tacc_hyp(2);
     local_irq_enable();
 
     sched_tick_resume();
