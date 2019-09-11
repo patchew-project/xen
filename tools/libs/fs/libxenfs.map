@@ -1,0 +1,8 @@
+VERS_1.0 {
+	global:
+		xenfs_open;
+		xenfs_close;
+		xenfs_read;
+		xenfs_readdir;
+	local: *; /* Do not expose anything by default */
+};

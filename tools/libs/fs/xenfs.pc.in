@@ -1,0 +1,10 @@
+prefix=@@prefix@@
+includedir=@@incdir@@
+libdir=@@libdir@@
+
+Name: Xenfs
+Description: The Xenfs library for Xen hypervisor
+Version: @@version@@
+Cflags: -I${includedir} @@cflagslocal@@
+Libs: @@libsflag@@${libdir} -lxenfs
+Requires.private: xentoolcore,xentoollog,xencall

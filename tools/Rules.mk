@@ -19,6 +19,7 @@ XEN_LIBXENGNTTAB   = $(XEN_ROOT)/tools/libs/gnttab
 XEN_LIBXENCALL     = $(XEN_ROOT)/tools/libs/call
 XEN_LIBXENFOREIGNMEMORY = $(XEN_ROOT)/tools/libs/foreignmemory
 XEN_LIBXENDEVICEMODEL = $(XEN_ROOT)/tools/libs/devicemodel
+XEN_LIBXENFS       = $(XEN_ROOT)/tools/libs/fs
 XEN_LIBXC          = $(XEN_ROOT)/tools/libxc
 XEN_XENLIGHT       = $(XEN_ROOT)/tools/libxl
 # Currently libxlutil lives in the same directory as libxenlight
@@ -133,6 +134,11 @@ CFLAGS_libxendevicemodel = -I$(XEN_LIBXENDEVICEMODEL)/include $(CFLAGS_xeninclud
 SHDEPS_libxendevicemodel = $(SHLIB_libxentoollog) $(SHLIB_libxentoolcore) $(SHLIB_xencall)
 LDLIBS_libxendevicemodel = $(SHDEPS_libxendevicemodel) $(XEN_LIBXENDEVICEMODEL)/libxendevicemodel$(libextension)
 SHLIB_libxendevicemodel  = $(SHDEPS_libxendevicemodel) -Wl,-rpath-link=$(XEN_LIBXENDEVICEMODEL)
+
+CFLAGS_libxenfs = -I$(XEN_LIBXENFS)/include $(CFLAGS_xeninclude)
+SHDEPS_libxenfs = $(SHLIB_libxentoollog) $(SHLIB_libxentoolcore) $(SHLIB_xencall)
+LDLIBS_libxenfs = $(SHDEPS_libxenfs) $(XEN_LIBXENFS)/libxenfs$(libextension)
+SHLIB_libxenfs  = $(SHDEPS_libxenfs) -Wl,-rpath-link=$(XEN_LIBXENFS)
 
 # code which compiles against libxenctrl get __XEN_TOOLS__ and
 # therefore sees the unstable hypercall interfaces.
