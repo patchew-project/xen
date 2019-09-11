@@ -266,6 +266,8 @@ struct vcpu
 
     struct evtchn_fifo_vcpu *evtchn_fifo;
 
+    s_time_t    pcpu_guest_time;
+
     /* vPCI per-vCPU area, used to store data for long running operations. */
     struct vpci_vcpu vpci;
 
@@ -1022,6 +1024,12 @@ DECLARE_PER_CPU(struct tacc, tacc);
 
 void tacc_hyp(int place);
 void tacc_idle(int place);
+
+s_time_t tacc_get_guest_time(struct tacc *tacc);
+inline s_time_t tacc_get_guest_time_delta(void)
+{
+    return tacc_get_guest_time(&this_cpu(tacc)) - current->pcpu_guest_time;
+}
 
 #endif /* __SCHED_H__ */
 
