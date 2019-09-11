@@ -25,6 +25,10 @@ static struct fs_entry fs_root_entry = {
     .dir = &fs_root,
 };
 
+static struct fs_dir fs_buildinfo = {
+    .list = LIST_HEAD_INIT(fs_buildinfo.list),
+};
+
 static int fs_add_entry(struct fs_dir *parent, struct fs_entry *new)
 {
     int ret = -ENOENT;
@@ -268,3 +272,16 @@ long do_filesystem_op(unsigned int cmd,
 
     return ret;
 }
+
+static int __init fs_init(void)
+{
+    int ret;
+
+    ret = fs_new_dir(&fs_root, "buildinfo", &fs_buildinfo);
+    BUG_ON(ret);
+    ret = fs_new_entry(&fs_buildinfo, "config", xen_config_data);
+    BUG_ON(ret);
+
+    return 0;
+}
+__initcall(fs_init);

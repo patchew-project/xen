@@ -1,6 +1,7 @@
 obj-$(CONFIG_ARGO) += argo.o
 obj-y += bitmap.o
 obj-y += bsearch.o
+obj-y += config_data.o
 obj-$(CONFIG_CORE_PARKING) += core_parking.o
 obj-y += cpu.o
 obj-y += cpupool.o
@@ -78,3 +79,8 @@ subdir-$(CONFIG_UBSAN) += ubsan
 
 subdir-$(CONFIG_NEEDS_LIBELF) += libelf
 subdir-$(CONFIG_HAS_DEVICE_TREE) += libfdt
+
+config_data.c: ../.config
+	( echo "const char xen_config_data[] ="; \
+	  ../tools/bin2c <$<; \
+	  echo ";" ) > $@

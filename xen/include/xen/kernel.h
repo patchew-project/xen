@@ -100,5 +100,7 @@ extern enum system_state {
 
 bool_t is_active_kernel_text(unsigned long addr);
 
+extern const char xen_config_data[];
+
 #endif /* _LINUX_KERNEL_H */
 
