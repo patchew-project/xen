@@ -412,6 +412,9 @@ int pt_irq_create_bind(
                 pirq_dpci->gmsi.gvec = pt_irq_bind->u.msi.gvec;
                 pirq_dpci->gmsi.gflags = gflags;
             }
+
+            if ( hvm_funcs.sync_pir_to_irr )
+                hvm_funcs.sync_pir_to_irr(d->vcpu[pirq_dpci->gmsi.dest_vcpu_id]);
         }
         /* Calculate dest_vcpu_id for MSI-type pirq migration. */
         dest = MASK_EXTR(pirq_dpci->gmsi.gflags,
