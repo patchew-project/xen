@@ -1898,6 +1898,7 @@ int iommu_pte_flush(struct domain *d, uint64_t dfn, uint64_t *pte,
     return rc;
 }
 
+#ifndef iommu_hap_pt_share
 static int __init vtd_ept_page_compatible(struct vtd_iommu *iommu)
 {
     u64 ept_cap, vtd_cap = iommu->cap;
@@ -1910,6 +1911,7 @@ static int __init vtd_ept_page_compatible(struct vtd_iommu *iommu)
     return (ept_has_2mb(ept_cap) && opt_hap_2mb) == cap_sps_2mb(vtd_cap) &&
            (ept_has_1gb(ept_cap) && opt_hap_1gb) == cap_sps_1gb(vtd_cap);
 }
+#endif
 
 /*
  * set VT-d page table directory to EPT table if allowed
@@ -2309,8 +2311,10 @@ static int __init vtd_setup(void)
         if ( !cap_intr_post(iommu->cap) || !iommu_intremap || !cpu_has_cx16 )
             iommu_intpost = 0;
 
+#ifndef iommu_hap_pt_share
         if ( !vtd_ept_page_compatible(iommu) )
-            iommu_hap_pt_share = 0;
+            iommu_hap_pt_share = false;
+#endif
 
         ret = iommu_set_interrupt(drhd);
         if ( ret )

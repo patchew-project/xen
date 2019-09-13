@@ -1401,12 +1401,15 @@ int __init amd_iommu_init(bool xt)
     if ( rc )
         goto error_out;
 
+#ifndef iommu_hap_pt_share
     /*
      * Disable sharing HAP page tables with AMD IOMMU,
      * since it only supports p2m_ram_rw, and this would
      * prevent doing IO to/from mapped grant frames.
      */
-    iommu_hap_pt_share = 0;
+    iommu_hap_pt_share = false;
+#endif
+
     printk(XENLOG_DEBUG "AMD-Vi: Disabled HAP memory map sharing with IOMMU\n");
 
     /* per iommu initialization  */

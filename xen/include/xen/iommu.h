@@ -55,7 +55,13 @@ static inline bool_t dfn_eq(dfn_t x, dfn_t y)
 extern bool_t iommu_enable, iommu_enabled;
 extern bool_t force_iommu, iommu_verbose, iommu_igfx;
 extern bool_t iommu_snoop, iommu_qinval, iommu_intremap, iommu_intpost;
-extern bool_t iommu_hap_pt_share;
+
+#ifdef CONFIG_HVM
+extern bool iommu_hap_pt_share;
+#else
+#define iommu_hap_pt_share false
+#endif
+
 extern bool_t iommu_debug;
 extern bool_t amd_iommu_perdev_intremap;
 
