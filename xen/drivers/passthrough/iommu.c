@@ -49,7 +49,11 @@ int8_t __hwdom_initdata iommu_hwdom_reserved = -1;
  * default until we find a good solution to resolve it.
  */
 bool_t __read_mostly iommu_intpost;
-bool_t __read_mostly iommu_hap_pt_share = 1;
+
+#ifndef iommu_hap_pt_share
+bool __read_mostly iommu_hap_pt_share = true;
+#endif
+
 bool_t __read_mostly iommu_debug;
 bool_t __read_mostly amd_iommu_perdev_intremap = 1;
 
@@ -103,7 +107,14 @@ static int __init parse_iommu_param(const char *s)
         else if ( (val = parse_boolean("dom0-strict", s, ss)) >= 0 )
             iommu_hwdom_strict = val;
         else if ( (val = parse_boolean("sharept", s, ss)) >= 0 )
+        {
+#ifndef iommu_hap_pt_share
             iommu_hap_pt_share = val;
+#else
+            if (val != iommu_hap_pt_share)
+                rc = -EINVAL;
+#endif
+        }
         else
             rc = -EINVAL;
 
@@ -511,7 +522,12 @@ int __init iommu_setup(void)
         iommu_enabled = (rc == 0);
     }
     if ( !iommu_enabled )
+    {
         iommu_intremap = 0;
+#ifndef iommu_hap_pt_share
+        iommu_hap_pt_share = false;
+#endif
+    }
 
     if ( (force_iommu && !iommu_enabled) ||
          (force_intremap && !iommu_intremap) )
