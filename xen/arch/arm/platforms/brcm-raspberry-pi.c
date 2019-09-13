@@ -21,6 +21,7 @@
 
 static const char *const brcm_bcm2838_dt_compat[] __initconst =
 {
+    "brcm,bcm2711",
     "brcm,bcm2838",
     NULL
 };
