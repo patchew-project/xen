@@ -357,7 +357,7 @@ int guest_wrmsr_viridian(struct vcpu *v, uint32_t idx, uint64_t val)
         d->shutdown_code = SHUTDOWN_crash;
         spin_unlock(&d->shutdown_lock);
 
-        gprintk(XENLOG_WARNING, "VIRIDIAN CRASH: %lx %lx %lx %lx %lx\n",
+        gprintk(XENLOG_WARNING, "reported CRASH: %lx %lx %lx %lx %lx\n",
                 vv->crash_param[0], vv->crash_param[1], vv->crash_param[2],
                 vv->crash_param[3], vv->crash_param[4]);
         break;
