@@ -252,5 +252,7 @@ void guest_mask_msi_irq(struct irq_desc *, bool mask);
 void ack_nonmaskable_msi_irq(struct irq_desc *);
 void end_nonmaskable_msi_irq(struct irq_desc *, u8 vector);
 void set_msi_affinity(struct irq_desc *, const cpumask_t *);
+int msi_control(struct pci_dev *pdev, bool msix, bool enable);
+int intx_control(struct pci_dev *pdev, bool enable);
 
 #endif /* __ASM_MSI_H */

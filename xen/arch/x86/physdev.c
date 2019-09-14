@@ -662,6 +662,59 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         break;
     }
 
+    case PHYSDEVOP_interrupt_control: {
+        struct physdev_interrupt_control op;
+        struct pci_dev *pdev;
+        int intr_type;
+        bool enable;
+
+        ret = -EFAULT;
+        if ( copy_from_guest(&op, arg, 1) )
+            break;
+
+        ret = -EINVAL;
+        if ( op.flags & ~(PHYSDEVOP_INTERRUPT_CONTROL_TYPE_MASK |
+                          PHYSDEVOP_INTERRUPT_CONTROL_ENABLE) )
+            break;
+
+        intr_type = op.flags & PHYSDEVOP_INTERRUPT_CONTROL_TYPE_MASK;
+        enable = op.flags & PHYSDEVOP_INTERRUPT_CONTROL_ENABLE;
+
+        pcidevs_lock();
+        pdev = pci_get_pdev(op.seg, op.bus, op.devfn);
+        ret = -ENODEV;
+        /* explicitly exclude hidden devices */
+        if ( !pdev || pdev->domain == dom_xen )
+            goto pci_unlock;
+
+        ret = xsm_interrupt_control(XSM_DM_PRIV,
+                                    pdev->domain,
+                                    pdev->sbdf.sbdf,
+                                    intr_type,
+                                    enable);
+        if ( ret )
+            goto pci_unlock;
+
+        switch ( intr_type )
+        {
+            case PHYSDEVOP_INTERRUPT_CONTROL_INTX:
+                ret = intx_control(pdev, enable);
+                break;
+            case PHYSDEVOP_INTERRUPT_CONTROL_MSI:
+                ret = msi_control(pdev, false, enable);
+                break;
+            case PHYSDEVOP_INTERRUPT_CONTROL_MSIX:
+                ret = msi_control(pdev, true, enable);
+                break;
+            default:
+                ret = -EINVAL;
+                break;
+        }
+pci_unlock:
+        pcidevs_unlock();
+        break;
+    }
+
     default:
         ret = -ENOSYS;
         break;

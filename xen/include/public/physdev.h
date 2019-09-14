@@ -341,6 +341,29 @@ typedef struct physdev_dbgp_op physdev_dbgp_op_t;
 DEFINE_XEN_GUEST_HANDLE(physdev_dbgp_op_t);
 
 /*
+ * Choose which interrupt type to control. If neither MSI nor MSI-X is chosen,
+ * will apply to INTx - for convenience define PHYSDEVOP_INTERRUPT_CONTROL_INTX
+ * and PHYSDEVOP_INTERRUPT_CONTROL_TYPE_MASK
+ */
+#define PHYSDEVOP_INTERRUPT_CONTROL_TYPE_MASK 3
+#define PHYSDEVOP_INTERRUPT_CONTROL_INTX      0
+#define PHYSDEVOP_INTERRUPT_CONTROL_MSI       1
+#define PHYSDEVOP_INTERRUPT_CONTROL_MSIX      2
+/* when PHYSDEVOP_INTERRUPT_CONTROL_ENABLE not set, disable */
+#define PHYSDEVOP_INTERRUPT_CONTROL_ENABLE    4
+
+#define PHYSDEVOP_interrupt_control   32
+struct physdev_interrupt_control {
+    /* IN */
+    uint16_t seg;
+    uint8_t bus;
+    uint8_t devfn;
+    uint16_t flags;
+};
+typedef struct physdev_interrupt_control physdev_interrupt_control_t;
+DEFINE_XEN_GUEST_HANDLE(physdev_interrupt_control_t);
+
+/*
  * Notify that some PIRQ-bound event channels have been unmasked.
  * ** This command is obsolete since interface version 0x00030202 and is **
  * ** unsupported by newer versions of Xen.                              **

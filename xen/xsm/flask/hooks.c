@@ -1080,6 +1080,29 @@ static int flask_pci_config_permission(struct domain *d, uint32_t machine_bdf, u
 
 }
 
+static int flask_interrupt_control(struct domain *d, uint32_t machine_bdf, uint8_t type, uint8_t enable)
+{
+    uint32_t dsid, rsid;
+    int rc = -EPERM;
+    struct avc_audit_data ad;
+    uint32_t perm;
+
+    AVC_AUDIT_DATA_INIT(&ad, DEV);
+    ad.device = machine_bdf;
+
+    rc = security_device_sid(machine_bdf, &rsid);
+    if ( rc )
+        return rc;
+
+    rc = avc_current_has_perm(rsid, SECCLASS_RESOURCE, RESOURCE__SETUP, &ad);
+    if ( rc )
+        return rc;
+
+    perm = flask_iommu_resource_use_perm();
+    dsid = domain_sid(d);
+    return avc_has_perm(dsid, rsid, SECCLASS_RESOURCE, perm, &ad);
+}
+
 static int flask_resource_plug_core(void)
 {
     return avc_current_has_perm(SECINITSID_DOMXEN, SECCLASS_RESOURCE, RESOURCE__PLUG, NULL);
@@ -1797,6 +1820,7 @@ static struct xsm_operations flask_ops = {
     .iomem_permission = flask_iomem_permission,
     .iomem_mapping = flask_iomem_mapping,
     .pci_config_permission = flask_pci_config_permission,
+    .interrupt_control = flask_interrupt_control,
 
     .resource_plug_core = flask_resource_plug_core,
     .resource_unplug_core = flask_resource_unplug_core,

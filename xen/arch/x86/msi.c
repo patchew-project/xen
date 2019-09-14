@@ -1443,6 +1443,51 @@ int pci_restore_msi_state(struct pci_dev *pdev)
     return 0;
 }
 
+int msi_control(struct pci_dev *pdev, bool msix, bool enable)
+{
+    unsigned int cap = msix ? PCI_CAP_ID_MSIX : PCI_CAP_ID_MSI;
+    unsigned int other_cap = msix ? PCI_CAP_ID_MSI : PCI_CAP_ID_MSIX;
+    uint16_t cmd;
+
+    if ( !use_msi )
+        return -EOPNOTSUPP;
+
+    if ( !pci_find_cap_offset(pdev->seg,
+                              pdev->bus,
+                              PCI_SLOT(pdev->devfn),
+                              PCI_FUNC(pdev->devfn),
+                              cap) )
+        return -ENODEV;
+
+    cmd = pci_conf_read16(pdev->sbdf, PCI_COMMAND);
+
+    /* don't allow enabling MSI(-X) and INTx at the same time */
+    if ( enable && ! (cmd & PCI_COMMAND_INTX_DISABLE) )
+        return -EBUSY;
+
+    /* don't allow enabling both MSI and MSI-X at the same time */
+    if ( enable && find_msi_entry(pdev, -1, other_cap) )
+        return -EBUSY;
+
+    if ( msix )
+        msix_set_enable(pdev, enable);
+    else
+        msi_set_enable(pdev, enable);
+
+    return 0;
+}
+
+int intx_control(struct pci_dev *pdev, bool enable)
+{
+    /* don't allow enabling INTx if MSI(-X) is already enabled */
+    if ( enable && find_msi_entry(pdev, -1, PCI_CAP_ID_MSI) )
+        return -EBUSY;
+    if ( enable && find_msi_entry(pdev, -1, PCI_CAP_ID_MSIX) )
+        return -EBUSY;
+    pci_intx(pdev, enable);
+    return 0;
+}
+
 void __init early_msi_init(void)
 {
     if ( use_msi < 0 )

@@ -76,6 +76,10 @@ CHECK_physdev_pci_device_add
 CHECK_physdev_pci_device
 #undef xen_physdev_pci_device
 
+#define xen_physdev_interrupt_control physdev_interrupt_control
+CHECK_physdev_interrupt_control
+#undef xen_physdev_interrupt_control
+
 #define COMPAT
 #undef guest_handle_okay
 #define guest_handle_okay          compat_handle_okay

@@ -465,6 +465,7 @@ class resource
 # checked for PHYSDEVOP_restore_msi* (target PCI device)
 # checked for PHYSDEVOP_setup_gsi (target IRQ)
 # checked for PHYSDEVOP_pci_mmcfg_reserved (target xen_t)
+# checked for PHYSDEVOP_interrupt_control (target PCI device)
     setup
 }
 

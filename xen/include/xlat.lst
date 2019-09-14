@@ -104,6 +104,7 @@
 !	vnuma_topology_info		memory.h
 ?	physdev_eoi			physdev.h
 ?	physdev_get_free_pirq		physdev.h
+?	physdev_interrupt_control	physdev.h
 ?	physdev_irq			physdev.h
 ?	physdev_irq_status_query	physdev.h
 ?	physdev_manage_pci		physdev.h
