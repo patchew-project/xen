@@ -111,3 +111,18 @@ int xc_physdev_unmap_pirq(xc_interface *xch,
     return rc;
 }
 
+int xc_physdev_interrupt_control(xc_interface *xch,
+                                 int seg,
+                                 int bus,
+                                 int devfn,
+                                 int flags)
+{
+    struct physdev_interrupt_control op = {
+        .seg = seg,
+        .bus = bus,
+        .devfn = devfn,
+        .flags = flags,
+    };
+
+    return do_physdev_op(xch, PHYSDEVOP_interrupt_control, &op, sizeof(op));
+}
