@@ -1191,6 +1191,7 @@ int libxl__device_pci_add(libxl__gc *gc, uint32_t domid, libxl_device_pci *pcide
 {
     libxl_ctx *ctx = libxl__gc_owner(gc);
     unsigned int orig_vdev, pfunc_mask;
+    char *be_path;
     libxl_device_pci *assigned;
     int num_assigned, i, rc;
     int stubdomid = 0;
@@ -1244,6 +1245,14 @@ int libxl__device_pci_add(libxl__gc *gc, uint32_t domid, libxl_device_pci *pcide
         /* stubdomain is always running by now, even at create time */
         rc = do_pci_add(gc, stubdomid, &pcidev_s, 0);
         if ( rc )
+            goto out;
+        /* Wait for the device actually being connected, otherwise device model
+         * running there will fail to find the device. */
+        be_path = libxl__sprintf(gc, "%s/backend/pci/%d/0",
+                                 libxl__xs_get_dompath(gc, 0), stubdomid);
+        rc = libxl__wait_for_backend(gc, be_path,
+                                     GCSPRINTF("%d", XenbusStateConnected));
+        if (rc)
             goto out;
     }
 
