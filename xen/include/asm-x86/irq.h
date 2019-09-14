@@ -45,6 +45,11 @@ struct arch_irq_desc {
         unsigned move_cleanup_count;
         u8 move_in_progress : 1;
         s8 used;
+        /*
+         * weak reference to domain having permission over this IRQ (which can
+         * be different from the domain actually havint the IRQ assigned)
+         */
+        domid_t creator_domid;
 };
 
 /* For use with irq_desc.arch.used */
@@ -161,7 +166,7 @@ int  init_irq_data(void);
 void clear_irq_vector(int irq);
 
 int irq_to_vector(int irq);
-int create_irq(nodeid_t node);
+int create_irq(nodeid_t node, struct domain *d);
 void destroy_irq(unsigned int irq);
 int assign_irq_vector(int irq, const cpumask_t *);
 
