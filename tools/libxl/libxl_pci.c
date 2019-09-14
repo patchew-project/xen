@@ -120,10 +120,14 @@ static int libxl__device_pci_add_xenstore(libxl__gc *gc, uint32_t domid, libxl_d
     libxl_domain_config d_config;
     libxl_device_pci pcidev_saved;
     libxl__domain_userdata_lock *lock = NULL;
+    bool is_stubdomain = libxl_is_stubdom(CTX, domid, NULL);
 
-    libxl_domain_config_init(&d_config);
-    libxl_device_pci_init(&pcidev_saved);
-    libxl_device_pci_copy(CTX, &pcidev_saved, pcidev);
+    /* Stubdomain doesn't have own config. */
+    if (!is_stubdomain) {
+        libxl_domain_config_init(&d_config);
+        libxl_device_pci_init(&pcidev_saved);
+        libxl_device_pci_copy(CTX, &pcidev_saved, pcidev);
+    }
 
     be_path = libxl__domain_device_backend_path(gc, 0, domid, 0,
                                                 LIBXL__DEVICE_KIND_PCI);
@@ -152,27 +156,35 @@ static int libxl__device_pci_add_xenstore(libxl__gc *gc, uint32_t domid, libxl_d
     GCNEW(device);
     libxl__device_from_pcidev(gc, domid, pcidev, device);
 
-    lock = libxl__lock_domain_userdata(gc, domid);
-    if (!lock) {
-        rc = ERROR_LOCK_FAIL;
-        goto out;
+    /* 
+     * Stubdomin config is derived from its target domain, it doesn't have
+     * its own file.
+     */
+    if (!is_stubdomain) {
+        lock = libxl__lock_domain_userdata(gc, domid);
+        if (!lock) {
+            rc = ERROR_LOCK_FAIL;
+            goto out;
+        }
+
+        rc = libxl__get_domain_configuration(gc, domid, &d_config);
+        if (rc) goto out;
+
+        device_add_domain_config(gc, &d_config, &libxl__pcidev_devtype,
+                                 &pcidev_saved);
+
+        rc = libxl__dm_check_start(gc, &d_config, domid);
+        if (rc) goto out;
     }
-
-    rc = libxl__get_domain_configuration(gc, domid, &d_config);
-    if (rc) goto out;
-
-    device_add_domain_config(gc, &d_config, &libxl__pcidev_devtype,
-                             &pcidev_saved);
-
-    rc = libxl__dm_check_start(gc, &d_config, domid);
-    if (rc) goto out;
 
     for (;;) {
         rc = libxl__xs_transaction_start(gc, &t);
         if (rc) goto out;
 
-        rc = libxl__set_domain_configuration(gc, domid, &d_config);
-        if (rc) goto out;
+        if (lock) {
+            rc = libxl__set_domain_configuration(gc, domid, &d_config);
+            if (rc) goto out;
+        }
 
         libxl__xs_writev(gc, t, be_path, libxl__xs_kvs_of_flexarray(gc, back));
 
@@ -184,8 +196,10 @@ static int libxl__device_pci_add_xenstore(libxl__gc *gc, uint32_t domid, libxl_d
 out:
     libxl__xs_transaction_abort(gc, &t);
     if (lock) libxl__unlock_domain_userdata(lock);
-    libxl_device_pci_dispose(&pcidev_saved);
-    libxl_domain_config_dispose(&d_config);
+    if (!is_stubdomain) {
+        libxl_device_pci_dispose(&pcidev_saved);
+        libxl_domain_config_dispose(&d_config);
+    }
     return rc;
 }
 
