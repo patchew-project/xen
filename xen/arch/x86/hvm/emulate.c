@@ -548,6 +548,7 @@ static void *hvmemul_map_linear_addr(
     unsigned int nr_frames = ((linear + bytes - !!bytes) >> PAGE_SHIFT) -
         (linear >> PAGE_SHIFT) + 1;
     unsigned int i;
+    gfn_t gfn;
 
     /*
      * mfn points to the next free slot.  All used slots have a page reference
@@ -582,7 +583,7 @@ static void *hvmemul_map_linear_addr(
         ASSERT(mfn_x(*mfn) == 0);
 
         res = hvm_translate_get_page(curr, addr, true, pfec,
-                                     &pfinfo, &page, NULL, &p2mt);
+                                     &pfinfo, &page, &gfn, &p2mt);
 
         switch ( res )
         {
@@ -625,6 +626,14 @@ static void *hvmemul_map_linear_addr(
             }
 
             ASSERT(p2mt == p2m_ram_logdirty || !p2m_is_readonly(p2mt));
+        }
+
+        if ( unlikely(curr->arch.vm_event) &&
+             curr->arch.vm_event->send_event &&
+             hvm_monitor_check_p2m(addr, gfn, pfec, npfec_kind_with_gla) )
+        {
+            err = ERR_PTR(~X86EMUL_RETRY);
+            goto out;
         }
     }
 
