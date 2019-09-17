@@ -950,11 +950,31 @@ static int create_xen_table(lpae_t *entry)
 
 static lpae_t *xen_map_table(mfn_t mfn)
 {
+    /*
+     * We may require to map the page table before map_domain_page() is
+     * useable. The requirements here is it must be useable as soon as
+     * page-tables are allocated dynamically via alloc_boot_pages().
+     */
+    if ( system_state == SYS_STATE_early_boot )
+    {
+        vaddr_t va = mfn_to_maddr(mfn) - phys_offset;
+
+        if ( is_kernel(va) )
+            return (lpae_t *)va;
+    }
+
     return map_domain_page(mfn);
 }
 
 static void xen_unmap_table(const lpae_t *table)
 {
+    /*
+     * During early boot, xen_map_table() will not use map_domain_page()
+     * for page-tables residing in Xen binary. So skip the unmap part.
+     */
+    if ( system_state == SYS_STATE_early_boot && is_kernel(table) )
+        return;
+
     unmap_domain_page(table);
 }
 
