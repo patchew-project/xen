@@ -1,5 +1,5 @@
 /******************************************************************************
- * asm-x86/guest.h
+ * asm-x86/guest/hypervisor.h
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms and conditions of the GNU General Public
@@ -12,20 +12,40 @@
  *
  * You should have received a copy of the GNU General Public
  * License along with this program; If not, see <http://www.gnu.org/licenses/>.
- *
- * Copyright (c) 2017 Citrix Systems Ltd.
  */
 
-#ifndef __X86_GUEST_H__
-#define __X86_GUEST_H__
+#ifndef __X86_GUEST_HYPERVISOR_H__
+#define __X86_GUEST_HYPERVISOR_H__
 
-#include <asm/guest/hypercall.h>
-#include <asm/guest/hypervisor.h>
-#include <asm/guest/pvh-boot.h>
-#include <asm/guest/xen.h>
-#include <asm/pv/shim.h>
+#ifdef CONFIG_GUEST
 
-#endif /* __X86_GUEST_H__ */
+#include <xen/mm.h>
+
+void probe_hypervisor(void);
+void hypervisor_setup(void);
+void hypervisor_ap_setup(void);
+int hypervisor_alloc_unused_page(mfn_t *mfn);
+int hypervisor_free_unused_page(mfn_t mfn);
+uint32_t hypervisor_cpuid_base(void);
+void hypervisor_resume(void);
+
+#else
+
+#include <xen/lib.h>
+
+static inline void probe_hypervisor(void) {}
+
+static inline void hypervisor_setup(void)
+{
+    ASSERT_UNREACHABLE();
+}
+static inline void hypervisor_ap_setup(void)
+{
+    ASSERT_UNREACHABLE();
+}
+
+#endif /* CONFIG_GUEST */
+#endif /* __X86_GUEST_HYPERVISOR_H__ */
 
 /*
  * Local variables:
