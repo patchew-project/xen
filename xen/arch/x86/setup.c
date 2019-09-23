@@ -789,6 +789,17 @@ void __init noreturn __start_xen(unsigned long mbi_p)
 
     printk("Xen image load base address: %#lx\n", xen_phys_start);
 
+#ifdef CONFIG_GUEST
+#ifdef CONFIG_XEN_GUEST
+    if ( xen_guest )
+        printk("Running on Xen hypervisor\n");
+#endif
+#ifdef CONFIG_HYPERV_GUEST
+    if ( hyperv_guest )
+        printk("Running on Hyper-V\n");
+#endif
+#endif
+
 #ifdef CONFIG_VIDEO
     printk("Video information:\n");
 
