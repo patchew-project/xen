@@ -67,7 +67,7 @@ static void __init find_xen_leaves(void)
     }
 }
 
-void __init probe_hypervisor(void)
+static void __init probe_xen(void)
 {
     if ( xen_guest )
         return;
@@ -85,6 +85,11 @@ void __init probe_hypervisor(void)
     wrmsrl(cpuid_ebx(xen_cpuid_base + 2), __pa(hypercall_page));
 
     xen_guest = true;
+}
+
+void __init probe_hypervisor(void)
+{
+    probe_xen();
 }
 
 static void map_shared_info(void)
@@ -249,10 +254,8 @@ static void init_evtchn(void)
     }
 }
 
-void __init hypervisor_setup(void)
+static void __init xen_setup(void)
 {
-    init_memmap();
-
     map_shared_info();
 
     set_vcpu_id();
@@ -277,11 +280,23 @@ void __init hypervisor_setup(void)
     init_evtchn();
 }
 
-void hypervisor_ap_setup(void)
+void __init hypervisor_setup(void)
+{
+    init_memmap();
+
+    xen_setup();
+}
+
+static void xen_ap_setup(void)
 {
     set_vcpu_id();
     map_vcpuinfo();
     init_evtchn();
+}
+
+void hypervisor_ap_setup(void)
+{
+    xen_ap_setup();
 }
 
 int hypervisor_alloc_unused_page(mfn_t *mfn)
@@ -307,7 +322,7 @@ static void ap_resume(void *unused)
     init_evtchn();
 }
 
-void hypervisor_resume(void)
+static void xen_resume(void)
 {
     /* Reset shared info page. */
     map_shared_info();
@@ -328,6 +343,11 @@ void hypervisor_resume(void)
 
     if ( pv_console )
         pv_console_init();
+}
+
+void hypervisor_resume(void)
+{
+    xen_resume();
 }
 
 /*
