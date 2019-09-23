@@ -66,20 +66,21 @@ static void __init find_xen_leaves(void)
     }
 }
 
-void __init probe_xen(void)
+bool __init probe_xen(void)
 {
     if ( xen_guest )
-        return;
+        return true;
 
     find_xen_leaves();
 
     if ( !xen_cpuid_base )
-        return;
+        return false;
 
     /* Fill the hypercall page. */
     wrmsrl(cpuid_ebx(xen_cpuid_base + 2), __pa(hypercall_page));
 
     xen_guest = true;
+    return true;
 }
 
 static void map_shared_info(void)

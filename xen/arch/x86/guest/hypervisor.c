@@ -34,7 +34,10 @@ void __init probe_hypervisor(void)
     if ( !(cpuid_ecx(1) & cpufeat_mask(X86_FEATURE_HYPERVISOR)) )
         return;
 
-    probe_xen();
+    if ( probe_xen() )
+        return;
+
+    /* Hyper-V probing to follow. */
 }
 
 static void __init init_memmap(void)

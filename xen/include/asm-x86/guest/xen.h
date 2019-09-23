@@ -32,7 +32,7 @@ extern bool xen_guest;
 extern bool pv_console;
 extern uint32_t xen_cpuid_base;
 
-void probe_xen(void);
+bool probe_xen(void);
 void xen_setup(void);
 void xen_ap_setup(void);
 void xen_resume(void);
@@ -45,7 +45,7 @@ DECLARE_PER_CPU(struct vcpu_info *, vcpu_info);
 #define xen_guest 0
 #define pv_console 0
 
-static inline void probe_xen(void) {}
+static inline bool probe_xen(void) { return false; }
 
 #endif /* CONFIG_XEN_GUEST */
 #endif /* __X86_GUEST_XEN_H__ */
