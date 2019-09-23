@@ -37,7 +37,8 @@ void __init probe_hypervisor(void)
     if ( probe_xen() )
         return;
 
-    /* Hyper-V probing to follow. */
+    if ( probe_hyperv() )
+        return;
 }
 
 static void __init init_memmap(void)
