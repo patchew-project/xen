@@ -23,6 +23,8 @@
 
 #include <xen/types.h>
 
+#include <asm/asm_defns.h>
+
 #include <public/xen.h>
 #include <public/sched.h>
 #include <public/hvm/hvm_op.h>
