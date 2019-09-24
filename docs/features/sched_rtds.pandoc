@@ -101,7 +101,7 @@ at a macroscopic level), the following should be done:
 
 # Known issues
 
-* OSSTest reports occasional failures on ARM.
+* OSSTest reports occasional failures on Arm.
 
 # References
 

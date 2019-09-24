@@ -8,7 +8,7 @@ so some extra steps are required to collect and process the data.
 
 .. warning::
 
-  ARM doesn't currently boot when the final binary exceeds 2MB in size,
+  Arm doesn't currently boot when the final binary exceeds 2MB in size,
   and the coverage build tends to exceed this limit.
 
 

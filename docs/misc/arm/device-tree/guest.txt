@@ -1,6 +1,6 @@
 * Xen hypervisor device tree bindings
 
-Xen ARM virtual platforms shall have a top-level "hypervisor" node with
+Xen Arm virtual platforms shall have a top-level "hypervisor" node with
 the following properties:
 
 - compatible:
@@ -17,7 +17,7 @@ the following properties:
   A GIC node is also required.
   This property is unnecessary when booting Dom0 using ACPI.
 
-To support UEFI on Xen ARM virtual platforms, Xen populates the FDT "uefi" node
+To support UEFI on Xen Arm virtual platforms, Xen populates the FDT "uefi" node
 under /hypervisor with following parameters:
 
 ________________________________________________________________________________

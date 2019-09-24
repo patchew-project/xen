@@ -313,7 +313,7 @@ The size of the structure is 64 bytes on 64-bit hypervisors. It will be
     the new function (which will replace the one at `old_addr`) in bytes.
    * If the value of `new_addr` is zero then `new_size` determines how many
     instruction bytes to NOP (up to opaque size modulo smallest platform
-    instruction - 1 byte x86 and 4 bytes on ARM).
+    instruction - 1 byte x86 and 4 bytes on Arm).
  * `version` is to be one.
  * `opaque` **MUST** be zero.
 
@@ -1091,7 +1091,7 @@ that in the hypervisor is advised.
 The tool for generating payloads currently does perform a compile-time
 check to ensure that the function to be replaced is large enough.
 
-#### Trampoline, ARM
+#### Trampoline, Arm
 
 The unconditional branch instruction (for the encoding see the
 DDI 0406C.c and DDI 0487A.j Architecture Reference Manual's).
@@ -1099,8 +1099,8 @@ with proper offset is used for an unconditional branch to the new code.
 This means that that `old_size` **MUST** be at least four bytes if patching
 in trampoline.
 
-The instruction offset is limited on ARM32 to +/- 32MB to displacement
-and on ARM64 to +/- 128MB displacement.
+The instruction offset is limited on Arm32 to +/- 32MB to displacement
+and on Arm64 to +/- 128MB displacement.
 
 The new code is placed in the 8M - 10M virtual address space while the
 Xen code is in 2M - 4M. That gives us enough space.

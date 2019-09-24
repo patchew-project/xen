@@ -31,11 +31,11 @@ supported in this document.
 
     Status: Supported
 
-### ARM v7 + Virtualization Extensions
+### Arm v7 + Virtualization Extensions
 
     Status: Supported
 
-### ARM v8
+### Arm v8
 
     Status: Supported
 
@@ -52,7 +52,7 @@ supported in this document.
 ### Host ACPI (via Domain 0)
 
     Status, x86 PV: Supported
-    Status, ARM: Experimental
+    Status, Arm: Experimental
 
 ### x86/Intel Platform QoS Technologies
 
@@ -62,10 +62,10 @@ supported in this document.
 
     Status, AMD IOMMU: Supported
     Status, Intel VT-d: Supported
-    Status, ARM SMMUv1: Supported
-    Status, ARM SMMUv2: Supported
+    Status, Arm SMMUv1: Supported
+    Status, Arm SMMUv2: Supported
 
-### ARM/GICv3 ITS
+### Arm/GICv3 ITS
 
 Extension to the GICv3 interrupt controller to support MSI.
 
@@ -102,9 +102,9 @@ Dom0 support requires an IOMMU (Intel VT-d / AMD IOMMU).
     Status, domU: Supported
     Status, dom0: Experimental
 
-### ARM
+### Arm
 
-ARM only has one guest type at the moment
+Arm only has one guest type at the moment
 
     Status: Supported
 
@@ -119,8 +119,8 @@ ARM only has one guest type at the moment
 Format which the toolstack accepts for direct-boot kernels
 
     Supported, x86: bzImage, ELF
-    Supported, ARM32: zImage
-    Supported, ARM64: Image
+    Supported, Arm32: zImage
+    Supported, Arm64: Image
 
 ### Dom0 init support for xl
 
@@ -158,10 +158,10 @@ Output of information in machine-parseable JSON format
 
     Status, NS16550: Supported
     Status, EHCI: Supported
-    Status, Cadence UART (ARM): Supported
-    Status, PL011 UART (ARM): Supported
-    Status, Exynos 4210 UART (ARM): Supported
-    Status, OMAP UART (ARM): Supported
+    Status, Cadence UART (Arm): Supported
+    Status, PL011 UART (Arm): Supported
+    Status, Exynos 4210 UART (Arm): Supported
+    Status, OMAP UART (Arm): Supported
     Status, SCI(F) UART: Supported
 
 ### Hypervisor 'debug keys'
@@ -242,7 +242,7 @@ Alternative p2m (altp2m) allows external monitoring of guest memory
 by maintaining multiple physical to machine (p2m) memory mappings.
 
     Status, x86 HVM: Tech Preview
-    Status, ARM: Tech Preview
+    Status, Arm: Tech Preview
 
 ## Resource Management
 
@@ -305,15 +305,15 @@ Enables NUMA aware scheduling in Xen
 NB that this refers to the ability of guests
 to have higher-level page table entries point directly to memory,
 improving TLB performance.
-On ARM, and on x86 in HAP mode,
+On Arm, and on x86 in HAP mode,
 the guest has whatever support is enabled by the hardware.
 
 This feature is independent
-of the ARM "page granularity" feature (see below).
+of the Arm "page granularity" feature (see below).
 
     Status, x86 HVM/PVH, HAP: Supported
     Status, x86 HVM/PVH, Shadow, 2MiB: Supported
-    Status, ARM: Supported
+    Status, Arm: Supported
 
 On x86 in shadow mode, only 2MiB (L2) superpages are available;
 furthermore, they do not have the performance characteristics
@@ -545,9 +545,9 @@ be issued an XSA, since that does weaken security.
 ### Live Patching
 
     Status, x86: Supported
-    Status, ARM: Experimental
+    Status, Arm: Experimental
 
-Compile time disabled for ARM by default.
+Compile time disabled for Arm by default.
 
 ### Virtual Machine Introspection
 
@@ -639,24 +639,24 @@ to be used in addition to QEMU.
 
 	Status: Experimental
 
-### ARM/Non-PCI device passthrough
+### Arm/Non-PCI device passthrough
 
     Status: Supported, not security supported
 
 Note that this still requires an IOMMU
 that covers the DMA of the device to be passed through.
 
-### ARM: 16K and 64K page granularity in guests
+### Arm: 16K and 64K page granularity in guests
 
     Status: Supported, with caveats
 
 No support for QEMU backends in a 16K or 64K domain.
 
-### ARM: Guest Device Tree support
+### Arm: Guest Device Tree support
 
     Status: Supported
 
-### ARM: Guest ACPI support
+### Arm: Guest ACPI support
 
     Status: Supported
 
@@ -762,7 +762,7 @@ including security support status, functional completeness, etc.
 Refer to the detailed definitions below.
 
 If support differs based on implementation
-(for instance, x86 / ARM, Linux / QEMU / FreeBSD),
+(for instance, x86 / Arm, Linux / QEMU / FreeBSD),
 one line for each set of implementations will be listed.
 
 ## Definition of Status labels

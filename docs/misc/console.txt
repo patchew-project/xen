@@ -23,7 +23,7 @@ The virtual UART console path in xenstore is defined as:
 
 /local/domain/$DOMID/vuart/0
 
-The vuart console provides access to a virtual SBSA UART on ARM systems.
+The vuart console provides access to a virtual SBSA UART on Arm systems.
 To enable vuart the following line has to be added to the guest configuration
 file:
 

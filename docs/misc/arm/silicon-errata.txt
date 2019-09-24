@@ -3,7 +3,7 @@
 
 It is an unfortunate fact of life that hardware is often produced with
 so-called "errata", which can cause it to deviate from the architecture
-under specific circumstances.  For hardware produced by ARM, these
+under specific circumstances.  For hardware produced by Arm, these
 errata are broadly classified into the following categories:
 
   Category A: A critical error without a viable workaround.
@@ -29,7 +29,7 @@ For software workarounds that may adversely impact systems unaffected by
 the erratum in question, a Kconfig entry is added under "ARM errata
 workarounds via the alternatives framework". These are enabled by default
 and patched in at runtime when an affected CPU is detected. Note that
-runtime patching is only supported on ARM64. For less-intrusive workarounds,
+runtime patching is only supported on Arm64. For less-intrusive workarounds,
 a Kconfig option is not available and the code is structured (preferably
 with a comment) in such a way that the erratum will not be hit.
 
@@ -41,14 +41,14 @@ stable hypervisors.
 
 | Implementor    | Component       | Erratum ID      | Kconfig                 |
 +----------------+-----------------+-----------------+-------------------------+
-| ARM            | Cortex-A15      | #766422         | N/A                     |
-| ARM            | Cortex-A53      | #827319         | ARM64_ERRATUM_827319    |
-| ARM            | Cortex-A53      | #824069         | ARM64_ERRATUM_824069    |
-| ARM            | Cortex-A53      | #819472         | ARM64_ERRATUM_819472    |
-| ARM            | Cortex-A57      | #852523         | N/A                     |
-| ARM            | Cortex-A57      | #832075         | ARM64_ERRATUM_832075    |
-| ARM            | Cortex-A57      | #834220         | ARM64_ERRATUM_834220    |
-| ARM            | Cortex-A57      | #1319537        | N/A                     |
-| ARM            | Cortex-A72      | #1319367        | N/A                     |
-| ARM            | Cortex-A76      | #1165522        | N/A                     |
-| ARM            | MMU-500         | #842869         | N/A                     |
+| Arm            | Cortex-A15      | #766422         | N/A                     |
+| Arm            | Cortex-A53      | #827319         | ARM64_ERRATUM_827319    |
+| Arm            | Cortex-A53      | #824069         | ARM64_ERRATUM_824069    |
+| Arm            | Cortex-A53      | #819472         | ARM64_ERRATUM_819472    |
+| Arm            | Cortex-A57      | #852523         | N/A                     |
+| Arm            | Cortex-A57      | #832075         | ARM64_ERRATUM_832075    |
+| Arm            | Cortex-A57      | #834220         | ARM64_ERRATUM_834220    |
+| Arm            | Cortex-A57      | #1319537        | N/A                     |
+| Arm            | Cortex-A72      | #1319367        | N/A                     |
+| Arm            | Cortex-A76      | #1165522        | N/A                     |
+| Arm            | MMU-500         | #842869         | N/A                     |

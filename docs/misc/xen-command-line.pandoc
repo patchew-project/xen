@@ -710,7 +710,7 @@ Controls for the dom0 IOMMU setup.
     available by fully disabling all IOMMUs.
 
     This option is hardwired to false for x86 PVH dom0's (where a non-identity
-    transform is required for dom0 to function), and is ignored for ARM.
+    transform is required for dom0 to function), and is ignored for Arm.
 
 *   The `strict` boolean is applicable to x86 PV dom0's only and defaults to
     false.  It controls whether dom0 can have IOMMU mappings for all domain
@@ -718,7 +718,7 @@ Controls for the dom0 IOMMU setup.
 
     This option is hardwired to true for x86 PVH dom0's (as RAM belonging to
     other domains in the system don't live in a compatible address space), and
-    is ignored for ARM.
+    is ignored for Arm.
 
 *   The `map-inclusive` boolean is applicable to x86 PV dom0's, and sets up
     identity IOMMU mappings for all non-RAM regions below 4GB except for
@@ -784,7 +784,7 @@ For example, with `dom0_max_vcpus=4-8`:
 >      8    |  8
 >     10    |  8
 
-### dom0_mem (ARM)
+### dom0_mem (Arm)
 > `= <size>`
 
 Set the amount of memory for the initial domain (dom0). It must be
@@ -849,7 +849,7 @@ affinities to prefer but be not limited to the specified node(s).
 
 Pin dom0 vcpus to their respective pcpus
 
-### dtuart (ARM)
+### dtuart (Arm)
 > `= path [:options]`
 
 > Default: `""`
@@ -1017,7 +1017,7 @@ version are 1 and 2.
 use of grant table v2 without transitive grants is an ABI breakage from the
 guests point of view.
 
-The usage of gnttab v2 is not security supported on ARM platforms.
+The usage of gnttab v2 is not security supported on Arm platforms.
 
 ### gnttab_max_frames
 > `= <integer>`
@@ -1225,7 +1225,7 @@ boolean (e.g. `iommu=no`) can override this and leave the IOMMUs disabled.
     hardware, and this option is ignored.  It is enabled by default on Intel
     systems.
 
-    This option is ignored on ARM, and the pagetables are always shared.
+    This option is ignored on Arm, and the pagetables are always shared.
 
 *   The `intremap` boolean controls the Interrupt Remapping sub-feature, and
     is active by default on compatible hardware.  On x86 systems, the first
@@ -1390,7 +1390,7 @@ based interrupts. Any higher IRQs will be available for use via PCI MSI.
 ### max_lpi_bits (arm)
 > `= <integer>`
 
-Specifies the number of ARM GICv3 LPI interrupts to allocate on the host,
+Specifies the number of Arm GICv3 LPI interrupts to allocate on the host,
 presented as the number of bits needed to encode it. This must be at least
 14 and not exceed 32, and each LPI requires one byte (configuration) and
 one pending bit to be allocated.
@@ -1417,7 +1417,7 @@ limit is ignored by Xen.
 > `= [<domU>][,[<ctldom>][,[<hwdom>][,<ptdom>]]]`
 
 > x86 default: `9,18,12,12`
-> ARM default: `9,18,10,10`
+> Arm default: `9,18,10,10`
 
 Change the maximum order permitted for allocation (or allocation-like)
 requests issued by the various kinds of domains (in this order:
@@ -1804,7 +1804,7 @@ accidentally leaking secrets by releasing pages without proper sanitization.
 
 Set the serial transmit buffer size.
 
-### serrors (ARM)
+### serrors (Arm)
 > `= diverse | forward | panic`
 
 > Default: `diverse`
@@ -2184,8 +2184,8 @@ production systems (see http://xenbits.xen.org/xsa/advisory-163.html)!
 
 > Default: `trap`
 
-WFI is the ARM instruction to "wait for interrupt". WFE is similar and
-means "wait for event". This option, which is ARM specific, changes the
+WFI is the Arm instruction to "wait for interrupt". WFE is similar and
+means "wait for event". This option, which is Arm specific, changes the
 way guest WFI and WFE are implemented in Xen. By default, Xen traps both
 instructions. In the case of WFI, Xen blocks the guest vcpu; in the case
 of WFE, Xen yield the guest vcpu. When setting vwfi to `native`, Xen

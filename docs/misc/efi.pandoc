@@ -103,7 +103,7 @@ Specifies a CPU microcode blob to load. (x86 only)
 Specifies a device tree file to load.  The platform firmware may provide a
 DTB in an EFI configuration table, so this field is optional in that
 case. A dtb specified in the configuration file will override a device tree
-provided in the EFI configuration table. (ARM only)
+provided in the EFI configuration table. (Arm only)
 
 ###`chain=<filename>`
 

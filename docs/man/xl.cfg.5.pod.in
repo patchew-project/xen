@@ -1259,7 +1259,7 @@ Guests use hypervisor resources for each event channel they use.
 The default of 1023 should be sufficient for typical guests.  The
 maximum value depends on what the guest supports.  Guests supporting the
 FIFO-based event channel ABI support up to 131,071 event channels.
-Other guests are limited to 4095 (64-bit x86 and ARM) or 1023 (32-bit
+Other guests are limited to 4095 (64-bit x86 and Arm) or 1023 (32-bit
 x86).
 
 =item B<vdispl=[ "VDISPL_SPEC_STRING", "VDISPL_SPEC_STRING", ...]>
@@ -1791,7 +1791,7 @@ the virtual firmware to the guest Operating System. ACPI is required
 by most modern guest Operating Systems. This option is enabled by
 default and usually you should omit it. However, it may be necessary to
 disable ACPI for compatibility with some guest Operating Systems.
-This option is true for x86 while it's false for ARM by default.
+This option is true for x86 while it's false for Arm by default.
 
 =item B<acpi_s3=BOOLEAN>
 
@@ -2707,7 +2707,7 @@ See B<qemu(1)> for more information.
 
 =head2 Architecture Specific options
 
-=head3 ARM
+=head3 Arm
 
 =over 4
 
@@ -2745,7 +2745,7 @@ VM config file:
 
 vuart = "sbsa_uart"
 
-Currently, only the "sbsa_uart" model is supported for ARM.
+Currently, only the "sbsa_uart" model is supported for Arm.
 
 =back
 

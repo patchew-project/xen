@@ -30,7 +30,7 @@ image used in Xen 4.4 and earlier (the _legacy format_).
 
 A new format that addresses the above is required.
 
-ARM does not yet have have a domain save image format specified and
+Arm does not yet have have a domain save image format specified and
 the format described in this specification should be suitable.
 
 Not Yet Included
@@ -41,7 +41,7 @@ included in a future draft.
 
 * Page data compression.
 
-* ARM
+* Arm
 
 
 Overview
@@ -162,7 +162,7 @@ type        0x0000: Reserved.
 
             0x0003: x86 PVH.
 
-            0x0004: ARM.
+            0x0004: Arm.
 
             0x0005 - 0xFFFFFFFF: Reserved.
 
