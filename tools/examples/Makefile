@@ -6,7 +6,6 @@ XEN_READMES = README
 
 XEN_CONFIGS += xlexample.hvm
 XEN_CONFIGS += xlexample.pvlinux
-XEN_CONFIGS += cpupool
 
 XEN_CONFIGS += $(XEN_CONFIGS-y)
 
