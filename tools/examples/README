@@ -26,7 +26,6 @@ xen-hotplug-common.sh - sourced by vif-common.sh
 xen-network-common.sh - sourced by vif-common.sh
 xen-script-common.sh  - sourced by xen-hotplug-common.sh
 oxenstored.conf     - configuration file for oxenstored
-xl.conf             - configuration file for xl
 xlexample.hvm       - a configuration script for creating a hvm domain with
                       'xl create'
 xlexample.pvlinux   - a configuration script for creating a pv domain with
