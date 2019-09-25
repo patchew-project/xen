@@ -512,6 +512,7 @@ mfn_t __get_gfn_type_access(struct p2m_domain *p2m, unsigned long gfn_l,
          */
         if ( mem_sharing_unshare_page(p2m->domain, gfn_l) < 0 )
             mem_sharing_notify_enomem(p2m->domain, gfn_l, false);
+
         mfn = p2m->get_entry(p2m, gfn, t, a, q, page_order, NULL);
     }
 
