@@ -26,6 +26,20 @@
 
 #ifdef CONFIG_MEM_SHARING
 
+struct mem_sharing_domain
+{
+    bool enabled;
+
+    /*
+     * When releasing shared gfn's in a preemptible manner, recall where
+     * to resume the search.
+     */
+    unsigned long next_shared_gfn_to_relinquish;
+};
+
+#define mem_sharing_enabled(d) \
+    (hap_enabled(d) && (d)->arch.hvm.mem_sharing.enabled)
+
 /* Auditing of memory sharing code? */
 #ifndef NDEBUG
 #define MEM_SHARING_AUDIT 1
@@ -104,6 +118,8 @@ int mem_sharing_domctl(struct domain *d,
 int relinquish_shared_pages(struct domain *d);
 
 #else
+
+#define mem_sharing_enabled(d) false
 
 static inline unsigned int mem_sharing_get_nr_saved_mfns(void)
 {

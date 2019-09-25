@@ -197,9 +197,6 @@ static inline shr_handle_t get_next_handle(void)
     return x + 1;
 }
 
-#define mem_sharing_enabled(d) \
-    (is_hvm_domain(d) && (d)->arch.hvm.mem_sharing_enabled)
-
 static atomic_t nr_saved_mfns   = ATOMIC_INIT(0);
 static atomic_t nr_shared_mfns  = ATOMIC_INIT(0);
 
@@ -1300,6 +1297,7 @@ private_page_found:
 int relinquish_shared_pages(struct domain *d)
 {
     int rc = 0;
+    struct mem_sharing_domain *msd = &d->arch.hvm.mem_sharing;
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
     unsigned long gfn, count = 0;
 
@@ -1307,7 +1305,7 @@ int relinquish_shared_pages(struct domain *d)
         return 0;
 
     p2m_lock(p2m);
-    for ( gfn = p2m->next_shared_gfn_to_relinquish;
+    for ( gfn = msd->next_shared_gfn_to_relinquish;
           gfn <= p2m->max_mapped_pfn; gfn++ )
     {
         p2m_access_t a;
@@ -1342,7 +1340,7 @@ int relinquish_shared_pages(struct domain *d)
         {
             if ( hypercall_preempt_check() )
             {
-                p2m->next_shared_gfn_to_relinquish = gfn + 1;
+                msd->next_shared_gfn_to_relinquish = gfn + 1;
                 rc = -ERESTART;
                 break;
             }
@@ -1428,7 +1426,7 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
 
     /* Only HAP is supported */
     rc = -ENODEV;
-    if ( !hap_enabled(d) || !d->arch.hvm.mem_sharing_enabled )
+    if ( !mem_sharing_enabled(d) )
         goto out;
 
     switch ( mso.op )
@@ -1436,10 +1434,6 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
         case XENMEM_sharing_op_nominate_gfn:
         {
             shr_handle_t handle;
-
-            rc = -EINVAL;
-            if ( !mem_sharing_enabled(d) )
-                goto out;
 
             rc = nominate_page(d, _gfn(mso.u.nominate.u.gfn), 0, &handle);
             mso.u.nominate.handle = handle;
@@ -1452,9 +1446,6 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
             gfn_t gfn;
             shr_handle_t handle;
 
-            rc = -EINVAL;
-            if ( !mem_sharing_enabled(d) )
-                goto out;
             rc = mem_sharing_gref_to_gfn(d->grant_table, gref, &gfn, NULL);
             if ( rc < 0 )
                 goto out;
@@ -1469,10 +1460,6 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
             gfn_t sgfn, cgfn;
             struct domain *cd;
             shr_handle_t sh, ch;
-
-            rc = -EINVAL;
-            if ( !mem_sharing_enabled(d) )
-                goto out;
 
             rc = rcu_lock_live_remote_domain_by_id(mso.u.share.client_domain,
                                                    &cd);
@@ -1540,10 +1527,6 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
             struct domain *cd;
             shr_handle_t sh;
 
-            rc = -EINVAL;
-            if ( !mem_sharing_enabled(d) )
-                goto out;
-
             rc = rcu_lock_live_remote_domain_by_id(mso.u.share.client_domain,
                                                    &cd);
             if ( rc )
@@ -1600,9 +1583,6 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
             if ( mso.u.range.opaque &&
                  (mso.u.range.opaque < mso.u.range.first_gfn ||
                   mso.u.range.opaque > mso.u.range.last_gfn) )
-                goto out;
-
-            if ( !mem_sharing_enabled(d) )
                 goto out;
 
             rc = rcu_lock_live_remote_domain_by_id(mso.u.range.client_domain,
@@ -1708,7 +1688,7 @@ int mem_sharing_domctl(struct domain *d, struct xen_domctl_mem_sharing_op *mec)
             if ( unlikely(has_iommu_pt(d) && mec->u.enable) )
                 rc = -EXDEV;
             else
-                d->arch.hvm.mem_sharing_enabled = mec->u.enable;
+                d->arch.hvm.mem_sharing.enabled = mec->u.enable;
         }
         break;
 
