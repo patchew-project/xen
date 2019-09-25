@@ -1890,7 +1890,7 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
     }
 #endif
 
-    /* Spurious fault? PoD and log-dirty also take this path. */
+    /* Spurious fault? PoD, log-dirty and VM forking also take this path. */
     if ( p2m_is_ram(p2mt) )
     {
         rc = 1;
