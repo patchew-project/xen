@@ -180,6 +180,21 @@ struct cmd_spec cmd_table[] = {
       "-V, --vncviewer          Connect to the VNC display after the domain is created.\n"
       "-A, --vncviewer-autopass Pass VNC password to viewer via stdin."
     },
+    { "fork-vm",
+      &main_fork_vm, 0, 1,
+      "Fork a domain from the running parent domid",
+      "[options] <ParentDomid>",
+      "-h                       Print this help.\n"
+      "-d                       Enable debug messages.\n"
+    },
+    { "fork-launch-dm",
+      &main_fork_launch_dm, 0, 1,
+      "Launch the device model for a forked VM",
+      "[options] <ConfigFile> <DmRestoreFile> <Domid>",
+      "-h                       Print this help.\n"
+      "-p                       Do not unpause domain after restoring it.\n"
+      "-d                       Enable debug messages.\n"
+    },
     { "migrate-receive",
       &main_migrate_receive, 0, 1,
       "Restore a domain from a saved state",

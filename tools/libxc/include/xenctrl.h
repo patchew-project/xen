@@ -2221,6 +2221,10 @@ int xc_memshr_range_share(xc_interface *xch,
                           uint64_t first_gfn,
                           uint64_t last_gfn);
 
+int xc_memshr_fork(xc_interface *xch,
+                   uint32_t source_domain,
+                   uint32_t client_domain);
+
 /* Debug calls: return the number of pages referencing the shared frame backing
  * the input argument. Should be one or greater.
  *

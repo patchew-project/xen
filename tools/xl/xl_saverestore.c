@@ -229,6 +229,75 @@ int main_restore(int argc, char **argv)
     return EXIT_SUCCESS;
 }
 
+int main_fork_vm(int argc, char **argv)
+{
+    int debug = 0;
+    uint32_t pdomid = 0, domid = INVALID_DOMID;
+    int opt;
+
+    SWITCH_FOREACH_OPT(opt, "d", NULL, "fork-vm", 1) {
+    case 'd':
+        debug = 1;
+        break;
+    }
+
+    if (argc-optind == 1) {
+        pdomid = atoi(argv[optind]);
+    } else {
+        help("fork-vm");
+        return EXIT_FAILURE;
+    }
+
+    if (libxl_domain_fork_vm(ctx, pdomid, &domid) || domid == INVALID_DOMID)
+        return EXIT_FAILURE;
+
+    fprintf(stderr, "VM fork created with domid: %u\n", domid);
+    return EXIT_SUCCESS;
+}
+
+int main_fork_launch_dm(int argc, char **argv)
+{
+    const char *config_file = NULL;
+    const char *dm_restore_file = NULL;
+    struct domain_create dom_info;
+    int paused = 0, debug = 0;
+    uint32_t ddomid = 0;
+    int opt, rc;
+
+    SWITCH_FOREACH_OPT(opt, "pd", NULL, "fork-launch-dm", 1) {
+    case 'p':
+        paused = 1;
+        break;
+    case 'd':
+        debug = 1;
+        break;
+    }
+
+    if (argc-optind == 3) {
+        config_file = argv[optind];
+        dm_restore_file = argv[optind + 1];
+        ddomid = atoi(argv[optind + 2]);
+    } else {
+        help("fork-launch-dm");
+        return EXIT_FAILURE;
+    }
+
+    memset(&dom_info, 0, sizeof(dom_info));
+    dom_info.ddomid = ddomid;
+    dom_info.dm_restore_file = dm_restore_file;
+    dom_info.debug = debug;
+    dom_info.paused = paused;
+    dom_info.config_file = config_file;
+    dom_info.migrate_fd = -1;
+    dom_info.send_back_fd = -1;
+
+    rc = create_domain(&dom_info);
+    if (rc < 0)
+        return EXIT_FAILURE;
+
+    return EXIT_SUCCESS;
+}
+
 int main_save(int argc, char **argv)
 {
     uint32_t domid;

@@ -535,12 +535,12 @@ out:
     return ret;
 }
 
-int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
-                       libxl__domain_build_state *state,
-                       uint32_t *domid)
+static int libxl__domain_make_xs_entries(libxl__gc *gc, libxl_domain_config *d_config,
+                                         libxl__domain_build_state *state,
+                                         uint32_t domid)
 {
     libxl_ctx *ctx = libxl__gc_owner(gc);
-    int ret, rc, nb_vm;
+    int rc, nb_vm;
     const char *dom_type;
     char *uuid_string;
     char *dom_path, *vm_path, *libxl_path;
@@ -552,7 +552,6 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
 
     /* convenience aliases */
     libxl_domain_create_info *info = &d_config->c_info;
-    libxl_domain_build_info *b_info = &d_config->b_info;
 
     uuid_string = libxl__uuid2string(gc, info->uuid);
     if (!uuid_string) {
@@ -560,54 +559,7 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
         goto out;
     }
 
-    /* Valid domid here means we're soft resetting. */
-    if (!libxl_domid_valid_guest(*domid)) {
-        struct xen_domctl_createdomain create = {
-            .ssidref = info->ssidref,
-            .max_vcpus = b_info->max_vcpus,
-            .max_evtchn_port = b_info->event_channels,
-            .max_grant_frames = b_info->max_grant_frames,
-            .max_maptrack_frames = b_info->max_maptrack_frames,
-        };
-
-        if (info->type != LIBXL_DOMAIN_TYPE_PV) {
-            create.flags |= XEN_DOMCTL_CDF_hvm;
-            create.flags |=
-                libxl_defbool_val(info->hap) ? XEN_DOMCTL_CDF_hap : 0;
-            create.flags |=
-                libxl_defbool_val(info->oos) ? 0 : XEN_DOMCTL_CDF_oos_off;
-        }
-
-        /* Ultimately, handle is an array of 16 uint8_t, same as uuid */
-        libxl_uuid_copy(ctx, (libxl_uuid *)&create.handle, &info->uuid);
-
-        ret = libxl__arch_domain_prepare_config(gc, d_config, &create);
-        if (ret < 0) {
-            LOGED(ERROR, *domid, "fail to get domain config");
-            rc = ERROR_FAIL;
-            goto out;
-        }
-
-        ret = xc_domain_create(ctx->xch, domid, &create);
-        if (ret < 0) {
-            LOGED(ERROR, *domid, "domain creation fail");
-            rc = ERROR_FAIL;
-            goto out;
-        }
-
-        rc = libxl__arch_domain_save_config(gc, d_config, state, &create);
-        if (rc < 0)
-            goto out;
-    }
-
-    ret = xc_cpupool_movedomain(ctx->xch, info->poolid, *domid);
-    if (ret < 0) {
-        LOGED(ERROR, *domid, "domain move fail");
-        rc = ERROR_FAIL;
-        goto out;
-    }
-
-    dom_path = libxl__xs_get_dompath(gc, *domid);
+    dom_path = libxl__xs_get_dompath(gc, domid);
     if (!dom_path) {
         rc = ERROR_FAIL;
         goto out;
@@ -615,12 +567,12 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
 
     vm_path = GCSPRINTF("/vm/%s", uuid_string);
     if (!vm_path) {
-        LOGD(ERROR, *domid, "cannot allocate create paths");
+        LOGD(ERROR, domid, "cannot allocate create paths");
         rc = ERROR_FAIL;
         goto out;
     }
 
-    libxl_path = libxl__xs_libxl_path(gc, *domid);
+    libxl_path = libxl__xs_libxl_path(gc, domid);
     if (!libxl_path) {
         rc = ERROR_FAIL;
         goto out;
@@ -631,10 +583,10 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
 
     roperm[0].id = 0;
     roperm[0].perms = XS_PERM_NONE;
-    roperm[1].id = *domid;
+    roperm[1].id = domid;
     roperm[1].perms = XS_PERM_READ;
 
-    rwperm[0].id = *domid;
+    rwperm[0].id = domid;
     rwperm[0].perms = XS_PERM_NONE;
 
 retry_transaction:
@@ -652,7 +604,7 @@ retry_transaction:
                     noperm, ARRAY_SIZE(noperm));
 
     xs_write(ctx->xsh, t, GCSPRINTF("%s/vm", dom_path), vm_path, strlen(vm_path));
-    rc = libxl__domain_rename(gc, *domid, 0, info->name, t);
+    rc = libxl__domain_rename(gc, domid, 0, info->name, t);
     if (rc)
         goto out;
 
@@ -729,7 +681,7 @@ retry_transaction:
 
     vm_list = libxl_list_vm(ctx, &nb_vm);
     if (!vm_list) {
-        LOGD(ERROR, *domid, "cannot get number of running guests");
+        LOGD(ERROR, domid, "cannot get number of running guests");
         rc = ERROR_FAIL;
         goto out;
     }
@@ -753,7 +705,7 @@ retry_transaction:
             t = 0;
             goto retry_transaction;
         }
-        LOGED(ERROR, *domid, "domain creation ""xenstore transaction commit failed");
+        LOGED(ERROR, domid, "domain creation ""xenstore transaction commit failed");
         rc = ERROR_FAIL;
         goto out;
     }
@@ -762,6 +714,70 @@ retry_transaction:
     rc = 0;
  out:
     if (t) xs_transaction_end(ctx->xsh, t, 1);
+    return rc;
+}
+
+int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
+                       libxl__domain_build_state *state,
+                       uint32_t *domid)
+{
+    libxl_ctx *ctx = libxl__gc_owner(gc);
+    int ret, rc;
+
+    /* convenience aliases */
+    libxl_domain_create_info *info = &d_config->c_info;
+    libxl_domain_build_info *b_info = &d_config->b_info;
+
+    /* Valid domid here means we're soft resetting. */
+    if (!libxl_domid_valid_guest(*domid)) {
+        struct xen_domctl_createdomain create = {
+            .ssidref = info->ssidref,
+            .max_vcpus = b_info->max_vcpus,
+            .max_evtchn_port = b_info->event_channels,
+            .max_grant_frames = b_info->max_grant_frames,
+            .max_maptrack_frames = b_info->max_maptrack_frames,
+        };
+
+        if (info->type != LIBXL_DOMAIN_TYPE_PV) {
+            create.flags |= XEN_DOMCTL_CDF_hvm;
+            create.flags |=
+                libxl_defbool_val(info->hap) ? XEN_DOMCTL_CDF_hap : 0;
+            create.flags |=
+                libxl_defbool_val(info->oos) ? 0 : XEN_DOMCTL_CDF_oos_off;
+        }
+
+        /* Ultimately, handle is an array of 16 uint8_t, same as uuid */
+        libxl_uuid_copy(ctx, (libxl_uuid *)&create.handle, &info->uuid);
+
+        ret = libxl__arch_domain_prepare_config(gc, d_config, &create);
+        if (ret < 0) {
+            LOGED(ERROR, *domid, "fail to get domain config");
+            rc = ERROR_FAIL;
+            goto out;
+        }
+
+        ret = xc_domain_create(ctx->xch, domid, &create);
+        if (ret < 0) {
+            LOGED(ERROR, *domid, "domain creation fail");
+            rc = ERROR_FAIL;
+            goto out;
+        }
+
+        rc = libxl__arch_domain_save_config(gc, d_config, state, &create);
+        if (rc < 0)
+            goto out;
+    }
+
+    ret = xc_cpupool_movedomain(ctx->xch, info->poolid, *domid);
+    if (ret < 0) {
+        LOGED(ERROR, *domid, "domain move fail");
+        rc = ERROR_FAIL;
+        goto out;
+    }
+
+    rc = libxl__domain_make_xs_entries(gc, d_config, state, *domid);
+
+out:
     return rc;
 }
 
@@ -985,15 +1001,31 @@ static void initiate_domain_create(libxl__egc *egc,
         goto error_out;
     }
 
-    ret = libxl__domain_make(gc, d_config, &dcs->build_state, &domid);
-    if (ret) {
-        LOGD(ERROR, domid, "cannot make domain: %d", ret);
+    if ( !d_config->dm_restore_file )
+    {
+        ret = libxl__domain_make(gc, d_config, &dcs->build_state, &domid);
         dcs->guest_domid = domid;
+
+        if (ret) {
+            LOGD(ERROR, domid, "cannot make domain: %d", ret);
+            ret = ERROR_FAIL;
+            goto error_out;
+        }
+    } else if ( dcs->guest_domid != INVALID_DOMID ) {
+        domid = dcs->guest_domid;
+
+        ret = libxl__domain_make_xs_entries(gc, d_config, &dcs->build_state, domid);
+        if (ret) {
+            LOGD(ERROR, domid, "cannot make domain: %d", ret);
+            ret = ERROR_FAIL;
+            goto error_out;
+        }
+    } else {
+        LOGD(ERROR, domid, "cannot make domain");
         ret = ERROR_FAIL;
         goto error_out;
     }
 
-    dcs->guest_domid = domid;
     dcs->sdss.dm.guest_domid = 0; /* means we haven't spawned */
 
     /*
@@ -1026,7 +1058,7 @@ static void initiate_domain_create(libxl__egc *egc,
     if (ret)
         goto error_out;
 
-    if (restore_fd >= 0 || dcs->domid_soft_reset != INVALID_DOMID) {
+    if (restore_fd >= 0 || dcs->domid_soft_reset != INVALID_DOMID || d_config->dm_restore_file) {
         LOGD(DEBUG, domid, "restoring, not running bootloader");
         domcreate_bootloader_done(egc, &dcs->bl, 0);
     } else  {
@@ -1102,7 +1134,16 @@ static void domcreate_bootloader_done(libxl__egc *egc,
     dcs->sdss.dm.callback = domcreate_devmodel_started;
     dcs->sdss.callback = domcreate_devmodel_started;
 
-    if (restore_fd < 0 && dcs->domid_soft_reset == INVALID_DOMID) {
+    if (restore_fd < 0 && dcs->domid_soft_reset == INVALID_DOMID && !d_config->dm_restore_file) {
+        rc = libxl__domain_build(gc, d_config, domid, state);
+        domcreate_rebuild_done(egc, dcs, rc);
+        return;
+    }
+
+    if ( d_config->dm_restore_file ) {
+        dcs->srs.dcs = dcs;
+        dcs->srs.ao = ao;
+        state->forked_vm = true;
         rc = libxl__domain_build(gc, d_config, domid, state);
         domcreate_rebuild_done(egc, dcs, rc);
         return;
@@ -1300,12 +1341,16 @@ static void domcreate_rebuild_done(libxl__egc *egc,
     /* convenience aliases */
     const uint32_t domid = dcs->guest_domid;
     libxl_domain_config *const d_config = dcs->guest_config;
+    libxl__domain_build_state *const state = &dcs->build_state;
 
     if (ret) {
         LOGD(ERROR, domid, "cannot (re-)build domain: %d", ret);
         ret = ERROR_FAIL;
         goto error_out;
     }
+
+    if ( d_config->dm_restore_file )
+        state->saved_state = GCSPRINTF("%s", d_config->dm_restore_file);
 
     store_libxl_entry(gc, domid, &d_config->b_info);
 
@@ -1708,10 +1753,13 @@ static int do_domain_create(libxl_ctx *ctx, libxl_domain_config *d_config,
     GCNEW(cdcs);
     cdcs->dcs.ao = ao;
     cdcs->dcs.guest_config = d_config;
+    cdcs->dcs.guest_domid = *domid;
+
     libxl_domain_config_init(&cdcs->dcs.guest_config_saved);
     libxl_domain_config_copy(ctx, &cdcs->dcs.guest_config_saved, d_config);
     cdcs->dcs.restore_fd = cdcs->dcs.libxc_fd = restore_fd;
     cdcs->dcs.send_back_fd = send_back_fd;
+
     if (restore_fd > -1) {
         cdcs->dcs.restore_params = *params;
         rc = libxl__fd_flags_modify_save(gc, cdcs->dcs.restore_fd,
@@ -1952,6 +2000,38 @@ int libxl_domain_create_new(libxl_ctx *ctx, libxl_domain_config *d_config,
     unset_disk_colo_restore(d_config);
     return do_domain_create(ctx, d_config, domid, -1, -1, NULL,
                             ao_how, aop_console_how);
+}
+
+int libxl_domain_fork_vm(libxl_ctx *ctx, uint32_t pdomid, uint32_t *domid)
+{
+    int rc;
+    struct xen_domctl_createdomain create = {0};
+    create.flags |= XEN_DOMCTL_CDF_hvm;
+    create.flags |= XEN_DOMCTL_CDF_hap;
+    create.flags |= XEN_DOMCTL_CDF_oos_off;
+    create.arch.emulation_flags = (XEN_X86_EMU_ALL & ~XEN_X86_EMU_VPCI);
+
+    create.ssidref = SECINITSID_DOMU;
+    create.max_vcpus = 1; // placeholder, will be cloned from pdomid
+    create.max_evtchn_port = 1023;
+    create.max_grant_frames = LIBXL_MAX_GRANT_FRAMES_DEFAULT;
+    create.max_maptrack_frames = LIBXL_MAX_MAPTRACK_FRAMES_DEFAULT;
+
+    if ( (rc = xc_domain_create(ctx->xch, domid, &create)) )
+        return rc;
+
+    if ( (rc = xc_memshr_fork(ctx->xch, pdomid, *domid)) )
+        xc_domain_destroy(ctx->xch, *domid);
+
+    return rc;
+}
+
+int libxl_domain_fork_launch_dm(libxl_ctx *ctx, libxl_domain_config *d_config,
+                                uint32_t domid,
+                                const libxl_asyncprogress_how *aop_console_how)
+{
+    unset_disk_colo_restore(d_config);
+    return do_domain_create(ctx, d_config, &domid, -1, -1, 0, 0, aop_console_how);
 }
 
 int libxl_domain_create_restore(libxl_ctx *ctx, libxl_domain_config *d_config,

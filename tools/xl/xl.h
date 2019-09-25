@@ -31,6 +31,7 @@ struct cmd_spec {
 };
 
 struct domain_create {
+    uint32_t ddomid; /* fork launch dm for this domid */
     int debug;
     int daemonize;
     int monitor; /* handle guest reboots etc */
@@ -45,6 +46,7 @@ struct domain_create {
     const char *config_file;
     char *extra_config; /* extra config string */
     const char *restore_file;
+    const char *dm_restore_file;
     char *colo_proxy_script;
     bool userspace_colo_proxy;
     int migrate_fd; /* -1 means none */
@@ -127,6 +129,8 @@ int main_pciassignable_remove(int argc, char **argv);
 int main_pciassignable_list(int argc, char **argv);
 #ifndef LIBXL_HAVE_NO_SUSPEND_RESUME
 int main_restore(int argc, char **argv);
+int main_fork_vm(int argc, char **argv);
+int main_fork_launch_dm(int argc, char **argv);
 int main_migrate_receive(int argc, char **argv);
 int main_save(int argc, char **argv);
 int main_migrate(int argc, char **argv);

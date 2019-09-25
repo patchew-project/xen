@@ -1494,6 +1494,12 @@ int libxl_domain_create_new(libxl_ctx *ctx, libxl_domain_config *d_config,
                             const libxl_asyncop_how *ao_how,
                             const libxl_asyncprogress_how *aop_console_how)
                             LIBXL_EXTERNAL_CALLERS_ONLY;
+int libxl_domain_fork_vm(libxl_ctx *ctx, uint32_t pdomid, uint32_t *domid)
+                             LIBXL_EXTERNAL_CALLERS_ONLY;
+int libxl_domain_fork_launch_dm(libxl_ctx *ctx, libxl_domain_config *d_config,
+                                uint32_t domid,
+                                const libxl_asyncprogress_how *aop_console_how)
+                                LIBXL_EXTERNAL_CALLERS_ONLY;
 int libxl_domain_create_restore(libxl_ctx *ctx, libxl_domain_config *d_config,
                                 uint32_t *domid, int restore_fd,
                                 int send_back_fd,
