@@ -1879,12 +1879,11 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
     if ( npfec.write_access && (p2mt == p2m_ram_shared) )
     {
         ASSERT(p2m_is_hostp2m(p2m));
-        sharing_enomem = 
-            (mem_sharing_unshare_page(currd, gfn, 0) < 0);
+        sharing_enomem = mem_sharing_unshare_page(currd, gfn, 0);
         rc = 1;
         goto out_put_gfn;
     }
- 
+
     /* Spurious fault? PoD and log-dirty also take this path. */
     if ( p2m_is_ram(p2mt) )
     {
@@ -1930,9 +1929,11 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
         __put_gfn(p2m, gfn);
     __put_gfn(hostp2m, gfn);
  out:
-    /* All of these are delayed until we exit, since we might 
+    /*
+     * All of these are delayed until we exit, since we might
      * sleep on event ring wait queues, and we must not hold
-     * locks in such circumstance */
+     * locks in such circumstance.
+     */
     if ( paged )
         p2m_mem_paging_populate(currd, gfn);
     if ( sharing_enomem )
