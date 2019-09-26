@@ -168,11 +168,13 @@
         /*
          * The vSError will be checked while SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
          * is not set. If a vSError took place, the initial exception will be
-         * skipped. Exit ASAP
+         * skipped.
+         *
+         * However, we still need to call exit_from_guest{,_noirq} as the
+         * return path to the guest may rely on state saved by them.
          */
         alternative_if SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
         bl      check_pending_vserror
-        cbnz    x0, 1f
         alternative_else_nop_endif
 
         mov     x0, sp
@@ -180,6 +182,11 @@
         msr     daifclr, \iflags
         mov     x0, sp
         bl      enter_hypervisor_from_guest
+
+        alternative_if SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
+        cbnz    x19, 1f
+        alternative_else_nop_endif
+
         mov     x0, sp
         bl      do_trap_\trap
 1:
@@ -383,9 +390,9 @@ return_from_trap:
 /*
  * This function is used to check pending virtual SError in the gap of
  * EL1 -> EL2 world switch.
- * The x0 register will be used to indicate the results of detection.
- * x0 -- Non-zero indicates a pending virtual SError took place.
- * x0 -- Zero indicates no pending virtual SError took place.
+ * The register x19 will be used to indicate the results of detection.
+ * x19 -- Non-zero indicates a pending virtual SError took place.
+ * x19 -- Zero indicates no pending virtual SError took place.
  */
 check_pending_vserror:
         /*
@@ -432,9 +439,9 @@ abort_guest_exit_end:
 
         /*
          * Not equal, the pending SError exception took place, set
-         * x0 to non-zero.
+         * x19 to non-zero.
          */
-        cset    x0, ne
+        cset    x19, ne
 
         ret
 
