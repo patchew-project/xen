@@ -2007,16 +2007,26 @@ static inline bool needs_ssbd_flip(struct vcpu *v)
 }
 
 /*
- * Actions that needs to be done after exiting the guest and before any
- * request from it is handled.
+ * Actions that needs to be done after exiting the guest and before the
+ * interrupts are unmasked.
  */
-void enter_hypervisor_from_guest(struct cpu_user_regs *regs)
+void enter_hypervisor_from_guest_noirq(struct cpu_user_regs *regs)
 {
     struct vcpu *v = current;
 
     /* If the guest has disabled the workaround, bring it back on. */
     if ( needs_ssbd_flip(v) )
         arm_smccc_1_1_smc(ARM_SMCCC_ARCH_WORKAROUND_2_FID, 1, NULL);
+}
+
+/*
+ * Actions that needs to be done after exiting the guest and before any
+ * request from it is handled. Depending on the exception trap, this may
+ * be called with interrupts unmasked.
+ */
+void enter_hypervisor_from_guest(struct cpu_user_regs *regs)
+{
+    struct vcpu *v = current;
 
     /*
      * If we pended a virtual abort, preserve it until it gets cleared.
