@@ -170,9 +170,11 @@
          * is not set. If a vSError took place, the initial exception will be
          * skipped. Exit ASAP
          */
-        ALTERNATIVE("bl check_pending_vserror; cbnz x0, 1f",
-                    "nop; nop",
-                    SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT)
+        alternative_if SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
+        bl      check_pending_vserror
+        cbnz    x0, 1f
+        alternative_else_nop_endif
+
         mov     x0, sp
         bl      enter_hypervisor_from_guest_noirq
         msr     daifclr, \iflags
