@@ -171,6 +171,7 @@ extern unsigned int init_intel_cacheinfo(struct cpuinfo_x86 *c);
 
 #define cpu_to_core(_cpu)   (cpu_data[_cpu].cpu_core_id)
 #define cpu_to_socket(_cpu) (cpu_data[_cpu].phys_proc_id)
+#define cpu_to_cu(_cpu)     (cpu_data[_cpu].compute_unit_id)
 
 unsigned int apicid_to_socket(unsigned int);
 

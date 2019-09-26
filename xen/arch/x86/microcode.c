@@ -573,6 +573,64 @@ static int do_microcode_update(void *patch)
     return ret;
 }
 
+static unsigned int unique_core_id(unsigned int cpu, unsigned int socket_shift)
+{
+    unsigned int core_id = cpu_to_cu(cpu);
+
+    if ( core_id == INVALID_CUID )
+        core_id = cpu_to_core(cpu);
+
+    return (cpu_to_socket(cpu) << socket_shift) + core_id;
+}
+
+static int has_parked_core(void)
+{
+    int ret = 0;
+
+    if ( park_offline_cpus )
+    {
+        unsigned int cpu, max_bits, core_width;
+        unsigned int max_sockets = 1, max_cores = 1;
+        struct cpuinfo_x86 *c = cpu_data;
+        unsigned long *bitmap;
+
+        for_each_present_cpu(cpu)
+        {
+            if ( x86_cpu_to_apicid[cpu] == BAD_APICID )
+                continue;
+
+            /* Note that cpu_to_socket() get an ID starting from 0. */
+            if ( cpu_to_socket(cpu) + 1 > max_sockets )
+                max_sockets = cpu_to_socket(cpu) + 1;
+
+            if ( c[cpu].x86_max_cores > max_cores )
+                max_cores = c[cpu].x86_max_cores;
+        }
+
+        core_width = fls(max_cores);
+        max_bits = max_sockets << core_width;
+        bitmap = xzalloc_array(unsigned long, BITS_TO_LONGS(max_bits));
+        if ( !bitmap )
+            return -ENOMEM;
+
+        for_each_present_cpu(cpu)
+        {
+            if ( cpu_online(cpu) || x86_cpu_to_apicid[cpu] == BAD_APICID )
+                continue;
+
+            __set_bit(unique_core_id(cpu, core_width), bitmap);
+        }
+
+        for_each_online_cpu(cpu)
+            __clear_bit(unique_core_id(cpu, core_width), bitmap);
+
+        ret = (find_first_bit(bitmap, max_bits) < max_bits);
+        xfree(bitmap);
+    }
+
+    return ret;
+}
+
 int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void) buf, unsigned long len)
 {
     int ret;
@@ -610,6 +668,23 @@ int microcode_update(XEN_GUEST_HANDLE_PARAM(const_void) buf, unsigned long len)
      * unknown_nmi_error(). It ensures nmi_cpu won't receive a fake NMI.
      */
     ASSERT(cpumask_first(&cpu_online_map) == nmi_cpu);
+
+    /*
+     * If there is a core with all of its threads parked, late loading may
+     * cause differing ucode revisions in the system. Refuse this operation.
+     */
+    ret = has_parked_core();
+    if ( ret )
+    {
+        if ( ret > 0 )
+        {
+            printk(XENLOG_WARNING
+                   "Ucode loading aborted: found a parked core\n");
+            ret = -EPERM;
+        }
+        xfree(buffer);
+        goto put;
+    }
 
     patch = parse_blob(buffer, len);
     xfree(buffer);
