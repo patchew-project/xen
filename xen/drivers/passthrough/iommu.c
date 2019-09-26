@@ -519,7 +519,6 @@ int __init iommu_setup(void)
     if ( !iommu_enabled )
     {
         iommu_intremap = 0;
-        clear_iommu_hap_pt_share();
     }
 
     if ( (force_iommu && !iommu_enabled) ||
