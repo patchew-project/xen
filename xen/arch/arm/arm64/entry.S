@@ -157,6 +157,30 @@
 
         .endm
 
+        /*
+         * Generate a guest vector.
+         *
+         * iflags: Correspond to the list of interrupts to unmask
+         * save_x0_x1: See the description on top of the macro 'entry'
+         */
+        .macro  guest_vector compat, iflags, trap, save_x0_x1=1
+        entry   hyp=0, compat=\compat, save_x0_x1=\save_x0_x1
+        /*
+         * The vSError will be checked while SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
+         * is not set. If a vSError took place, the initial exception will be
+         * skipped. Exit ASAP
+         */
+        ALTERNATIVE("bl check_pending_vserror; cbnz x0, 1f",
+                    "nop; nop",
+                    SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT)
+        msr     daifclr, \iflags
+        mov     x0, sp
+        bl      do_trap_\trap
+1:
+        exit    hyp=0, compat=\compat
+        .endm
+
+
 /*
  * Bad Abort numbers
  *-----------------
@@ -290,36 +314,10 @@ guest_sync_slowpath:
          * x0/x1 may have been scratch by the fast path above, so avoid
          * to save them.
          */
-        entry   hyp=0, compat=0, save_x0_x1=0
-        /*
-         * The vSError will be checked while SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
-         * is not set. If a vSError took place, the initial exception will be
-         * skipped. Exit ASAP
-         */
-        ALTERNATIVE("bl check_pending_vserror; cbnz x0, 1f",
-                    "nop; nop",
-                    SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT)
-        msr     daifclr, #6
-        mov     x0, sp
-        bl      do_trap_guest_sync
-1:
-        exit    hyp=0, compat=0
+        guest_vector compat=0, iflags=6, trap=guest_sync, save_x0_x1=0
 
 guest_irq:
-        entry   hyp=0, compat=0
-        /*
-         * The vSError will be checked while SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
-         * is not set. If a vSError took place, the initial exception will be
-         * skipped. Exit ASAP
-         */
-        ALTERNATIVE("bl check_pending_vserror; cbnz x0, 1f",
-                    "nop; nop",
-                    SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT)
-        msr     daifclr, #4
-        mov     x0, sp
-        bl      do_trap_irq
-1:
-        exit    hyp=0, compat=0
+        guest_vector compat=0, iflags=4, trap=irq
 
 guest_fiq_invalid:
         entry   hyp=0, compat=0
@@ -333,36 +331,10 @@ guest_error:
         exit    hyp=0, compat=0
 
 guest_sync_compat:
-        entry   hyp=0, compat=1
-        /*
-         * The vSError will be checked while SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
-         * is not set. If a vSError took place, the initial exception will be
-         * skipped. Exit ASAP
-         */
-        ALTERNATIVE("bl check_pending_vserror; cbnz x0, 1f",
-                    "nop; nop",
-                    SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT)
-        msr     daifclr, #6
-        mov     x0, sp
-        bl      do_trap_guest_sync
-1:
-        exit    hyp=0, compat=1
+        guest_vector compat=1, iflags=6, trap=guest_sync
 
 guest_irq_compat:
-        entry   hyp=0, compat=1
-        /*
-         * The vSError will be checked while SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT
-         * is not set. If a vSError took place, the initial exception will be
-         * skipped. Exit ASAP
-         */
-        ALTERNATIVE("bl check_pending_vserror; cbnz x0, 1f",
-                    "nop; nop",
-                    SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT)
-        msr     daifclr, #4
-        mov     x0, sp
-        bl      do_trap_irq
-1:
-        exit    hyp=0, compat=1
+        guest_vector compat=1, iflags=4, trap=irq
 
 guest_fiq_invalid_compat:
         entry   hyp=0, compat=1
