@@ -147,7 +147,7 @@
 
         .if \hyp == 0         /* Guest mode */
 
-        bl      leave_hypervisor_tail /* Disables interrupts on return */
+        bl      leave_hypervisor_to_guest /* Disables interrupts on return */
 
         exit_guest \compat
 
@@ -174,6 +174,8 @@
                     "nop; nop",
                     SKIP_SYNCHRONIZE_SERROR_ENTRY_EXIT)
         msr     daifclr, \iflags
+        mov     x0, sp
+        bl      enter_hypervisor_from_guest
         mov     x0, sp
         bl      do_trap_\trap
 1:
