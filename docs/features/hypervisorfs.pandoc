@@ -1,0 +1,119 @@
+% Hypervisor FS
+% Revision 1
+
+\clearpage
+
+# Basics
+---------------- ---------------------
+         Status: e.g. **Supported**
+
+  Architectures: all
+
+     Components: Hypervisor, toolstack
+---------------- ---------------------
+
+# Overview
+
+The Hypervisor FS is a hierarchical name-value store for reporting
+information to guests, especially dom0.  It is similar to the Linux
+kernel's sysfs, but without the functionality to directly alter
+entries values. Entries and directories are created by the hypervisor,
+while the toolstack is able to use a hypercall to query the entry
+values.
+
+# User details
+
+With:
+
+    xenhypfs ls <path>
+
+the user can list the entries of a specific path of the FS. Using:
+
+    xenhypfs cat <path>
+
+the content of an entry can be retrieved. Using:
+
+    xenhypfs write <path> <string>
+
+a writable entry can be modified. With:
+
+    xenhypfs tree
+
+the complete Hypervisor FS entry tree can be printed.
+
+The FS structure is:
+
+    /
+        buildinfo/           directory containing build-time data
+            config           contents of .config file used to build Xen
+        cpu-bugs/            x86: directory of cpu bug information
+            l1tf             "Vulnerable" or "Not vulnerable"
+            mds              "Vulnerable" or "Not vulnerable"
+            meltdown         "Vulnerable" or "Not vulnerable"
+            spec-store-bypass "Vulnerable" or "Not vulnerable"
+            spectre-v1       "Vulnerable" or "Not vulnerable"
+            spectre-v2       "Vulnerable" or "Not vulnerable"
+            mitigations/     directory of mitigation settings
+                bti-thunk    "N/A", "RETPOLINE", "LFENCE" or "JMP"
+                spec-ctrl    "No", "IBRS+" or IBRS-"
+                ibpb         "No" or "Yes"
+                l1d-flush    "No" or "Yes"
+                md-clear     "No" or "VERW"
+                l1tf-barrier "No" or "Yes"
+            active-hvm/      directory for mitigations active in hvm doamins
+                msr-spec-ctrl "No" or "Yes"
+                rsb          "No" or "Yes"
+                eager-fpu    "No" or "Yes"
+                md-clear     "No" or "Yes"
+            active-pv/       directory for mitigations active in pv doamins
+                msr-spec-ctrl "No" or "Yes"
+                rsb          "No" or "Yes"
+                eager-fpu    "No" or "Yes"
+                md-clear     "No" or "Yes"
+                xpti         "No" or list of "dom0", "domU", "PCID on"
+                l1tf-shadow  "No" or list of "dom0", "domU"
+        parameters/          directory with hypervisor parameter values
+                             (boot/runtime parameters)
+
+# Technical details
+
+Access to the hypervisor filesystem is done via the stable new hypercall
+__HYPERVISOR_filesystem_op.
+
+* hypercall interface specification
+    * `xen/include/public/filesystem.h`
+* hypervisor internal files
+    * `xen/include/xen/filesystem.h`
+    * `xen/common/filesystem.c`
+* `libxenhypfs`
+    * `tools/libs/libxenhypfs/*`
+* `xenhypfs`
+    * `tools/misc/xenhypfs.c`
+* path documentation
+    * `docs/misc/hypfs-paths.pandoc`
+ 
+# Testing
+
+Any new parameters or hardware mitigations should be verified to show up
+correctly in the filesystem.
+
+# Areas for improvement
+
+* More detailed access rights
+* Entries per domain and/or per cpupool
+
+# Known issues
+
+* None
+
+# References
+
+* None
+
+# History
+
+------------------------------------------------------------------------
+Date       Revision Version  Notes
+---------- -------- -------- -------------------------------------------
+2019-09-18 1        Xen 4.13 Document written
+---------- -------- -------- -------------------------------------------
