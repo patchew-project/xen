@@ -366,8 +366,9 @@ static void helper_done(libxl__egc *egc, libxl__save_helper_state *shs)
     assert(!libxl__save_helper_inuse(shs));
 
     shs->egc = egc;
-    shs->completion_callback(egc, shs->caller_state,
-                             shs->rc, shs->retval, shs->errnoval);
+    if (shs->completion_callback)
+        shs->completion_callback(egc, shs->caller_state,
+                                 shs->rc, shs->retval, shs->errnoval);
     shs->egc = 0;
 }
 
