@@ -7,6 +7,7 @@
 #include <xen/init.h>
 #include <xen/lib.h>
 #include <xen/errno.h>
+#include <xen/hypfs.h>
 #include <xen/version.h>
 #include <xen/sched.h>
 #include <xen/paging.h>
@@ -319,6 +320,32 @@ int cmdline_strcmp(const char *frag, const char *name)
         }
     }
 }
+
+static struct hypfs_dir hypfs_params = {
+    .list = LIST_HEAD_INIT(hypfs_params.list),
+};
+
+static int __init runtime_param_hypfs_add(void)
+{
+    const struct kernel_param *param;
+    int ret;
+
+    ret = hypfs_new_dir(&hypfs_root, "params", &hypfs_params);
+    BUG_ON(ret);
+
+    for ( param = __param_start; param < __param_end; param++ )
+    {
+        if ( param->type == OPT_UINT && param->len == sizeof(unsigned int) )
+        {
+            ret = hypfs_new_entry_uint(&hypfs_params, param->name,
+                                       (unsigned int *)(param->par.var));
+            BUG_ON(ret);
+        }
+    }
+
+    return 0;
+}
+__initcall(runtime_param_hypfs_add);
 
 unsigned int tainted;
 
