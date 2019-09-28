@@ -1399,7 +1399,7 @@ out_no_irq:
         }
     }
 
-    if (!starting)
+    if (!starting && !libxl_get_stubdom_id(CTX, domid))
         rc = libxl__device_pci_add_xenstore(gc, domid, pcidev, starting);
     else
         rc = 0;
@@ -1697,7 +1697,7 @@ static void add_pcidevs_done(libxl__egc *egc, libxl__multidev *multidev,
     libxl_domid domid = apds->domid;
     libxl__ao_device *aodev = apds->outer_aodev;
 
-    if (d_config->num_pcidevs > 0) {
+    if (d_config->num_pcidevs > 0 && !libxl_get_stubdom_id(CTX, domid)) {
         rc = libxl__create_pci_backend(gc, domid, d_config->pcidevs,
             d_config->num_pcidevs);
         if (rc < 0) {
