@@ -1266,7 +1266,13 @@ int pci_msi_conf_write_intercept(struct pci_dev *pdev, unsigned int reg,
         pos = entry ? entry->msi_attrib.pos
                     : pci_find_cap_offset(seg, bus, slot, func,
                                           PCI_CAP_ID_MSIX);
-        ASSERT(pos);
+        if ( unlikely(!pos) )
+        {
+            printk_once(XENLOG_WARNING
+                        "%04x:%02x:%02x.%u MSI-X capability is missing\n",
+                        seg, bus, slot, func);
+            return -EAGAIN;
+        }
 
         if ( reg >= pos && reg < msix_pba_offset_reg(pos) + 4 )
         {
