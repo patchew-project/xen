@@ -279,6 +279,18 @@ unsigned int hvm_pci_decode_addr(unsigned int cf8, unsigned int addr,
     return CF8_ADDR_LO(cf8) | (addr & 3);
 }
 
+unsigned int hvm_mmcfg_decode_addr(const struct hvm_mmcfg *mmcfg,
+                                   paddr_t addr, pci_sbdf_t *sbdf)
+{
+    addr -= mmcfg->addr;
+    sbdf->bdf = MMCFG_BDF(addr);
+    sbdf->bus += mmcfg->start_bus;
+    sbdf->seg = mmcfg->segment;
+
+    return addr & (PCI_CFG_SPACE_EXP_SIZE - 1);
+}
+
+
 /* Do some sanity checks. */
 static bool vpci_access_allowed(unsigned int reg, unsigned int len)
 {
@@ -383,50 +395,14 @@ void register_vpci_portio_handler(struct domain *d)
     handler->ops = &vpci_portio_ops;
 }
 
-struct hvm_mmcfg {
-    struct list_head next;
-    paddr_t addr;
-    unsigned int size;
-    uint16_t segment;
-    uint8_t start_bus;
-};
-
 /* Handlers to trap PCI MMCFG config accesses. */
-static const struct hvm_mmcfg *vpci_mmcfg_find(const struct domain *d,
-                                               paddr_t addr)
-{
-    const struct hvm_mmcfg *mmcfg;
-
-    list_for_each_entry ( mmcfg, &d->arch.hvm.mmcfg_regions, next )
-        if ( addr >= mmcfg->addr && addr < mmcfg->addr + mmcfg->size )
-            return mmcfg;
-
-    return NULL;
-}
-
-bool vpci_is_mmcfg_address(const struct domain *d, paddr_t addr)
-{
-    return vpci_mmcfg_find(d, addr);
-}
-
-static unsigned int vpci_mmcfg_decode_addr(const struct hvm_mmcfg *mmcfg,
-                                           paddr_t addr, pci_sbdf_t *sbdf)
-{
-    addr -= mmcfg->addr;
-    sbdf->bdf = MMCFG_BDF(addr);
-    sbdf->bus += mmcfg->start_bus;
-    sbdf->seg = mmcfg->segment;
-
-    return addr & (PCI_CFG_SPACE_EXP_SIZE - 1);
-}
-
 static int vpci_mmcfg_accept(struct vcpu *v, unsigned long addr)
 {
     struct domain *d = v->domain;
     bool found;
 
     read_lock(&d->arch.hvm.mmcfg_lock);
-    found = vpci_mmcfg_find(d, addr);
+    found = hvm_is_mmcfg_address(d, addr);
     read_unlock(&d->arch.hvm.mmcfg_lock);
 
     return found;
@@ -443,14 +419,14 @@ static int vpci_mmcfg_read(struct vcpu *v, unsigned long addr,
     *data = ~0ul;
 
     read_lock(&d->arch.hvm.mmcfg_lock);
-    mmcfg = vpci_mmcfg_find(d, addr);
+    mmcfg = hvm_mmcfg_find(d, addr);
     if ( !mmcfg )
     {
         read_unlock(&d->arch.hvm.mmcfg_lock);
         return X86EMUL_RETRY;
     }
 
-    reg = vpci_mmcfg_decode_addr(mmcfg, addr, &sbdf);
+    reg = hvm_mmcfg_decode_addr(mmcfg, addr, &sbdf);
     read_unlock(&d->arch.hvm.mmcfg_lock);
 
     if ( !vpci_access_allowed(reg, len) ||
@@ -485,14 +461,14 @@ static int vpci_mmcfg_write(struct vcpu *v, unsigned long addr,
     pci_sbdf_t sbdf;
 
     read_lock(&d->arch.hvm.mmcfg_lock);
-    mmcfg = vpci_mmcfg_find(d, addr);
+    mmcfg = hvm_mmcfg_find(d, addr);
     if ( !mmcfg )
     {
         read_unlock(&d->arch.hvm.mmcfg_lock);
         return X86EMUL_RETRY;
     }
 
-    reg = vpci_mmcfg_decode_addr(mmcfg, addr, &sbdf);
+    reg = hvm_mmcfg_decode_addr(mmcfg, addr, &sbdf);
     read_unlock(&d->arch.hvm.mmcfg_lock);
 
     if ( !vpci_access_allowed(reg, len) ||
@@ -512,9 +488,9 @@ static const struct hvm_mmio_ops vpci_mmcfg_ops = {
     .write = vpci_mmcfg_write,
 };
 
-int register_vpci_mmcfg_handler(struct domain *d, paddr_t addr,
-                                unsigned int start_bus, unsigned int end_bus,
-                                unsigned int seg)
+int hvm_register_mmcfg(struct domain *d, paddr_t addr,
+                       unsigned int start_bus, unsigned int end_bus,
+                       unsigned int seg)
 {
     struct hvm_mmcfg *mmcfg, *new;
 
@@ -549,7 +525,7 @@ int register_vpci_mmcfg_handler(struct domain *d, paddr_t addr,
             return ret;
         }
 
-    if ( list_empty(&d->arch.hvm.mmcfg_regions) )
+    if ( list_empty(&d->arch.hvm.mmcfg_regions) && has_vpci(d) )
         register_mmio_handler(d, &vpci_mmcfg_ops);
 
     list_add(&new->next, &d->arch.hvm.mmcfg_regions);
@@ -558,7 +534,7 @@ int register_vpci_mmcfg_handler(struct domain *d, paddr_t addr,
     return 0;
 }
 
-void destroy_vpci_mmcfg(struct domain *d)
+void hvm_free_mmcfg(struct domain *d)
 {
     struct list_head *mmcfg_regions = &d->arch.hvm.mmcfg_regions;
 
@@ -572,6 +548,17 @@ void destroy_vpci_mmcfg(struct domain *d)
         xfree(mmcfg);
     }
     write_unlock(&d->arch.hvm.mmcfg_lock);
+}
+
+const struct hvm_mmcfg *hvm_mmcfg_find(const struct domain *d, paddr_t addr)
+{
+    const struct hvm_mmcfg *mmcfg;
+
+    list_for_each_entry ( mmcfg, &d->arch.hvm.mmcfg_regions, next )
+        if ( addr >= mmcfg->addr && addr < mmcfg->addr + mmcfg->size )
+            return mmcfg;
+
+    return NULL;
 }
 
 /*
