@@ -25,7 +25,10 @@ install:
 
 vpci.c: $(XEN_ROOT)/xen/drivers/vpci/vpci.c
 	# Remove includes and add the test harness header
-	sed -e '/#include/d' -e '1s/^/#include "emul.h"/' <$< >$@
+	sed -e '/#include/d' -e '1s/^/#include "emul.h"/' \
+	    -e 's/^static uint32_t read/uint32_t vpci_read/' \
+	    -e 's/^static void write/void vpci_write/' <$< >$@
+
 
 list.h: $(XEN_ROOT)/xen/include/xen/list.h
 vpci.h: $(XEN_ROOT)/xen/include/xen/vpci.h

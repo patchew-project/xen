@@ -657,9 +657,12 @@ int hvm_domain_initialise(struct domain *d)
         d->arch.hvm.io_bitmap = hvm_io_bitmap;
 
     register_g2m_portio_handler(d);
-    register_vpci_portio_handler(d);
 
     hvm_ioreq_init(d);
+
+    rc = vpci_register_ioreq(d);
+    if ( rc )
+        goto fail1;
 
     hvm_init_guest_time(d);
 
