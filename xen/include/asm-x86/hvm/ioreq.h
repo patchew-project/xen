@@ -24,7 +24,7 @@ bool handle_hvm_io_completion(struct vcpu *v);
 bool is_ioreq_server_page(struct domain *d, const struct page_info *page);
 
 int hvm_create_ioreq_server(struct domain *d, int bufioreq_handling,
-                            ioservid_t *id);
+                            ioservid_t *id, bool internal);
 int hvm_destroy_ioreq_server(struct domain *d, ioservid_t id);
 int hvm_get_ioreq_server_info(struct domain *d, ioservid_t id,
                               unsigned long *ioreq_gfn,
@@ -53,6 +53,12 @@ int hvm_send_ioreq(ioservid_t id, ioreq_t *proto_p,
 unsigned int hvm_broadcast_ioreq(ioreq_t *p, bool buffered);
 
 void hvm_ioreq_init(struct domain *d);
+
+static inline bool hvm_ioreq_is_internal(unsigned int id)
+{
+    ASSERT(id < MAX_NR_IOREQ_SERVERS);
+    return id >= MAX_NR_EXTERNAL_IOREQ_SERVERS;
+}
 
 #endif /* __ASM_X86_HVM_IOREQ_H__ */
 

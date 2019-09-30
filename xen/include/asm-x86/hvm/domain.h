@@ -97,7 +97,10 @@ struct hvm_pi_ops {
     void (*vcpu_block)(struct vcpu *);
 };
 
-#define MAX_NR_IOREQ_SERVERS 8
+#define MAX_NR_EXTERNAL_IOREQ_SERVERS 8
+#define MAX_NR_INTERNAL_IOREQ_SERVERS 1
+#define MAX_NR_IOREQ_SERVERS \
+    (MAX_NR_EXTERNAL_IOREQ_SERVERS + MAX_NR_INTERNAL_IOREQ_SERVERS)
 
 struct hvm_domain {
     /* Guest page range used for non-default ioreq servers */

@@ -59,13 +59,20 @@ static struct hvm_ioreq_server *get_ioreq_server(const struct domain *d,
 /*
  * Iterate over all possible ioreq servers.
  *
- * NOTE: The iteration is backwards such that more recently created
- *       ioreq servers are favoured in hvm_select_ioreq_server().
- *       This is a semantic that previously existed when ioreq servers
- *       were held in a linked list.
+ * NOTE: The iteration is backwards such that internal and more recently
+ *       created external ioreq servers are favoured in
+ *       hvm_select_ioreq_server().
+ *       This is a semantic that previously existed for external servers when
+ *       ioreq servers were held in a linked list.
  */
 #define FOR_EACH_IOREQ_SERVER(d, id, s) \
     for ( (id) = MAX_NR_IOREQ_SERVERS; (id) != 0; ) \
+        if ( !(s = GET_IOREQ_SERVER(d, --(id))) ) \
+            continue; \
+        else
+
+#define FOR_EACH_EXTERNAL_IOREQ_SERVER(d, id, s) \
+    for ( (id) = MAX_NR_EXTERNAL_IOREQ_SERVERS; (id) != 0; ) \
         if ( !(s = GET_IOREQ_SERVER(d, --(id))) ) \
             continue; \
         else
@@ -86,7 +93,7 @@ bool hvm_io_pending(struct vcpu *v)
     struct hvm_ioreq_server *s;
     unsigned int id;
 
-    FOR_EACH_IOREQ_SERVER(d, id, s)
+    FOR_EACH_EXTERNAL_IOREQ_SERVER(d, id, s)
     {
         struct hvm_ioreq_vcpu *sv;
 
@@ -190,7 +197,7 @@ bool handle_hvm_io_completion(struct vcpu *v)
         return false;
     }
 
-    FOR_EACH_IOREQ_SERVER(d, id, s)
+    FOR_EACH_EXTERNAL_IOREQ_SERVER(d, id, s)
     {
         struct hvm_ioreq_vcpu *sv;
 
@@ -430,7 +437,7 @@ bool is_ioreq_server_page(struct domain *d, const struct page_info *page)
 
     spin_lock_recursive(&d->arch.hvm.ioreq_server.lock);
 
-    FOR_EACH_IOREQ_SERVER(d, id, s)
+    FOR_EACH_EXTERNAL_IOREQ_SERVER(d, id, s)
     {
         if ( (s->ioreq.page == page) || (s->bufioreq.page == page) )
         {
@@ -688,7 +695,7 @@ static int hvm_ioreq_server_alloc_rangesets(struct hvm_ioreq_server *s,
     return rc;
 }
 
-static void hvm_ioreq_server_enable(struct hvm_ioreq_server *s)
+static void hvm_ioreq_server_enable(struct hvm_ioreq_server *s, bool internal)
 {
     struct hvm_ioreq_vcpu *sv;
 
@@ -697,29 +704,40 @@ static void hvm_ioreq_server_enable(struct hvm_ioreq_server *s)
     if ( s->enabled )
         goto done;
 
-    hvm_remove_ioreq_gfn(s, false);
-    hvm_remove_ioreq_gfn(s, true);
+    if ( !internal )
+    {
+        hvm_remove_ioreq_gfn(s, false);
+        hvm_remove_ioreq_gfn(s, true);
+
+        list_for_each_entry ( sv,
+                              &s->ioreq_vcpu_list,
+                              list_entry )
+            hvm_update_ioreq_evtchn(s, sv);
+    }
+    else if ( !s->handler )
+    {
+        ASSERT_UNREACHABLE();
+        goto done;
+    }
 
     s->enabled = true;
-
-    list_for_each_entry ( sv,
-                          &s->ioreq_vcpu_list,
-                          list_entry )
-        hvm_update_ioreq_evtchn(s, sv);
 
   done:
     spin_unlock(&s->lock);
 }
 
-static void hvm_ioreq_server_disable(struct hvm_ioreq_server *s)
+static void hvm_ioreq_server_disable(struct hvm_ioreq_server *s, bool internal)
 {
     spin_lock(&s->lock);
 
     if ( !s->enabled )
         goto done;
 
-    hvm_add_ioreq_gfn(s, true);
-    hvm_add_ioreq_gfn(s, false);
+    if ( !internal )
+    {
+        hvm_add_ioreq_gfn(s, true);
+        hvm_add_ioreq_gfn(s, false);
+    }
 
     s->enabled = false;
 
@@ -736,20 +754,20 @@ static int hvm_ioreq_server_init(struct hvm_ioreq_server *s,
     int rc;
 
     s->target = d;
+    spin_lock_init(&s->lock);
+
+    rc = hvm_ioreq_server_alloc_rangesets(s, id);
+    if ( hvm_ioreq_is_internal(id) || rc )
+        return rc;
 
     get_knownalive_domain(currd);
-    s->emulator = currd;
 
-    spin_lock_init(&s->lock);
+    s->emulator = currd;
     INIT_LIST_HEAD(&s->ioreq_vcpu_list);
     spin_lock_init(&s->bufioreq_lock);
 
     s->ioreq.gfn = INVALID_GFN;
     s->bufioreq.gfn = INVALID_GFN;
-
-    rc = hvm_ioreq_server_alloc_rangesets(s, id);
-    if ( rc )
-        return rc;
 
     s->bufioreq_handling = bufioreq_handling;
 
@@ -763,6 +781,7 @@ static int hvm_ioreq_server_init(struct hvm_ioreq_server *s,
     return 0;
 
  fail_add:
+    ASSERT(!hvm_ioreq_is_internal(id));
     hvm_ioreq_server_remove_all_vcpus(s);
     hvm_ioreq_server_unmap_pages(s);
 
@@ -772,9 +791,15 @@ static int hvm_ioreq_server_init(struct hvm_ioreq_server *s,
     return rc;
 }
 
-static void hvm_ioreq_server_deinit(struct hvm_ioreq_server *s)
+static void hvm_ioreq_server_deinit(struct hvm_ioreq_server *s, bool internal)
 {
     ASSERT(!s->enabled);
+
+    hvm_ioreq_server_free_rangesets(s);
+
+    if ( internal )
+        return;
+
     hvm_ioreq_server_remove_all_vcpus(s);
 
     /*
@@ -789,13 +814,11 @@ static void hvm_ioreq_server_deinit(struct hvm_ioreq_server *s)
     hvm_ioreq_server_unmap_pages(s);
     hvm_ioreq_server_free_pages(s);
 
-    hvm_ioreq_server_free_rangesets(s);
-
     put_domain(s->emulator);
 }
 
 int hvm_create_ioreq_server(struct domain *d, int bufioreq_handling,
-                            ioservid_t *id)
+                            ioservid_t *id, bool internal)
 {
     struct hvm_ioreq_server *s;
     unsigned int i;
@@ -811,7 +834,9 @@ int hvm_create_ioreq_server(struct domain *d, int bufioreq_handling,
     domain_pause(d);
     spin_lock_recursive(&d->arch.hvm.ioreq_server.lock);
 
-    for ( i = 0; i < MAX_NR_IOREQ_SERVERS; i++ )
+    for ( i = (internal ? MAX_NR_EXTERNAL_IOREQ_SERVERS : 0);
+          i < (internal ? MAX_NR_IOREQ_SERVERS : MAX_NR_EXTERNAL_IOREQ_SERVERS);
+          i++ )
     {
         if ( !GET_IOREQ_SERVER(d, i) )
             break;
@@ -820,6 +845,10 @@ int hvm_create_ioreq_server(struct domain *d, int bufioreq_handling,
     rc = -ENOSPC;
     if ( i >= MAX_NR_IOREQ_SERVERS )
         goto fail;
+
+    ASSERT(i < MAX_NR_EXTERNAL_IOREQ_SERVERS
+           ? !internal
+           : internal && i < MAX_NR_IOREQ_SERVERS);
 
     /*
      * It is safe to call set_ioreq_server() prior to
@@ -855,6 +884,8 @@ int hvm_destroy_ioreq_server(struct domain *d, ioservid_t id)
     struct hvm_ioreq_server *s;
     int rc;
 
+    ASSERT(!hvm_ioreq_is_internal(id));
+
     spin_lock_recursive(&d->arch.hvm.ioreq_server.lock);
 
     s = get_ioreq_server(d, id);
@@ -864,6 +895,7 @@ int hvm_destroy_ioreq_server(struct domain *d, ioservid_t id)
         goto out;
 
     rc = -EPERM;
+    /* NB: internal servers cannot be destroyed. */
     if ( s->emulator != current->domain )
         goto out;
 
@@ -871,13 +903,13 @@ int hvm_destroy_ioreq_server(struct domain *d, ioservid_t id)
 
     p2m_set_ioreq_server(d, 0, id);
 
-    hvm_ioreq_server_disable(s);
+    hvm_ioreq_server_disable(s, hvm_ioreq_is_internal(id));
 
     /*
      * It is safe to call hvm_ioreq_server_deinit() prior to
      * set_ioreq_server() since the target domain is paused.
      */
-    hvm_ioreq_server_deinit(s);
+    hvm_ioreq_server_deinit(s, false);
     set_ioreq_server(d, id, NULL);
 
     domain_unpause(d);
@@ -900,6 +932,8 @@ int hvm_get_ioreq_server_info(struct domain *d, ioservid_t id,
     struct hvm_ioreq_server *s;
     int rc;
 
+    ASSERT(!hvm_ioreq_is_internal(id));
+
     spin_lock_recursive(&d->arch.hvm.ioreq_server.lock);
 
     s = get_ioreq_server(d, id);
@@ -909,6 +943,7 @@ int hvm_get_ioreq_server_info(struct domain *d, ioservid_t id,
         goto out;
 
     rc = -EPERM;
+    /* NB: don't allow fetching information from internal ioreq servers. */
     if ( s->emulator != current->domain )
         goto out;
 
@@ -956,7 +991,7 @@ int hvm_get_ioreq_server_frame(struct domain *d, ioservid_t id,
         goto out;
 
     rc = -EPERM;
-    if ( s->emulator != current->domain )
+    if ( hvm_ioreq_is_internal(id) || s->emulator != current->domain )
         goto out;
 
     rc = hvm_ioreq_server_alloc_pages(s);
@@ -1010,7 +1045,7 @@ int hvm_map_io_range_to_ioreq_server(struct domain *d, ioservid_t id,
         goto out;
 
     rc = -EPERM;
-    if ( s->emulator != current->domain )
+    if ( !hvm_ioreq_is_internal(id) && s->emulator != current->domain )
         goto out;
 
     switch ( type )
@@ -1062,7 +1097,7 @@ int hvm_unmap_io_range_from_ioreq_server(struct domain *d, ioservid_t id,
         goto out;
 
     rc = -EPERM;
-    if ( s->emulator != current->domain )
+    if ( !hvm_ioreq_is_internal(id) && s->emulator != current->domain )
         goto out;
 
     switch ( type )
@@ -1107,6 +1142,8 @@ int hvm_map_mem_type_to_ioreq_server(struct domain *d, ioservid_t id,
 {
     struct hvm_ioreq_server *s;
     int rc;
+
+    ASSERT(!hvm_ioreq_is_internal(id));
 
     if ( type != HVMMEM_ioreq_server )
         return -EINVAL;
@@ -1157,15 +1194,15 @@ int hvm_set_ioreq_server_state(struct domain *d, ioservid_t id,
         goto out;
 
     rc = -EPERM;
-    if ( s->emulator != current->domain )
+    if ( !hvm_ioreq_is_internal(id) && s->emulator != current->domain )
         goto out;
 
     domain_pause(d);
 
     if ( enabled )
-        hvm_ioreq_server_enable(s);
+        hvm_ioreq_server_enable(s, hvm_ioreq_is_internal(id));
     else
-        hvm_ioreq_server_disable(s);
+        hvm_ioreq_server_disable(s, hvm_ioreq_is_internal(id));
 
     domain_unpause(d);
 
@@ -1184,7 +1221,7 @@ int hvm_all_ioreq_servers_add_vcpu(struct domain *d, struct vcpu *v)
 
     spin_lock_recursive(&d->arch.hvm.ioreq_server.lock);
 
-    FOR_EACH_IOREQ_SERVER(d, id, s)
+    FOR_EACH_EXTERNAL_IOREQ_SERVER(d, id, s)
     {
         rc = hvm_ioreq_server_add_vcpu(s, v);
         if ( rc )
@@ -1218,7 +1255,7 @@ void hvm_all_ioreq_servers_remove_vcpu(struct domain *d, struct vcpu *v)
 
     spin_lock_recursive(&d->arch.hvm.ioreq_server.lock);
 
-    FOR_EACH_IOREQ_SERVER(d, id, s)
+    FOR_EACH_EXTERNAL_IOREQ_SERVER(d, id, s)
         hvm_ioreq_server_remove_vcpu(s, v);
 
     spin_unlock_recursive(&d->arch.hvm.ioreq_server.lock);
@@ -1235,13 +1272,13 @@ void hvm_destroy_all_ioreq_servers(struct domain *d)
 
     FOR_EACH_IOREQ_SERVER(d, id, s)
     {
-        hvm_ioreq_server_disable(s);
+        hvm_ioreq_server_disable(s, hvm_ioreq_is_internal(id));
 
         /*
          * It is safe to call hvm_ioreq_server_deinit() prior to
          * set_ioreq_server() since the target domain is being destroyed.
          */
-        hvm_ioreq_server_deinit(s);
+        hvm_ioreq_server_deinit(s, hvm_ioreq_is_internal(id));
         set_ioreq_server(d, id, NULL);
 
         xfree(s);

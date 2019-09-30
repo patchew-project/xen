@@ -417,7 +417,7 @@ static int dm_op(const struct dmop_args *op_args)
             break;
 
         rc = hvm_create_ioreq_server(d, data->handle_bufioreq,
-                                     &data->id);
+                                     &data->id, false);
         break;
     }
 
@@ -450,6 +450,9 @@ static int dm_op(const struct dmop_args *op_args)
         rc = -EINVAL;
         if ( data->pad )
             break;
+        rc = -EPERM;
+        if ( hvm_ioreq_is_internal(data->id) )
+            break;
 
         rc = hvm_map_io_range_to_ioreq_server(d, data->id, data->type,
                                               data->start, data->end);
@@ -463,6 +466,9 @@ static int dm_op(const struct dmop_args *op_args)
 
         rc = -EINVAL;
         if ( data->pad )
+            break;
+        rc = -EPERM;
+        if ( hvm_ioreq_is_internal(data->id) )
             break;
 
         rc = hvm_unmap_io_range_from_ioreq_server(d, data->id, data->type,
@@ -480,6 +486,9 @@ static int dm_op(const struct dmop_args *op_args)
 
         rc = -EOPNOTSUPP;
         if ( !hap_enabled(d) )
+            break;
+        rc = -EPERM;
+        if ( hvm_ioreq_is_internal(data->id) )
             break;
 
         if ( first_gfn == 0 )
@@ -528,6 +537,9 @@ static int dm_op(const struct dmop_args *op_args)
         rc = -EINVAL;
         if ( data->pad )
             break;
+        rc = -EPERM;
+        if ( hvm_ioreq_is_internal(data->id) )
+            break;
 
         rc = hvm_set_ioreq_server_state(d, data->id, !!data->enabled);
         break;
@@ -540,6 +552,9 @@ static int dm_op(const struct dmop_args *op_args)
 
         rc = -EINVAL;
         if ( data->pad )
+            break;
+        rc = -EPERM;
+        if ( hvm_ioreq_is_internal(data->id) )
             break;
 
         rc = hvm_destroy_ioreq_server(d, data->id);
