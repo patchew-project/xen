@@ -239,15 +239,47 @@ bool handle_hvm_io_completion(struct vcpu *v)
     enum hvm_io_completion io_completion;
     unsigned int id;
 
-    if ( has_vpci(d) && vpci_process_pending(v) )
-    {
-        raise_softirq(SCHEDULE_SOFTIRQ);
-        return false;
-    }
-
-    FOR_EACH_EXTERNAL_IOREQ_SERVER(d, id, s)
+    FOR_EACH_IOREQ_SERVER(d, id, s)
     {
         struct hvm_ioreq_vcpu *sv;
+
+        if ( hvm_ioreq_is_internal(id) )
+        {
+            ioreq_t req = vio->io_req;
+
+            if ( vio->io_req.state != STATE_IOREQ_INPROCESS )
+                continue;
+
+            /*
+             * Check and convert the PIO/MMIO ioreq to a PCI config space
+             * access.
+             */
+            convert_pci_ioreq(d, &req);
+
+            if ( s->handler(&req, s->data) == X86EMUL_RETRY )
+            {
+                /*
+                 * Need to raise a scheduler irq in order to prevent the
+                 * guest vcpu from resuming execution.
+                 *
+                 * Note this is not required for external ioreq operations
+                 * because in that case the vcpu is marked as blocked, but
+                 * this cannot be done for long-running internal
+                 * operations, since it would prevent the vcpu from being
+                 * scheduled and thus the long running operation from
+                 * finishing.
+                 */
+                raise_softirq(SCHEDULE_SOFTIRQ);
+                return false;
+            }
+
+            /* Finished processing the ioreq. */
+            vio->io_req.state = hvm_ioreq_needs_completion(&vio->io_req)
+                                ? STATE_IORESP_READY
+                                : STATE_IOREQ_NONE;
+
+            continue;
+        }
 
         list_for_each_entry ( sv,
                               &s->ioreq_vcpu_list,
@@ -1554,7 +1586,14 @@ int hvm_send_ioreq(ioservid_t id, ioreq_t *proto_p, bool buffered)
     }
 
     if ( hvm_ioreq_is_internal(id) )
-        return s->handler(proto_p, s->data);
+    {
+        int rc = s->handler(proto_p, s->data);
+
+        if ( rc == X86EMUL_RETRY )
+            curr->arch.hvm.hvm_io.io_req.state = STATE_IOREQ_INPROCESS;
+
+        return rc;
+    }
 
     if ( unlikely(!vcpu_start_shutdown_deferral(curr)) )
         return X86EMUL_RETRY;

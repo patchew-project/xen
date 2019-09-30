@@ -92,7 +92,8 @@ struct hvm_vcpu_io {
 
 static inline bool hvm_ioreq_needs_completion(const ioreq_t *ioreq)
 {
-    return ioreq->state == STATE_IOREQ_READY &&
+    return (ioreq->state == STATE_IOREQ_READY ||
+            ioreq->state == STATE_IOREQ_INPROCESS) &&
            !ioreq->data_is_ptr &&
            (ioreq->type != IOREQ_TYPE_PIO || ioreq->dir != IOREQ_WRITE);
 }

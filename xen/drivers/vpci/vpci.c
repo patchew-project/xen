@@ -484,6 +484,7 @@ static void write(pci_sbdf_t sbdf, unsigned int reg, unsigned int size,
 static int ioreq_handler(ioreq_t *req, void *data)
 {
     pci_sbdf_t sbdf;
+    struct vcpu *curr = current;
 
     /*
      * NB: certain requests of type different than PCI are broadcasted to all
@@ -492,6 +493,12 @@ static int ioreq_handler(ioreq_t *req, void *data)
     if ( req->type != IOREQ_TYPE_PCI_CONFIG || req->data_is_ptr )
         return X86EMUL_UNHANDLEABLE;
 
+    if ( curr->vpci.mem )
+    {
+        ASSERT(req->state == STATE_IOREQ_INPROCESS);
+        return vpci_process_pending(curr) ? X86EMUL_RETRY : X86EMUL_OKAY;
+    }
+
     sbdf.sbdf = req->addr >> 32;
 
     if ( req->dir )
@@ -499,7 +506,7 @@ static int ioreq_handler(ioreq_t *req, void *data)
     else
         write(sbdf, req->addr, req->size, req->data);
 
-    return X86EMUL_OKAY;
+    return curr->vpci.mem ? X86EMUL_RETRY : X86EMUL_OKAY;
 }
 
 int vpci_register_ioreq(struct domain *d)
