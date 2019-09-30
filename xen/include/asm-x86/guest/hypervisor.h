@@ -36,6 +36,7 @@ bool hypervisor_probe(void);
 void hypervisor_setup(void);
 void hypervisor_ap_setup(void);
 void hypervisor_resume(void);
+const char *hypervisor_name(void);
 
 #else
 
@@ -45,6 +46,7 @@ static inline bool hypervisor_probe(void) { return false; }
 static inline void hypervisor_setup(void) {}
 static inline void hypervisor_ap_setup(void) {}
 static inline void hypervisor_resume(void) {}
+static inline char *hypervisor_name(void) { return NULL; }
 
 #endif  /* CONFIG_GUEST */
 

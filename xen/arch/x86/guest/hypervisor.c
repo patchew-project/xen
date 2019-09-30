@@ -43,6 +43,11 @@ bool hypervisor_probe(void)
     return !!hops;
 }
 
+const char *hypervisor_name(void)
+{
+    return hops->name;
+}
+
 void hypervisor_setup(void)
 {
     if ( hops && hops->setup )
