@@ -77,22 +77,22 @@ TYPE_SAFE(unsigned long, mfn);
 #undef mfn_x
 #endif
 
-static inline mfn_t mfn_add(mfn_t mfn, unsigned long i)
+static always_inline mfn_t mfn_add(mfn_t mfn, unsigned long i)
 {
     return _mfn(mfn_x(mfn) + i);
 }
 
-static inline mfn_t mfn_max(mfn_t x, mfn_t y)
+static always_inline mfn_t mfn_max(mfn_t x, mfn_t y)
 {
     return _mfn(max(mfn_x(x), mfn_x(y)));
 }
 
-static inline mfn_t mfn_min(mfn_t x, mfn_t y)
+static always_inline mfn_t mfn_min(mfn_t x, mfn_t y)
 {
     return _mfn(min(mfn_x(x), mfn_x(y)));
 }
 
-static inline bool_t mfn_eq(mfn_t x, mfn_t y)
+static always_inline bool mfn_eq(mfn_t x, mfn_t y)
 {
     return mfn_x(x) == mfn_x(y);
 }
@@ -115,22 +115,22 @@ TYPE_SAFE(unsigned long, gfn);
 #undef gfn_x
 #endif
 
-static inline gfn_t gfn_add(gfn_t gfn, unsigned long i)
+static always_inline gfn_t gfn_add(gfn_t gfn, unsigned long i)
 {
     return _gfn(gfn_x(gfn) + i);
 }
 
-static inline gfn_t gfn_max(gfn_t x, gfn_t y)
+static always_inline gfn_t gfn_max(gfn_t x, gfn_t y)
 {
     return _gfn(max(gfn_x(x), gfn_x(y)));
 }
 
-static inline gfn_t gfn_min(gfn_t x, gfn_t y)
+static always_inline gfn_t gfn_min(gfn_t x, gfn_t y)
 {
     return _gfn(min(gfn_x(x), gfn_x(y)));
 }
 
-static inline bool_t gfn_eq(gfn_t x, gfn_t y)
+static always_inline bool gfn_eq(gfn_t x, gfn_t y)
 {
     return gfn_x(x) == gfn_x(y);
 }

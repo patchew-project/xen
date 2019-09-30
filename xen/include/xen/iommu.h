@@ -42,12 +42,12 @@ TYPE_SAFE(uint64_t, dfn);
 #undef dfn_x
 #endif
 
-static inline dfn_t dfn_add(dfn_t dfn, unsigned long i)
+static always_inline dfn_t dfn_add(dfn_t dfn, unsigned long i)
 {
     return _dfn(dfn_x(dfn) + i);
 }
 
-static inline bool_t dfn_eq(dfn_t x, dfn_t y)
+static always_inline bool dfn_eq(dfn_t x, dfn_t y)
 {
     return dfn_x(x) == dfn_x(y);
 }

@@ -21,15 +21,15 @@
 
 #define TYPE_SAFE(_type, _name)                                         \
     typedef struct { _type _name; } _name##_t;                          \
-    static inline _name##_t _##_name(_type n) { return (_name##_t) { n }; } \
-    static inline _type _name##_x(_name##_t n) { return n._name; }
+    static always_inline _name##_t _##_name(_type n) { return (_name##_t) { n }; } \
+    static always_inline _type _name##_x(_name##_t n) { return n._name; }
 
 #else
 
 #define TYPE_SAFE(_type, _name)                                         \
     typedef _type _name##_t;                                            \
-    static inline _name##_t _##_name(_type n) { return n; }             \
-    static inline _type _name##_x(_name##_t n) { return n; }
+    static always_inline _name##_t _##_name(_type n) { return n; }      \
+    static always_inline _type _name##_x(_name##_t n) { return n; }
 
 #endif
 
