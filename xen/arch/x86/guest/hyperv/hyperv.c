@@ -1,7 +1,7 @@
 /******************************************************************************
- * arch/x86/guest/hypervisor.c
+ * arch/x86/guest/hyperv/hyperv.c
  *
- * Support for detecting and running under a hypervisor.
+ * Support for detecting and running under Hyper-V.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,58 +18,45 @@
  *
  * Copyright (c) 2019 Microsoft.
  */
+#include <xen/init.h>
 
-#include <xen/types.h>
-
-#include <asm/cache.h>
 #include <asm/guest.h>
 
-static struct hypervisor_ops *hops __read_mostly;
-
-bool hypervisor_probe(void)
+bool __init hyperv_probe(void)
 {
-    if ( hops )
-        return true;
+    uint32_t eax, ebx, ecx, edx;
+    bool hyperv_guest = false;
 
-    /* Too early to use cpu_has_hypervisor */
-    if ( !(cpuid_ecx(1) & cpufeat_mask(X86_FEATURE_HYPERVISOR)) )
-        return false;
+    cpuid(0x40000000, &eax, &ebx, &ecx, &edx);
+    if ( (ebx == 0x7263694d) && /* "Micr" */
+         (ecx == 0x666f736f) && /* "osof" */
+         (edx == 0x76482074) )  /* "t Hv" */
+        hyperv_guest = true;
 
-#ifdef CONFIG_XEN_GUEST
-    if ( xen_probe() )
-        hops = &xen_hypervisor_ops;
-#endif
-
-#ifdef CONFIG_HYPERV_GUEST
-    if ( hyperv_probe() )
-        hops = &hyperv_hypervisor_ops;
-#endif
-
-    return !!hops;
+    return hyperv_guest;
 }
 
-const char *hypervisor_name(void)
+void __init hyperv_setup(void)
 {
-    return hops->name;
+    /* Nothing yet */
 }
 
-void hypervisor_setup(void)
+void hyperv_ap_setup(void)
 {
-    if ( hops && hops->setup )
-        hops->setup();
+    /* Nothing yet */
 }
 
-void hypervisor_ap_setup(void)
+void hyperv_resume(void)
 {
-    if ( hops && hops->ap_setup )
-        hops->ap_setup();
+    /* Nothing yet */
 }
 
-void hypervisor_resume(void)
-{
-    if ( hops && hops->resume )
-        hops->resume();
-}
+struct hypervisor_ops hyperv_hypervisor_ops = {
+    .name = "Hyper-V",
+    .setup = hyperv_setup,
+    .ap_setup = hyperv_ap_setup,
+    .resume = hyperv_resume,
+};
 
 /*
  * Local variables:
