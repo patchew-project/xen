@@ -1518,11 +1518,15 @@ static int hvm_access_cf8(
 {
     struct domain *d = current->domain;
 
-    if ( dir == IOREQ_WRITE && bytes == 4 )
-        d->arch.hvm.pci_cf8 = *val;
+    if ( bytes != 4 )
+        return X86EMUL_OKAY;
 
-    /* We always need to fall through to the catch all emulator */
-    return X86EMUL_UNHANDLEABLE;
+    if ( dir == IOREQ_WRITE )
+        d->arch.hvm.pci_cf8 = *val;
+    else
+        *val = d->arch.hvm.pci_cf8;
+
+    return X86EMUL_OKAY;
 }
 
 void hvm_ioreq_init(struct domain *d)
