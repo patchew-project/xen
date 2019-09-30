@@ -23,6 +23,7 @@
 
 #include <asm/e820.h>
 #include <asm/fixmap.h>
+#include <asm/guest/hypervisor.h>
 
 #define XEN_shared_info ((struct shared_info *)fix_to_virt(FIX_XEN_SHARED_INFO))
 
@@ -31,8 +32,9 @@
 extern bool xen_guest;
 extern bool pv_console;
 extern uint32_t xen_cpuid_base;
+extern struct hypervisor_ops xen_hypervisor_ops;
 
-void probe_hypervisor(void);
+bool xen_probe(void);
 int xen_alloc_unused_page(mfn_t *mfn);
 int xen_free_unused_page(mfn_t mfn);
 
@@ -44,7 +46,7 @@ DECLARE_PER_CPU(struct vcpu_info *, vcpu_info);
 #define xen_guest 0
 #define pv_console 0
 
-static inline void probe_hypervisor(void) {}
+static inline bool xen_probe(void) { return false; }
 
 #endif /* CONFIG_XEN_GUEST */
 #endif /* __X86_GUEST_XEN_H__ */

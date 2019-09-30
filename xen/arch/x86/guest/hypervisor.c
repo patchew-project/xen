@@ -22,7 +22,7 @@
 #include <xen/types.h>
 
 #include <asm/cache.h>
-#include <asm/guest/hypervisor.h>
+#include <asm/guest.h>
 
 static struct hypervisor_ops *hops __read_mostly;
 
@@ -31,7 +31,34 @@ bool hypervisor_probe(void)
     if ( hops )
         return true;
 
-    return false;
+    /* Too early to use cpu_has_hypervisor */
+    if ( !(cpuid_ecx(1) & cpufeat_mask(X86_FEATURE_HYPERVISOR)) )
+        return false;
+
+#ifdef CONFIG_XEN_GUEST
+    if ( xen_probe() )
+        hops = &xen_hypervisor_ops;
+#endif
+
+    return !!hops;
+}
+
+void hypervisor_setup(void)
+{
+    if ( hops && hops->setup )
+        hops->setup();
+}
+
+void hypervisor_ap_setup(void)
+{
+    if ( hops && hops->ap_setup )
+        hops->ap_setup();
+}
+
+void hypervisor_resume(void)
+{
+    if ( hops && hops->resume )
+        hops->resume();
 }
 
 /*
