@@ -77,6 +77,27 @@ config HAS_CHECKPOLICY
 	string
 	option env="XEN_HAS_CHECKPOLICY"
 
+menu "Speculative hardening"
+
+config SPECULATIVE_ARRAY_HARDEN
+	bool "Speculative Array Hardening"
+	default y
+	---help---
+	  Contemporary processors may use speculative execution as a
+	  performance optimisation, but this can potentially be abused by an
+	  attacker to leak data via speculative sidechannels.
+
+	  One source of data leakage is via speculative out-of-bounds array
+	  accesses.
+
+	  When enabled, specific array accesses which have been deemed liable
+	  to be speculatively abused will be hardened to avoid out-of-bounds
+	  accesses.
+
+	  If unsure, say Y.
+
+endmenu
+
 config KEXEC
 	bool "kexec support"
 	default y

@@ -33,6 +33,7 @@ static inline unsigned long array_index_mask_nospec(unsigned long index,
 }
 #endif
 
+#ifdef CONFIG_SPECULATIVE_ARRAY_HARDEN
 /*
  * array_index_nospec - sanitize an array index after a bounds check
  *
@@ -58,6 +59,17 @@ static inline unsigned long array_index_mask_nospec(unsigned long index,
                                                                         \
     (typeof(_i)) (_i & _mask);                                          \
 })
+#else
+/* No index hardening. */
+#define array_index_nospec(index, size)                                 \
+({                                                                      \
+    typeof(index) _i = (index);                                         \
+    typeof(size) _s = (size);                                           \
+                                                                        \
+    (void)_s;                                                           \
+    _i;                                                                 \
+})
+#endif /* CONFIG_SPECULATIVE_ARRAY_HARDEN */
 
 /*
  * array_access_nospec - allow nospec access for static size arrays
