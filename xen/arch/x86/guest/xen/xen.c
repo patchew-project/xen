@@ -97,7 +97,7 @@ static void map_shared_info(void)
     unsigned int i;
     unsigned long rc;
 
-    if ( hypervisor_alloc_unused_page(&mfn) )
+    if ( xen_alloc_unused_page(&mfn) )
         panic("unable to reserve shared info memory page\n");
 
     xatp.gpfn = mfn_x(mfn);
@@ -284,7 +284,7 @@ void hypervisor_ap_setup(void)
     init_evtchn();
 }
 
-int hypervisor_alloc_unused_page(mfn_t *mfn)
+int xen_alloc_unused_page(mfn_t *mfn)
 {
     unsigned long m;
     int rc;
@@ -296,7 +296,7 @@ int hypervisor_alloc_unused_page(mfn_t *mfn)
     return rc;
 }
 
-int hypervisor_free_unused_page(mfn_t mfn)
+int xen_free_unused_page(mfn_t mfn)
 {
     return rangeset_remove_range(mem, mfn_x(mfn), mfn_x(mfn));
 }
