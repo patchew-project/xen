@@ -39,6 +39,7 @@ static void set_ioreq_server(struct domain *d, unsigned int id,
 {
     ASSERT(id < MAX_NR_IOREQ_SERVERS);
     ASSERT(!s || !d->arch.hvm.ioreq_server.server[id]);
+    BUILD_BUG_ON(MAX_NR_IOREQ_SERVERS >= XEN_INVALID_IOSERVID);
 
     d->arch.hvm.ioreq_server.server[id] = s;
 }
@@ -868,7 +869,7 @@ int hvm_destroy_ioreq_server(struct domain *d, ioservid_t id)
 
     domain_pause(d);
 
-    p2m_set_ioreq_server(d, 0, s);
+    p2m_set_ioreq_server(d, 0, id);
 
     hvm_ioreq_server_disable(s);
 
@@ -1125,7 +1126,7 @@ int hvm_map_mem_type_to_ioreq_server(struct domain *d, ioservid_t id,
     if ( s->emulator != current->domain )
         goto out;
 
-    rc = p2m_set_ioreq_server(d, flags, s);
+    rc = p2m_set_ioreq_server(d, flags, id);
 
  out:
     spin_unlock_recursive(&d->arch.hvm.ioreq_server.lock);
@@ -1249,8 +1250,7 @@ void hvm_destroy_all_ioreq_servers(struct domain *d)
     spin_unlock_recursive(&d->arch.hvm.ioreq_server.lock);
 }
 
-struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
-                                                 ioreq_t *p)
+ioservid_t hvm_select_ioreq_server(struct domain *d, ioreq_t *p)
 {
     struct hvm_ioreq_server *s;
     uint32_t cf8;
@@ -1259,7 +1259,7 @@ struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
     unsigned int id;
 
     if ( p->type != IOREQ_TYPE_COPY && p->type != IOREQ_TYPE_PIO )
-        return NULL;
+        return XEN_INVALID_IOSERVID;
 
     cf8 = d->arch.hvm.pci_cf8;
 
@@ -1314,7 +1314,7 @@ struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
             start = addr;
             end = start + p->size - 1;
             if ( rangeset_contains_range(r, start, end) )
-                return s;
+                return id;
 
             break;
 
@@ -1323,7 +1323,7 @@ struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
             end = hvm_mmio_last_byte(p);
 
             if ( rangeset_contains_range(r, start, end) )
-                return s;
+                return id;
 
             break;
 
@@ -1332,14 +1332,14 @@ struct hvm_ioreq_server *hvm_select_ioreq_server(struct domain *d,
             {
                 p->type = IOREQ_TYPE_PCI_CONFIG;
                 p->addr = addr;
-                return s;
+                return id;
             }
 
             break;
         }
     }
 
-    return NULL;
+    return XEN_INVALID_IOSERVID;
 }
 
 static int hvm_send_buffered_ioreq(struct hvm_ioreq_server *s, ioreq_t *p)
@@ -1435,12 +1435,12 @@ static int hvm_send_buffered_ioreq(struct hvm_ioreq_server *s, ioreq_t *p)
     return X86EMUL_OKAY;
 }
 
-int hvm_send_ioreq(struct hvm_ioreq_server *s, ioreq_t *proto_p,
-                   bool buffered)
+int hvm_send_ioreq(ioservid_t id, ioreq_t *proto_p, bool buffered)
 {
     struct vcpu *curr = current;
     struct domain *d = curr->domain;
     struct hvm_ioreq_vcpu *sv;
+    struct hvm_ioreq_server *s = get_ioreq_server(d, id);
 
     ASSERT(s);
 
@@ -1506,7 +1506,7 @@ unsigned int hvm_broadcast_ioreq(ioreq_t *p, bool buffered)
         if ( !s->enabled )
             continue;
 
-        if ( hvm_send_ioreq(s, p, buffered) == X86EMUL_UNHANDLEABLE )
+        if ( hvm_send_ioreq(id, p, buffered) == X86EMUL_UNHANDLEABLE )
             failed++;
     }
 

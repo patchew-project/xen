@@ -354,7 +354,7 @@ struct p2m_domain {
           * ioreq server who's responsible for the emulation of
           * gfns with specific p2m type(for now, p2m_ioreq_server).
           */
-         struct hvm_ioreq_server *server;
+         ioservid_t server;
          /*
           * flags specifies whether read, write or both operations
           * are to be emulated by an ioreq server.
@@ -819,7 +819,7 @@ static inline p2m_type_t p2m_recalc_type_range(bool recalc, p2m_type_t t,
     if ( !recalc || !p2m_is_changeable(t) )
         return t;
 
-    if ( t == p2m_ioreq_server && p2m->ioreq.server != NULL )
+    if ( t == p2m_ioreq_server && p2m->ioreq.server != XEN_INVALID_IOSERVID )
         return t;
 
     return p2m_is_logdirty_range(p2m, gfn_start, gfn_end) ? p2m_ram_logdirty
@@ -938,9 +938,8 @@ static inline unsigned int p2m_get_iommu_flags(p2m_type_t p2mt, mfn_t mfn)
 }
 
 int p2m_set_ioreq_server(struct domain *d, unsigned int flags,
-                         struct hvm_ioreq_server *s);
-struct hvm_ioreq_server *p2m_get_ioreq_server(struct domain *d,
-                                              unsigned int *flags);
+                         ioservid_t id);
+ioservid_t p2m_get_ioreq_server(struct domain *d, unsigned int *flags);
 
 static inline int p2m_entry_modify(struct p2m_domain *p2m, p2m_type_t nt,
                                    p2m_type_t ot, mfn_t nfn, mfn_t ofn,
