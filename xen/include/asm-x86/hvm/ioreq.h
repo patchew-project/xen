@@ -54,6 +54,10 @@ unsigned int hvm_broadcast_ioreq(ioreq_t *p, bool buffered);
 
 void hvm_ioreq_init(struct domain *d);
 
+int hvm_set_ioreq_handler(struct domain *d, ioservid_t id,
+                          int (*handler)(ioreq_t *, void *),
+                          void *data);
+
 static inline bool hvm_ioreq_is_internal(unsigned int id)
 {
     ASSERT(id < MAX_NR_IOREQ_SERVERS);
