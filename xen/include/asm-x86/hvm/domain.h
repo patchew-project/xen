@@ -52,21 +52,29 @@ struct hvm_ioreq_vcpu {
 #define MAX_NR_IO_RANGES  256
 
 struct hvm_ioreq_server {
-    struct domain          *target, *emulator;
-
+    struct domain          *target;
     /* Lock to serialize toolstack modifications */
     spinlock_t             lock;
-
-    struct hvm_ioreq_page  ioreq;
-    struct list_head       ioreq_vcpu_list;
-    struct hvm_ioreq_page  bufioreq;
-
-    /* Lock to serialize access to buffered ioreq ring */
-    spinlock_t             bufioreq_lock;
-    evtchn_port_t          bufioreq_evtchn;
     struct rangeset        *range[NR_IO_RANGE_TYPES];
     bool                   enabled;
-    uint8_t                bufioreq_handling;
+
+    union {
+        struct {
+            struct domain          *emulator;
+            struct hvm_ioreq_page  ioreq;
+            struct list_head       ioreq_vcpu_list;
+            struct hvm_ioreq_page  bufioreq;
+
+            /* Lock to serialize access to buffered ioreq ring */
+            spinlock_t             bufioreq_lock;
+            evtchn_port_t          bufioreq_evtchn;
+            uint8_t                bufioreq_handling;
+        };
+        struct {
+            void                   *data;
+            int (*handler)(ioreq_t *, void *);
+        };
+    };
 };
 
 /*
