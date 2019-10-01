@@ -9,13 +9,13 @@
 /* Allow to insert a read memory barrier into conditionals */
 static always_inline bool barrier_nospec_true(void)
 {
-#ifdef CONFIG_HVM
-    alternative("", "lfence", X86_FEATURE_SC_L1TF_VULN);
+#ifdef CONFIG_SPECULATIVE_HARDEN_BRANCH
+    asm volatile ( "lfence" ::: "memory" );
 #endif
     return true;
 }
 
-/* Allow to protect evaluation of conditionasl with respect to speculation */
+/* Allow to protect evaluation of conditionals with respect to speculation */
 static always_inline bool evaluate_nospec(bool condition)
 {
     return condition ? barrier_nospec_true() : !barrier_nospec_true();

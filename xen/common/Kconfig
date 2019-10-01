@@ -99,6 +99,27 @@ config SPECULATIVE_HARDEN_ARRAY
 
 	  If unsure, say Y.
 
+config SPECULATIVE_HARDEN_BRANCH
+	bool "Speculative Branch Hardening"
+	depends on BROKEN
+        ---help---
+	  Contemporary processors may use speculative execution as a
+	  performance optimisation, but this can potentially be abused by an
+	  attacker to leak data via speculative sidechannels.
+
+	  One source of misbehaviour is by executing the wrong basic block
+	  following a conditional jump.
+
+	  When enabled, specific conditions which have been deemed liable to
+	  be speculatively abused will be hardened to avoid entering the wrong
+	  basic block.
+
+	  This is a best-effort mitigation.  There are no guarantees that all
+	  areas of code open to abuse have been hardened.
+
+	  !!! WARNING - This doesn't function as intended.  It does not
+              generate speculatively safe code !!!
+
 endmenu
 
 config KEXEC
