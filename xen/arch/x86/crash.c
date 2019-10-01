@@ -29,6 +29,7 @@
 #include <asm/io_apic.h>
 #include <xen/iommu.h>
 #include <asm/hpet.h>
+#include <xen/console.h>
 
 static cpumask_t waiting_to_crash;
 static unsigned int crashing_cpu;
@@ -155,6 +156,7 @@ static void nmi_shootdown_cpus(void)
     }
 
     /* Leave a hint of how well we did trying to shoot down the other cpus */
+    console_force_unlock();
     if ( cpumask_empty(&waiting_to_crash) )
         printk("Shot down all CPUs\n");
     else
