@@ -1505,7 +1505,10 @@ static int assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
     }
 
     if ( pdev->msix )
+    {
         msixtbl_init(d);
+        pdev->msix->host_maskall = false;
+    }
 
     pdev->fault.count = 0;
 
