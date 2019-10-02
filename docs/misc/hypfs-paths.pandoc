@@ -102,3 +102,12 @@ hypervisor.
 #### /buildinfo/config = STRING
 
 The contents of the `xen/.config` file at the time of the hypervisor build.
+
+#### /params/
+
+A directory of runtime parameters (those can be set via xl set-parameters).
+
+#### /params/*
+
+The single parameters. The description of the different parameters can be
+found in `docs/misc/xen-command-line.pandoc`.
