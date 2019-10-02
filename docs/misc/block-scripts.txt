@@ -18,7 +18,7 @@ Setup
 
 It is highly recommended that custom hotplug scripts as much as
 possible include and use the common Xen functionality.  If the script
-is run from the normal block script location (/etc/xen/scripts by
+is run from the normal block script location (/usr/lib/xen/scripts by
 default), then this can be done by adding the following to the top of
 the script:
 
