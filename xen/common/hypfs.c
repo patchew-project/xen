@@ -25,6 +25,10 @@ static struct hypfs_entry hypfs_root_entry = {
     .dir = &hypfs_root,
 };
 
+static struct hypfs_dir hypfs_buildinfo = {
+    .list = LIST_HEAD_INIT(hypfs_buildinfo.list),
+};
+
 static int hypfs_add_entry(struct hypfs_dir *parent, struct hypfs_entry *new)
 {
     int ret = -ENOENT;
@@ -316,3 +320,16 @@ long do_hypfs_op(unsigned int cmd,
 
     return ret;
 }
+
+static int __init hypfs_init(void)
+{
+    int ret;
+
+    ret = hypfs_new_dir(&hypfs_root, "buildinfo", &hypfs_buildinfo);
+    BUG_ON(ret);
+    ret = hypfs_new_entry_string(&hypfs_buildinfo, "config", xen_config_data);
+    BUG_ON(ret);
+
+    return 0;
+}
+__initcall(hypfs_init);

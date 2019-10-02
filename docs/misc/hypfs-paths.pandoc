@@ -93,3 +93,12 @@ A populated Xen hypervisor file system might look like the following example:
 #### /
 
 The root of the hypervisor file system.
+
+#### /buildinfo/
+
+A directory containing static information generated while building the
+hypervisor.
+
+#### /buildinfo/config = STRING
+
+The contents of the `xen/.config` file at the time of the hypervisor build.
