@@ -1050,7 +1050,7 @@ static void __init efi_set_gop_mode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop, UINTN gop
     UINTN info_size;
 
     /* Set graphics mode. */
-    if ( gop_mode < gop->Mode->MaxMode && gop_mode != gop->Mode->Mode )
+    if ( gop_mode < gop->Mode->MaxMode )
         gop->SetMode(gop, gop_mode);
 
     /* Get graphics and frame buffer info. */
