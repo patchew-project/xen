@@ -1111,10 +1111,14 @@ static int __init __maybe_unused set_color(u32 mask, int bpp, u8 *pos, u8 *sz)
    if ( bpp < 0 )
        return bpp;
    if ( !mask )
-       return -EINVAL;
+   {
+       *pos = 0;
+       *sz = 0;
+       return bpp;
+   }
    for ( *pos = 0; !(mask & 1); ++*pos )
        mask >>= 1;
-   for ( *sz = 0; mask & 1; ++sz)
+   for ( *sz = 0; mask & 1; ++*sz)
        mask >>= 1;
    if ( mask )
        return -EINVAL;
