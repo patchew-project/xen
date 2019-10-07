@@ -202,11 +202,42 @@ func (chwcap C.libxl_hwcap) toGo() (ghwcap Hwcap) {
 	return
 }
 
+// KeyValueList represents a libxl_key_value_list.
+type KeyValueList map[string]string
+
+func (kvl KeyValueList) fromC(ckvl *C.libxl_key_value_list) error {
+	size := int(C.libxl_key_value_list_length(ckvl))
+	list := (*[1 << 30]*C.char)(unsafe.Pointer(ckvl))[:size:size]
+
+	for i := 0; i < size*2; i += 2 {
+		kvl[C.GoString(list[i])] = C.GoString(list[i+1])
+	}
+
+	return nil
+}
+
+func (kvl KeyValueList) toC() (C.libxl_key_value_list, error) {
+	// Add extra slot for sentinel
+	var char *C.char
+	csize := 2*len(kvl) + 1
+	ckvl := (C.libxl_key_value_list)(C.malloc(C.ulong(csize) * C.ulong(unsafe.Sizeof(char))))
+	clist := (*[1 << 31]*C.char)(unsafe.Pointer(ckvl))[:csize:csize]
+
+	i := 0
+	for k, v := range kvl {
+		clist[i] = C.CString(k)
+		clist[i+1] = C.CString(v)
+		i += 2
+	}
+	clist[len(clist)-1] = nil
+
+	return ckvl, nil
+}
+
 // typedef struct {
 //     uint32_t size;          /* number of bytes in map */
 //     uint8_t *map;
 // } libxl_bitmap;
-
 // Implement the Go bitmap type such that the underlying data can
 // easily be copied in and out.  NB that we still have to do copies
 // both directions, because cgo runtime restrictions forbid passing to
