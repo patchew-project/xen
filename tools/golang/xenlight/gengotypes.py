@@ -18,6 +18,12 @@ builtin_type_names = {
     idl.uint64.typename: 'uint64',
 }
 
+# Some go keywords that conflict with field names in libxl structs.
+go_keywords = ['type', 'func']
+
+go_builtin_types = ['bool', 'string', 'int', 'byte',
+                    'uint16', 'uint32', 'uint64']
+
 # List of strings that need to be written to a file
 # after a struct definition.
 type_extras = []
@@ -168,6 +174,118 @@ def xenlight_golang_define_union(ty = None, structname = ''):
 
     return s
 
+def xenlight_golang_generate_helpers(path = None, types = None, comment = None):
+    """
+    Generate a .go file (xenlight_helpers.go by default)
+    that contains helper functions for marshaling between
+    C and Go types.
+    """
+    if path is None:
+        path = 'xenlight_helpers.go'
+
+    with open(path, 'w') as f:
+        if comment is not None:
+            f.write(comment)
+        f.write('package xenlight\n')
+
+        # Cgo preamble
+        f.write('/*\n')
+        f.write('#cgo LDFLAGS: -lxenlight\n')
+        f.write('#include <stdlib.h>\n')
+        f.write('#include <libxl.h>\n')
+        f.write('\n')
+
+        f.write('*/\nimport "C"\n')
+
+        for ty in types:
+            if not isinstance(ty, idl.Struct):
+                continue
+
+            f.write(xenlight_golang_define_from_C(ty))
+            f.write('\n')
+
+    go_fmt(path)
+
+def xenlight_golang_define_from_C(ty = None, typename = None, nested = False):
+    s = ''
+
+    gotypename = ctypename = ''
+
+    if typename is not None:
+        gotypename = xenlight_golang_fmt_name(typename)
+        ctypename  = typename
+    else:
+        gotypename = xenlight_golang_fmt_name(ty.typename)
+        ctypename  = ty.typename
+
+    if not nested:
+        s += 'func (x *{}) fromC(xc *C.{}) error {{\n'.format(gotypename,ctypename)
+
+    for f in ty.fields:
+        if f.type.typename is not None:
+            if isinstance(f.type, idl.Array):
+                # TODO
+                continue
+
+            gotypename = xenlight_golang_fmt_name(f.type.typename)
+            gofname    = xenlight_golang_fmt_name(f.name)
+            cfname     = f.name
+
+            # In cgo, C names that conflict with Go keywords can be
+            # accessed by prepending an underscore to the name.
+            if cfname in go_keywords:
+                cfname = '_' + cfname
+
+            # If this is nested, we need the outer name too.
+            if nested and typename is not None:
+                goname = xenlight_golang_fmt_name(typename)
+                goname = '{}.{}'.format(goname, gofname)
+                cname  = '{}.{}'.format(typename, cfname)
+
+            else:
+                goname = gofname
+                cname  = cfname
+
+            # Types that satisfy this condition can be easily casted or
+            # converted to a Go builtin type.
+            is_castable = (f.type.json_parse_type == 'JSON_INTEGER' or
+                           isinstance(f.type, idl.Enumeration) or
+                           gotypename in go_builtin_types)
+
+            if is_castable:
+                # Use the cgo helper for converting C strings.
+                if gotypename == 'string':
+                    s += 'x.{} = C.GoString(xc.{})\n'.format(goname, cname)
+                    continue
+
+                s += 'x.{} = {}(xc.{})\n'.format(goname, gotypename, cname)
+
+            else:
+                # If the type is not castable, we need to call its fromC
+                # function.
+                varname = '{}_{}'.format(f.type.typename,f.name)
+                varname = xenlight_golang_fmt_name(varname, exported=False)
+
+                s += 'var {} {}\n'.format(varname, gotypename)
+                s += 'if err := {}.fromC(&xc.{});'.format(varname, cname)
+                s += 'err != nil {\n return err\n}\n'
+                s += 'x.{} = {}\n'.format(goname, varname)
+
+        elif isinstance(f.type, idl.Struct):
+            s += xenlight_golang_define_from_C(f.type, typename=f.name, nested=True)
+
+        elif isinstance(f.type, idl.KeyedUnion):
+            pass
+
+        else:
+            raise Exception('type {} not supported'.format(f.type))
+
+    if not nested:
+        s += 'return nil'
+        s += '}\n'
+
+    return s
+
 def xenlight_golang_fmt_name(name, exported = True):
     """
     Take a given type name and return an
@@ -210,3 +328,5 @@ if __name__ == '__main__':
 
     xenlight_golang_generate_types(types=types,
                                    comment=header_comment)
+    xenlight_golang_generate_helpers(types=types,
+                                     comment=header_comment)
