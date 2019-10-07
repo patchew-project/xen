@@ -249,6 +249,26 @@ type EvLink struct{}
 func (el *EvLink) fromC(cel *C.libxl_ev_link) error      { return nil }
 func (el *EvLink) toC() (cel C.libxl_ev_link, err error) { return }
 
+// CpuidPolicyList represents a libxl_cpuid_policy_list.
+type CpuidPolicyList struct {
+	val *C.libxl_cpuid_policy_list
+}
+
+func (cpl *CpuidPolicyList) fromC(ccpl *C.libxl_cpuid_policy_list) error {
+	cpl.val = ccpl
+	return nil
+}
+
+func (cpl *CpuidPolicyList) toC() (C.libxl_cpuid_policy_list, error) {
+	if cpl.val == nil {
+		var c C.libxl_cpuid_policy_list
+		return c, nil
+	}
+	ccpl := (*C.libxl_cpuid_policy_list)(unsafe.Pointer(cpl.val))
+
+	return *ccpl, nil
+}
+
 type Context struct {
 	ctx    *C.libxl_ctx
 	logger *C.xentoollog_logger_stdiostream
