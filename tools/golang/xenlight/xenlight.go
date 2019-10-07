@@ -181,6 +181,41 @@ func (d *Defbool) toC() (C.libxl_defbool, error) {
 	return c, nil
 }
 
+// Mac represents a libxl_mac, or simply a MAC address.
+type Mac [6]byte
+
+// String formats a Mac address to string representation.
+func (mac Mac) String() string {
+	s := "%x:%x:%x:%x:%x:%x"
+	opts := make([]interface{}, 6)
+
+	for i, v := range mac {
+		opts[i] = v
+	}
+
+	return fmt.Sprintf(s, opts...)
+}
+
+func (mac *Mac) fromC(cmac *C.libxl_mac) error {
+	b := (*[6]C.uint8_t)(unsafe.Pointer(cmac))
+
+	for i, v := range b {
+		mac[i] = byte(v)
+	}
+
+	return nil
+}
+
+func (mac *Mac) toC() (C.libxl_mac, error) {
+	var cmac C.libxl_mac
+
+	for i, v := range mac {
+		cmac[i] = C.uint8_t(v)
+	}
+
+	return cmac, nil
+}
+
 type Context struct {
 	ctx    *C.libxl_ctx
 	logger *C.xentoollog_logger_stdiostream
