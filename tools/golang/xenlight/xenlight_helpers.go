@@ -130,6 +130,13 @@ func (x *IoportRange) fromC(xc *C.libxl_ioport_range) error {
 	return nil
 }
 
+func (x *IoportRange) toC() (xc C.libxl_ioport_range, err error) {
+	C.libxl_ioport_range_init(&xc)
+	xc.first = C.uint32_t(x.First)
+	xc.number = C.uint32_t(x.Number)
+	return xc, nil
+}
+
 func (x *IomemRange) fromC(xc *C.libxl_iomem_range) error {
 	x.Start = uint64(xc.start)
 	x.Number = uint64(xc.number)
@@ -137,9 +144,23 @@ func (x *IomemRange) fromC(xc *C.libxl_iomem_range) error {
 	return nil
 }
 
+func (x *IomemRange) toC() (xc C.libxl_iomem_range, err error) {
+	C.libxl_iomem_range_init(&xc)
+	xc.start = C.uint64_t(x.Start)
+	xc.number = C.uint64_t(x.Number)
+	xc.gfn = C.uint64_t(x.Gfn)
+	return xc, nil
+}
+
 func (x *VgaInterfaceInfo) fromC(xc *C.libxl_vga_interface_info) error {
 	x.Kind = VgaInterfaceType(xc.kind)
 	return nil
+}
+
+func (x *VgaInterfaceInfo) toC() (xc C.libxl_vga_interface_info, err error) {
+	C.libxl_vga_interface_info_init(&xc)
+	xc.kind = C.libxl_vga_interface_type(x.Kind)
+	return xc, nil
 }
 
 func (x *VncInfo) fromC(xc *C.libxl_vnc_info) error {
@@ -157,6 +178,24 @@ func (x *VncInfo) fromC(xc *C.libxl_vnc_info) error {
 	}
 	x.Findunused = defboolFindunused
 	return nil
+}
+
+func (x *VncInfo) toC() (xc C.libxl_vnc_info, err error) {
+	C.libxl_vnc_info_init(&xc)
+	xc.enable, err = x.Enable.toC()
+	if err != nil {
+		C.libxl_vnc_info_dispose(&xc)
+		return xc, err
+	}
+	xc.listen = C.CString(x.Listen)
+	xc.passwd = C.CString(x.Passwd)
+	xc.display = C.int(x.Display)
+	xc.findunused, err = x.Findunused.toC()
+	if err != nil {
+		C.libxl_vnc_info_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
 }
 
 func (x *SpiceInfo) fromC(xc *C.libxl_spice_info) error {
@@ -195,6 +234,43 @@ func (x *SpiceInfo) fromC(xc *C.libxl_spice_info) error {
 	return nil
 }
 
+func (x *SpiceInfo) toC() (xc C.libxl_spice_info, err error) {
+	C.libxl_spice_info_init(&xc)
+	xc.enable, err = x.Enable.toC()
+	if err != nil {
+		C.libxl_spice_info_dispose(&xc)
+		return xc, err
+	}
+	xc.port = C.int(x.Port)
+	xc.tls_port = C.int(x.TlsPort)
+	xc.host = C.CString(x.Host)
+	xc.disable_ticketing, err = x.DisableTicketing.toC()
+	if err != nil {
+		C.libxl_spice_info_dispose(&xc)
+		return xc, err
+	}
+	xc.passwd = C.CString(x.Passwd)
+	xc.agent_mouse, err = x.AgentMouse.toC()
+	if err != nil {
+		C.libxl_spice_info_dispose(&xc)
+		return xc, err
+	}
+	xc.vdagent, err = x.Vdagent.toC()
+	if err != nil {
+		C.libxl_spice_info_dispose(&xc)
+		return xc, err
+	}
+	xc.clipboard_sharing, err = x.ClipboardSharing.toC()
+	if err != nil {
+		C.libxl_spice_info_dispose(&xc)
+		return xc, err
+	}
+	xc.usbredirection = C.int(x.Usbredirection)
+	xc.image_compression = C.CString(x.ImageCompression)
+	xc.streaming_video = C.CString(x.StreamingVideo)
+	return xc, nil
+}
+
 func (x *SdlInfo) fromC(xc *C.libxl_sdl_info) error {
 	var defboolEnable Defbool
 	if err := defboolEnable.fromC(&xc.enable); err != nil {
@@ -209,6 +285,23 @@ func (x *SdlInfo) fromC(xc *C.libxl_sdl_info) error {
 	x.Display = C.GoString(xc.display)
 	x.Xauthority = C.GoString(xc.xauthority)
 	return nil
+}
+
+func (x *SdlInfo) toC() (xc C.libxl_sdl_info, err error) {
+	C.libxl_sdl_info_init(&xc)
+	xc.enable, err = x.Enable.toC()
+	if err != nil {
+		C.libxl_sdl_info_dispose(&xc)
+		return xc, err
+	}
+	xc.opengl, err = x.Opengl.toC()
+	if err != nil {
+		C.libxl_sdl_info_dispose(&xc)
+		return xc, err
+	}
+	xc.display = C.CString(x.Display)
+	xc.xauthority = C.CString(x.Xauthority)
+	return xc, nil
 }
 
 func (x *Dominfo) fromC(xc *C.libxl_dominfo) error {
@@ -240,6 +333,36 @@ func (x *Dominfo) fromC(xc *C.libxl_dominfo) error {
 	return nil
 }
 
+func (x *Dominfo) toC() (xc C.libxl_dominfo, err error) {
+	C.libxl_dominfo_init(&xc)
+	xc.uuid, err = x.Uuid.toC()
+	if err != nil {
+		C.libxl_dominfo_dispose(&xc)
+		return xc, err
+	}
+	xc.domid = C.libxl_domid(x.Domid)
+	xc.ssidref = C.uint32_t(x.Ssidref)
+	xc.ssid_label = C.CString(x.SsidLabel)
+	xc.running = C.bool(x.Running)
+	xc.blocked = C.bool(x.Blocked)
+	xc.paused = C.bool(x.Paused)
+	xc.shutdown = C.bool(x.Shutdown)
+	xc.dying = C.bool(x.Dying)
+	xc.never_stop = C.bool(x.NeverStop)
+	xc.shutdown_reason = C.libxl_shutdown_reason(x.ShutdownReason)
+	xc.outstanding_memkb = C.uint64_t(x.OutstandingMemkb)
+	xc.current_memkb = C.uint64_t(x.CurrentMemkb)
+	xc.shared_memkb = C.uint64_t(x.SharedMemkb)
+	xc.paged_memkb = C.uint64_t(x.PagedMemkb)
+	xc.max_memkb = C.uint64_t(x.MaxMemkb)
+	xc.cpu_time = C.uint64_t(x.CpuTime)
+	xc.vcpu_max_id = C.uint32_t(x.VcpuMaxId)
+	xc.vcpu_online = C.uint32_t(x.VcpuOnline)
+	xc.cpupool = C.uint32_t(x.Cpupool)
+	xc.domain_type = C.libxl_domain_type(x.DomainType)
+	return xc, nil
+}
+
 func (x *Cpupoolinfo) fromC(xc *C.libxl_cpupoolinfo) error {
 	x.Poolid = uint32(xc.poolid)
 	x.PoolName = C.GoString(xc.pool_name)
@@ -251,6 +374,20 @@ func (x *Cpupoolinfo) fromC(xc *C.libxl_cpupoolinfo) error {
 	}
 	x.Cpumap = bitmapCpumap
 	return nil
+}
+
+func (x *Cpupoolinfo) toC() (xc C.libxl_cpupoolinfo, err error) {
+	C.libxl_cpupoolinfo_init(&xc)
+	xc.poolid = C.uint32_t(x.Poolid)
+	xc.pool_name = C.CString(x.PoolName)
+	xc.sched = C.libxl_scheduler(x.Sched)
+	xc.n_dom = C.uint32_t(x.NDom)
+	xc.cpumap, err = x.Cpumap.toC()
+	if err != nil {
+		C.libxl_cpupoolinfo_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
 }
 
 func (x *Channelinfo) fromC(xc *C.libxl_channelinfo) error {
@@ -286,6 +423,19 @@ func (x *ChannelinfoConnectionUnionPty) fromC(xc *C.libxl_channelinfo) error {
 	return nil
 }
 
+func (x *Channelinfo) toC() (xc C.libxl_channelinfo, err error) {
+	C.libxl_channelinfo_init(&xc)
+	xc.backend = C.CString(x.Backend)
+	xc.backend_id = C.uint32_t(x.BackendId)
+	xc.frontend = C.CString(x.Frontend)
+	xc.frontend_id = C.uint32_t(x.FrontendId)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.state = C.int(x.State)
+	xc.evtch = C.int(x.Evtch)
+	xc.rref = C.int(x.Rref)
+	return xc, nil
+}
+
 func (x *Vminfo) fromC(xc *C.libxl_vminfo) error {
 	var uuidUuid Uuid
 	if err := uuidUuid.fromC(&xc.uuid); err != nil {
@@ -294,6 +444,17 @@ func (x *Vminfo) fromC(xc *C.libxl_vminfo) error {
 	x.Uuid = uuidUuid
 	x.Domid = Domid(xc.domid)
 	return nil
+}
+
+func (x *Vminfo) toC() (xc C.libxl_vminfo, err error) {
+	C.libxl_vminfo_init(&xc)
+	xc.uuid, err = x.Uuid.toC()
+	if err != nil {
+		C.libxl_vminfo_dispose(&xc)
+		return xc, err
+	}
+	xc.domid = C.libxl_domid(x.Domid)
+	return xc, nil
 }
 
 func (x *VersionInfo) fromC(xc *C.libxl_version_info) error {
@@ -311,6 +472,24 @@ func (x *VersionInfo) fromC(xc *C.libxl_version_info) error {
 	x.Commandline = C.GoString(xc.commandline)
 	x.BuildId = C.GoString(xc.build_id)
 	return nil
+}
+
+func (x *VersionInfo) toC() (xc C.libxl_version_info, err error) {
+	C.libxl_version_info_init(&xc)
+	xc.xen_version_major = C.int(x.XenVersionMajor)
+	xc.xen_version_minor = C.int(x.XenVersionMinor)
+	xc.xen_version_extra = C.CString(x.XenVersionExtra)
+	xc.compiler = C.CString(x.Compiler)
+	xc.compile_by = C.CString(x.CompileBy)
+	xc.compile_domain = C.CString(x.CompileDomain)
+	xc.compile_date = C.CString(x.CompileDate)
+	xc.capabilities = C.CString(x.Capabilities)
+	xc.changeset = C.CString(x.Changeset)
+	xc.virt_start = C.uint64_t(x.VirtStart)
+	xc.pagesize = C.int(x.Pagesize)
+	xc.commandline = C.CString(x.Commandline)
+	xc.build_id = C.CString(x.BuildId)
+	return xc, nil
 }
 
 func (x *DomainCreateInfo) fromC(xc *C.libxl_domain_create_info) error {
@@ -358,6 +537,52 @@ func (x *DomainCreateInfo) fromC(xc *C.libxl_domain_create_info) error {
 	return nil
 }
 
+func (x *DomainCreateInfo) toC() (xc C.libxl_domain_create_info, err error) {
+	C.libxl_domain_create_info_init(&xc)
+	xc._type = C.libxl_domain_type(x.Type)
+	xc.hap, err = x.Hap.toC()
+	if err != nil {
+		C.libxl_domain_create_info_dispose(&xc)
+		return xc, err
+	}
+	xc.oos, err = x.Oos.toC()
+	if err != nil {
+		C.libxl_domain_create_info_dispose(&xc)
+		return xc, err
+	}
+	xc.ssidref = C.uint32_t(x.Ssidref)
+	xc.ssid_label = C.CString(x.SsidLabel)
+	xc.name = C.CString(x.Name)
+	xc.uuid, err = x.Uuid.toC()
+	if err != nil {
+		C.libxl_domain_create_info_dispose(&xc)
+		return xc, err
+	}
+	xc.xsdata, err = x.Xsdata.toC()
+	if err != nil {
+		C.libxl_domain_create_info_dispose(&xc)
+		return xc, err
+	}
+	xc.platformdata, err = x.Platformdata.toC()
+	if err != nil {
+		C.libxl_domain_create_info_dispose(&xc)
+		return xc, err
+	}
+	xc.poolid = C.uint32_t(x.Poolid)
+	xc.pool_name = C.CString(x.PoolName)
+	xc.run_hotplug_scripts, err = x.RunHotplugScripts.toC()
+	if err != nil {
+		C.libxl_domain_create_info_dispose(&xc)
+		return xc, err
+	}
+	xc.driver_domain, err = x.DriverDomain.toC()
+	if err != nil {
+		C.libxl_domain_create_info_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
+}
+
 func (x *DomainRestoreParams) fromC(xc *C.libxl_domain_restore_params) error {
 	x.CheckpointedStream = int(xc.checkpointed_stream)
 	x.StreamVersion = uint32(xc.stream_version)
@@ -370,6 +595,19 @@ func (x *DomainRestoreParams) fromC(xc *C.libxl_domain_restore_params) error {
 	return nil
 }
 
+func (x *DomainRestoreParams) toC() (xc C.libxl_domain_restore_params, err error) {
+	C.libxl_domain_restore_params_init(&xc)
+	xc.checkpointed_stream = C.int(x.CheckpointedStream)
+	xc.stream_version = C.uint32_t(x.StreamVersion)
+	xc.colo_proxy_script = C.CString(x.ColoProxyScript)
+	xc.userspace_colo_proxy, err = x.UserspaceColoProxy.toC()
+	if err != nil {
+		C.libxl_domain_restore_params_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
+}
+
 func (x *SchedParams) fromC(xc *C.libxl_sched_params) error {
 	x.Vcpuid = int(xc.vcpuid)
 	x.Weight = int(xc.weight)
@@ -378,6 +616,17 @@ func (x *SchedParams) fromC(xc *C.libxl_sched_params) error {
 	x.Extratime = int(xc.extratime)
 	x.Budget = int(xc.budget)
 	return nil
+}
+
+func (x *SchedParams) toC() (xc C.libxl_sched_params, err error) {
+	C.libxl_sched_params_init(&xc)
+	xc.vcpuid = C.int(x.Vcpuid)
+	xc.weight = C.int(x.Weight)
+	xc.cap = C.int(x.Cap)
+	xc.period = C.int(x.Period)
+	xc.extratime = C.int(x.Extratime)
+	xc.budget = C.int(x.Budget)
+	return xc, nil
 }
 
 func (x *VcpuSchedParams) fromC(xc *C.libxl_vcpu_sched_params) error {
@@ -395,6 +644,12 @@ func (x *VcpuSchedParams) fromC(xc *C.libxl_vcpu_sched_params) error {
 	return nil
 }
 
+func (x *VcpuSchedParams) toC() (xc C.libxl_vcpu_sched_params, err error) {
+	C.libxl_vcpu_sched_params_init(&xc)
+	xc.sched = C.libxl_scheduler(x.Sched)
+	return xc, nil
+}
+
 func (x *DomainSchedParams) fromC(xc *C.libxl_domain_sched_params) error {
 	x.Sched = Scheduler(xc.sched)
 	x.Weight = int(xc.weight)
@@ -405,6 +660,19 @@ func (x *DomainSchedParams) fromC(xc *C.libxl_domain_sched_params) error {
 	x.Slice = int(xc.slice)
 	x.Latency = int(xc.latency)
 	return nil
+}
+
+func (x *DomainSchedParams) toC() (xc C.libxl_domain_sched_params, err error) {
+	C.libxl_domain_sched_params_init(&xc)
+	xc.sched = C.libxl_scheduler(x.Sched)
+	xc.weight = C.int(x.Weight)
+	xc.cap = C.int(x.Cap)
+	xc.period = C.int(x.Period)
+	xc.budget = C.int(x.Budget)
+	xc.extratime = C.int(x.Extratime)
+	xc.slice = C.int(x.Slice)
+	xc.latency = C.int(x.Latency)
+	return xc, nil
 }
 
 func (x *VnodeInfo) fromC(xc *C.libxl_vnode_info) error {
@@ -424,10 +692,29 @@ func (x *VnodeInfo) fromC(xc *C.libxl_vnode_info) error {
 	return nil
 }
 
+func (x *VnodeInfo) toC() (xc C.libxl_vnode_info, err error) {
+	C.libxl_vnode_info_init(&xc)
+	xc.memkb = C.uint64_t(x.Memkb)
+	xc.pnode = C.uint32_t(x.Pnode)
+	xc.vcpus, err = x.Vcpus.toC()
+	if err != nil {
+		C.libxl_vnode_info_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
+}
+
 func (x *RdmReserve) fromC(xc *C.libxl_rdm_reserve) error {
 	x.Strategy = RdmReserveStrategy(xc.strategy)
 	x.Policy = RdmReservePolicy(xc.policy)
 	return nil
+}
+
+func (x *RdmReserve) toC() (xc C.libxl_rdm_reserve, err error) {
+	C.libxl_rdm_reserve_init(&xc)
+	xc.strategy = C.libxl_rdm_reserve_strategy(x.Strategy)
+	xc.policy = C.libxl_rdm_reserve_policy(x.Policy)
+	return xc, nil
 }
 
 func (x *DomainBuildInfo) fromC(xc *C.libxl_domain_build_info) error {
@@ -776,6 +1063,129 @@ func (x *DomainBuildInfoTypeUnionPvh) fromC(xc *C.libxl_domain_build_info) error
 	return nil
 }
 
+func (x *DomainBuildInfo) toC() (xc C.libxl_domain_build_info, err error) {
+	C.libxl_domain_build_info_init(&xc)
+	xc.max_vcpus = C.int(x.MaxVcpus)
+	xc.avail_vcpus, err = x.AvailVcpus.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.cpumap, err = x.Cpumap.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.nodemap, err = x.Nodemap.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.numa_placement, err = x.NumaPlacement.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.tsc_mode = C.libxl_tsc_mode(x.TscMode)
+	xc.max_memkb = C.uint64_t(x.MaxMemkb)
+	xc.target_memkb = C.uint64_t(x.TargetMemkb)
+	xc.video_memkb = C.uint64_t(x.VideoMemkb)
+	xc.shadow_memkb = C.uint64_t(x.ShadowMemkb)
+	xc.rtc_timeoffset = C.uint32_t(x.RtcTimeoffset)
+	xc.exec_ssidref = C.uint32_t(x.ExecSsidref)
+	xc.exec_ssid_label = C.CString(x.ExecSsidLabel)
+	xc.localtime, err = x.Localtime.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.disable_migrate, err = x.DisableMigrate.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.cpuid, err = x.Cpuid.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.blkdev_start = C.CString(x.BlkdevStart)
+	xc.max_grant_frames = C.uint32_t(x.MaxGrantFrames)
+	xc.max_maptrack_frames = C.uint32_t(x.MaxMaptrackFrames)
+	xc.device_model_version = C.libxl_device_model_version(x.DeviceModelVersion)
+	xc.device_model_stubdomain, err = x.DeviceModelStubdomain.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.device_model = C.CString(x.DeviceModel)
+	xc.device_model_ssidref = C.uint32_t(x.DeviceModelSsidref)
+	xc.device_model_ssid_label = C.CString(x.DeviceModelSsidLabel)
+	xc.device_model_user = C.CString(x.DeviceModelUser)
+	xc.extra, err = x.Extra.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.extra_pv, err = x.ExtraPv.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.extra_hvm, err = x.ExtraHvm.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.sched_params, err = x.SchedParams.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.claim_mode, err = x.ClaimMode.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.event_channels = C.uint32_t(x.EventChannels)
+	xc.kernel = C.CString(x.Kernel)
+	xc.cmdline = C.CString(x.Cmdline)
+	xc.ramdisk = C.CString(x.Ramdisk)
+	xc.device_tree = C.CString(x.DeviceTree)
+	xc.acpi, err = x.Acpi.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.bootloader = C.CString(x.Bootloader)
+	xc.bootloader_args, err = x.BootloaderArgs.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.timer_mode = C.libxl_timer_mode(x.TimerMode)
+	xc.nested_hvm, err = x.NestedHvm.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.apic, err = x.Apic.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.dm_restrict, err = x.DmRestrict.toC()
+	if err != nil {
+		C.libxl_domain_build_info_dispose(&xc)
+		return xc, err
+	}
+	xc.tee = C.libxl_tee_type(x.Tee)
+	xc.arch_arm.gic_version = C.libxl_gic_version(x.ArchArm.GicVersion)
+	xc.arch_arm.vuart = C.libxl_vuart_type(x.ArchArm.Vuart)
+	xc.altp2m = C.libxl_altp2m_mode(x.Altp2M)
+	return xc, nil
+}
+
 func (x *DeviceVfb) fromC(xc *C.libxl_device_vfb) error {
 	x.BackendDomid = Domid(xc.backend_domid)
 	x.BackendDomname = C.GoString(xc.backend_domname)
@@ -792,6 +1202,25 @@ func (x *DeviceVfb) fromC(xc *C.libxl_device_vfb) error {
 	x.Sdl = sdlInfoSdl
 	x.Keymap = C.GoString(xc.keymap)
 	return nil
+}
+
+func (x *DeviceVfb) toC() (xc C.libxl_device_vfb, err error) {
+	C.libxl_device_vfb_init(&xc)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.vnc, err = x.Vnc.toC()
+	if err != nil {
+		C.libxl_device_vfb_dispose(&xc)
+		return xc, err
+	}
+	xc.sdl, err = x.Sdl.toC()
+	if err != nil {
+		C.libxl_device_vfb_dispose(&xc)
+		return xc, err
+	}
+	xc.keymap = C.CString(x.Keymap)
+	return xc, nil
 }
 
 func (x *DeviceVkb) fromC(xc *C.libxl_device_vkb) error {
@@ -811,6 +1240,26 @@ func (x *DeviceVkb) fromC(xc *C.libxl_device_vkb) error {
 	x.MultiTouchHeight = uint32(xc.multi_touch_height)
 	x.MultiTouchNumContacts = uint32(xc.multi_touch_num_contacts)
 	return nil
+}
+
+func (x *DeviceVkb) toC() (xc C.libxl_device_vkb, err error) {
+	C.libxl_device_vkb_init(&xc)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.backend_type = C.libxl_vkb_backend(x.BackendType)
+	xc.unique_id = C.CString(x.UniqueId)
+	xc.feature_disable_keyboard = C.bool(x.FeatureDisableKeyboard)
+	xc.feature_disable_pointer = C.bool(x.FeatureDisablePointer)
+	xc.feature_abs_pointer = C.bool(x.FeatureAbsPointer)
+	xc.feature_raw_pointer = C.bool(x.FeatureRawPointer)
+	xc.feature_multi_touch = C.bool(x.FeatureMultiTouch)
+	xc.width = C.uint32_t(x.Width)
+	xc.height = C.uint32_t(x.Height)
+	xc.multi_touch_width = C.uint32_t(x.MultiTouchWidth)
+	xc.multi_touch_height = C.uint32_t(x.MultiTouchHeight)
+	xc.multi_touch_num_contacts = C.uint32_t(x.MultiTouchNumContacts)
+	return xc, nil
 }
 
 func (x *DeviceDisk) fromC(xc *C.libxl_device_disk) error {
@@ -846,6 +1295,42 @@ func (x *DeviceDisk) fromC(xc *C.libxl_device_disk) error {
 	x.ActiveDisk = C.GoString(xc.active_disk)
 	x.HiddenDisk = C.GoString(xc.hidden_disk)
 	return nil
+}
+
+func (x *DeviceDisk) toC() (xc C.libxl_device_disk, err error) {
+	C.libxl_device_disk_init(&xc)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	xc.pdev_path = C.CString(x.PdevPath)
+	xc.vdev = C.CString(x.Vdev)
+	xc.backend = C.libxl_disk_backend(x.Backend)
+	xc.format = C.libxl_disk_format(x.Format)
+	xc.script = C.CString(x.Script)
+	xc.removable = C.int(x.Removable)
+	xc.readwrite = C.int(x.Readwrite)
+	xc.is_cdrom = C.int(x.IsCdrom)
+	xc.direct_io_safe = C.bool(x.DirectIoSafe)
+	xc.discard_enable, err = x.DiscardEnable.toC()
+	if err != nil {
+		C.libxl_device_disk_dispose(&xc)
+		return xc, err
+	}
+	xc.colo_enable, err = x.ColoEnable.toC()
+	if err != nil {
+		C.libxl_device_disk_dispose(&xc)
+		return xc, err
+	}
+	xc.colo_restore_enable, err = x.ColoRestoreEnable.toC()
+	if err != nil {
+		C.libxl_device_disk_dispose(&xc)
+		return xc, err
+	}
+	xc.colo_host = C.CString(x.ColoHost)
+	xc.colo_port = C.int(x.ColoPort)
+	xc.colo_export = C.CString(x.ColoExport)
+	xc.active_disk = C.CString(x.ActiveDisk)
+	xc.hidden_disk = C.CString(x.HiddenDisk)
+	return xc, nil
 }
 
 func (x *DeviceNic) fromC(xc *C.libxl_device_nic) error {
@@ -919,6 +1404,78 @@ func (x *DeviceNic) fromC(xc *C.libxl_device_nic) error {
 	return nil
 }
 
+func (x *DeviceNic) toC() (xc C.libxl_device_nic, err error) {
+	C.libxl_device_nic_init(&xc)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.mtu = C.int(x.Mtu)
+	xc.model = C.CString(x.Model)
+	xc.mac, err = x.Mac.toC()
+	if err != nil {
+		C.libxl_device_nic_dispose(&xc)
+		return xc, err
+	}
+	xc.ip = C.CString(x.Ip)
+	xc.bridge = C.CString(x.Bridge)
+	xc.ifname = C.CString(x.Ifname)
+	xc.script = C.CString(x.Script)
+	xc.nictype = C.libxl_nic_type(x.Nictype)
+	xc.rate_bytes_per_interval = C.uint64_t(x.RateBytesPerInterval)
+	xc.rate_interval_usecs = C.uint32_t(x.RateIntervalUsecs)
+	xc.gatewaydev = C.CString(x.Gatewaydev)
+	xc.coloft_forwarddev = C.CString(x.ColoftForwarddev)
+	xc.colo_sock_mirror_id = C.CString(x.ColoSockMirrorId)
+	xc.colo_sock_mirror_ip = C.CString(x.ColoSockMirrorIp)
+	xc.colo_sock_mirror_port = C.CString(x.ColoSockMirrorPort)
+	xc.colo_sock_compare_pri_in_id = C.CString(x.ColoSockComparePriInId)
+	xc.colo_sock_compare_pri_in_ip = C.CString(x.ColoSockComparePriInIp)
+	xc.colo_sock_compare_pri_in_port = C.CString(x.ColoSockComparePriInPort)
+	xc.colo_sock_compare_sec_in_id = C.CString(x.ColoSockCompareSecInId)
+	xc.colo_sock_compare_sec_in_ip = C.CString(x.ColoSockCompareSecInIp)
+	xc.colo_sock_compare_sec_in_port = C.CString(x.ColoSockCompareSecInPort)
+	xc.colo_sock_compare_notify_id = C.CString(x.ColoSockCompareNotifyId)
+	xc.colo_sock_compare_notify_ip = C.CString(x.ColoSockCompareNotifyIp)
+	xc.colo_sock_compare_notify_port = C.CString(x.ColoSockCompareNotifyPort)
+	xc.colo_sock_redirector0_id = C.CString(x.ColoSockRedirector0Id)
+	xc.colo_sock_redirector0_ip = C.CString(x.ColoSockRedirector0Ip)
+	xc.colo_sock_redirector0_port = C.CString(x.ColoSockRedirector0Port)
+	xc.colo_sock_redirector1_id = C.CString(x.ColoSockRedirector1Id)
+	xc.colo_sock_redirector1_ip = C.CString(x.ColoSockRedirector1Ip)
+	xc.colo_sock_redirector1_port = C.CString(x.ColoSockRedirector1Port)
+	xc.colo_sock_redirector2_id = C.CString(x.ColoSockRedirector2Id)
+	xc.colo_sock_redirector2_ip = C.CString(x.ColoSockRedirector2Ip)
+	xc.colo_sock_redirector2_port = C.CString(x.ColoSockRedirector2Port)
+	xc.colo_filter_mirror_queue = C.CString(x.ColoFilterMirrorQueue)
+	xc.colo_filter_mirror_outdev = C.CString(x.ColoFilterMirrorOutdev)
+	xc.colo_filter_redirector0_queue = C.CString(x.ColoFilterRedirector0Queue)
+	xc.colo_filter_redirector0_indev = C.CString(x.ColoFilterRedirector0Indev)
+	xc.colo_filter_redirector0_outdev = C.CString(x.ColoFilterRedirector0Outdev)
+	xc.colo_filter_redirector1_queue = C.CString(x.ColoFilterRedirector1Queue)
+	xc.colo_filter_redirector1_indev = C.CString(x.ColoFilterRedirector1Indev)
+	xc.colo_filter_redirector1_outdev = C.CString(x.ColoFilterRedirector1Outdev)
+	xc.colo_compare_pri_in = C.CString(x.ColoComparePriIn)
+	xc.colo_compare_sec_in = C.CString(x.ColoCompareSecIn)
+	xc.colo_compare_out = C.CString(x.ColoCompareOut)
+	xc.colo_compare_notify_dev = C.CString(x.ColoCompareNotifyDev)
+	xc.colo_sock_sec_redirector0_id = C.CString(x.ColoSockSecRedirector0Id)
+	xc.colo_sock_sec_redirector0_ip = C.CString(x.ColoSockSecRedirector0Ip)
+	xc.colo_sock_sec_redirector0_port = C.CString(x.ColoSockSecRedirector0Port)
+	xc.colo_sock_sec_redirector1_id = C.CString(x.ColoSockSecRedirector1Id)
+	xc.colo_sock_sec_redirector1_ip = C.CString(x.ColoSockSecRedirector1Ip)
+	xc.colo_sock_sec_redirector1_port = C.CString(x.ColoSockSecRedirector1Port)
+	xc.colo_filter_sec_redirector0_queue = C.CString(x.ColoFilterSecRedirector0Queue)
+	xc.colo_filter_sec_redirector0_indev = C.CString(x.ColoFilterSecRedirector0Indev)
+	xc.colo_filter_sec_redirector0_outdev = C.CString(x.ColoFilterSecRedirector0Outdev)
+	xc.colo_filter_sec_redirector1_queue = C.CString(x.ColoFilterSecRedirector1Queue)
+	xc.colo_filter_sec_redirector1_indev = C.CString(x.ColoFilterSecRedirector1Indev)
+	xc.colo_filter_sec_redirector1_outdev = C.CString(x.ColoFilterSecRedirector1Outdev)
+	xc.colo_filter_sec_rewriter0_queue = C.CString(x.ColoFilterSecRewriter0Queue)
+	xc.colo_checkpoint_host = C.CString(x.ColoCheckpointHost)
+	xc.colo_checkpoint_port = C.CString(x.ColoCheckpointPort)
+	return xc, nil
+}
+
 func (x *DevicePci) fromC(xc *C.libxl_device_pci) error {
 	x.Func = byte(xc._func)
 	x.Dev = byte(xc.dev)
@@ -934,11 +1491,35 @@ func (x *DevicePci) fromC(xc *C.libxl_device_pci) error {
 	return nil
 }
 
+func (x *DevicePci) toC() (xc C.libxl_device_pci, err error) {
+	C.libxl_device_pci_init(&xc)
+	xc._func = C.uint8_t(x.Func)
+	xc.dev = C.uint8_t(x.Dev)
+	xc.bus = C.uint8_t(x.Bus)
+	xc.domain = C.int(x.Domain)
+	xc.vdevfn = C.uint32_t(x.Vdevfn)
+	xc.vfunc_mask = C.uint32_t(x.VfuncMask)
+	xc.msitranslate = C.bool(x.Msitranslate)
+	xc.power_mgmt = C.bool(x.PowerMgmt)
+	xc.permissive = C.bool(x.Permissive)
+	xc.seize = C.bool(x.Seize)
+	xc.rdm_policy = C.libxl_rdm_reserve_policy(x.RdmPolicy)
+	return xc, nil
+}
+
 func (x *DeviceRdm) fromC(xc *C.libxl_device_rdm) error {
 	x.Start = uint64(xc.start)
 	x.Size = uint64(xc.size)
 	x.Policy = RdmReservePolicy(xc.policy)
 	return nil
+}
+
+func (x *DeviceRdm) toC() (xc C.libxl_device_rdm, err error) {
+	C.libxl_device_rdm_init(&xc)
+	xc.start = C.uint64_t(x.Start)
+	xc.size = C.uint64_t(x.Size)
+	xc.policy = C.libxl_rdm_reserve_policy(x.Policy)
+	return xc, nil
 }
 
 func (x *DeviceUsbctrl) fromC(xc *C.libxl_device_usbctrl) error {
@@ -949,6 +1530,17 @@ func (x *DeviceUsbctrl) fromC(xc *C.libxl_device_usbctrl) error {
 	x.BackendDomid = Domid(xc.backend_domid)
 	x.BackendDomname = C.GoString(xc.backend_domname)
 	return nil
+}
+
+func (x *DeviceUsbctrl) toC() (xc C.libxl_device_usbctrl, err error) {
+	C.libxl_device_usbctrl_init(&xc)
+	xc._type = C.libxl_usbctrl_type(x.Type)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.version = C.int(x.Version)
+	xc.ports = C.int(x.Ports)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	return xc, nil
 }
 
 func (x *DeviceUsbdev) fromC(xc *C.libxl_device_usbdev) error {
@@ -979,9 +1571,22 @@ func (x *DeviceUsbdevTypeUnionHostdev) fromC(xc *C.libxl_device_usbdev) error {
 	return nil
 }
 
+func (x *DeviceUsbdev) toC() (xc C.libxl_device_usbdev, err error) {
+	C.libxl_device_usbdev_init(&xc)
+	xc.ctrl = C.libxl_devid(x.Ctrl)
+	xc.port = C.int(x.Port)
+	return xc, nil
+}
+
 func (x *DeviceDtdev) fromC(xc *C.libxl_device_dtdev) error {
 	x.Path = C.GoString(xc.path)
 	return nil
+}
+
+func (x *DeviceDtdev) toC() (xc C.libxl_device_dtdev, err error) {
+	C.libxl_device_dtdev_init(&xc)
+	xc.path = C.CString(x.Path)
+	return xc, nil
 }
 
 func (x *DeviceVtpm) fromC(xc *C.libxl_device_vtpm) error {
@@ -996,6 +1601,19 @@ func (x *DeviceVtpm) fromC(xc *C.libxl_device_vtpm) error {
 	return nil
 }
 
+func (x *DeviceVtpm) toC() (xc C.libxl_device_vtpm, err error) {
+	C.libxl_device_vtpm_init(&xc)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.uuid, err = x.Uuid.toC()
+	if err != nil {
+		C.libxl_device_vtpm_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
+}
+
 func (x *DeviceP9) fromC(xc *C.libxl_device_p9) error {
 	x.BackendDomid = Domid(xc.backend_domid)
 	x.BackendDomname = C.GoString(xc.backend_domname)
@@ -1006,11 +1624,30 @@ func (x *DeviceP9) fromC(xc *C.libxl_device_p9) error {
 	return nil
 }
 
+func (x *DeviceP9) toC() (xc C.libxl_device_p9, err error) {
+	C.libxl_device_p9_init(&xc)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	xc.tag = C.CString(x.Tag)
+	xc.path = C.CString(x.Path)
+	xc.security_model = C.CString(x.SecurityModel)
+	xc.devid = C.libxl_devid(x.Devid)
+	return xc, nil
+}
+
 func (x *DevicePvcallsif) fromC(xc *C.libxl_device_pvcallsif) error {
 	x.BackendDomid = Domid(xc.backend_domid)
 	x.BackendDomname = C.GoString(xc.backend_domname)
 	x.Devid = Devid(xc.devid)
 	return nil
+}
+
+func (x *DevicePvcallsif) toC() (xc C.libxl_device_pvcallsif, err error) {
+	C.libxl_device_pvcallsif_init(&xc)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	xc.devid = C.libxl_devid(x.Devid)
+	return xc, nil
 }
 
 func (x *DeviceChannel) fromC(xc *C.libxl_device_channel) error {
@@ -1042,11 +1679,28 @@ func (x *DeviceChannelConnectionUnionSocket) fromC(xc *C.libxl_device_channel) e
 	return nil
 }
 
+func (x *DeviceChannel) toC() (xc C.libxl_device_channel, err error) {
+	C.libxl_device_channel_init(&xc)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.name = C.CString(x.Name)
+	return xc, nil
+}
+
 func (x *ConnectorParam) fromC(xc *C.libxl_connector_param) error {
 	x.UniqueId = C.GoString(xc.unique_id)
 	x.Width = uint32(xc.width)
 	x.Height = uint32(xc.height)
 	return nil
+}
+
+func (x *ConnectorParam) toC() (xc C.libxl_connector_param, err error) {
+	C.libxl_connector_param_init(&xc)
+	xc.unique_id = C.CString(x.UniqueId)
+	xc.width = C.uint32_t(x.Width)
+	xc.height = C.uint32_t(x.Height)
+	return xc, nil
 }
 
 func (x *DeviceVdispl) fromC(xc *C.libxl_device_vdispl) error {
@@ -1065,6 +1719,15 @@ func (x *DeviceVdispl) fromC(xc *C.libxl_device_vdispl) error {
 		x.Connectors[i] = e
 	}
 	return nil
+}
+
+func (x *DeviceVdispl) toC() (xc C.libxl_device_vdispl, err error) {
+	C.libxl_device_vdispl_init(&xc)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.be_alloc = C.bool(x.BeAlloc)
+	return xc, nil
 }
 
 func (x *VsndParams) fromC(xc *C.libxl_vsnd_params) error {
@@ -1086,6 +1749,14 @@ func (x *VsndParams) fromC(xc *C.libxl_vsnd_params) error {
 	return nil
 }
 
+func (x *VsndParams) toC() (xc C.libxl_vsnd_params, err error) {
+	C.libxl_vsnd_params_init(&xc)
+	xc.channels_min = C.uint32_t(x.ChannelsMin)
+	xc.channels_max = C.uint32_t(x.ChannelsMax)
+	xc.buffer_size = C.uint32_t(x.BufferSize)
+	return xc, nil
+}
+
 func (x *VsndStream) fromC(xc *C.libxl_vsnd_stream) error {
 	x.UniqueId = C.GoString(xc.unique_id)
 	x.Type = VsndStreamType(xc._type)
@@ -1095,6 +1766,18 @@ func (x *VsndStream) fromC(xc *C.libxl_vsnd_stream) error {
 	}
 	x.Params = vsndParamsParams
 	return nil
+}
+
+func (x *VsndStream) toC() (xc C.libxl_vsnd_stream, err error) {
+	C.libxl_vsnd_stream_init(&xc)
+	xc.unique_id = C.CString(x.UniqueId)
+	xc._type = C.libxl_vsnd_stream_type(x.Type)
+	xc.params, err = x.Params.toC()
+	if err != nil {
+		C.libxl_vsnd_stream_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
 }
 
 func (x *VsndPcm) fromC(xc *C.libxl_vsnd_pcm) error {
@@ -1115,6 +1798,17 @@ func (x *VsndPcm) fromC(xc *C.libxl_vsnd_pcm) error {
 		x.Streams[i] = e
 	}
 	return nil
+}
+
+func (x *VsndPcm) toC() (xc C.libxl_vsnd_pcm, err error) {
+	C.libxl_vsnd_pcm_init(&xc)
+	xc.name = C.CString(x.Name)
+	xc.params, err = x.Params.toC()
+	if err != nil {
+		C.libxl_vsnd_pcm_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
 }
 
 func (x *DeviceVsnd) fromC(xc *C.libxl_device_vsnd) error {
@@ -1139,6 +1833,21 @@ func (x *DeviceVsnd) fromC(xc *C.libxl_device_vsnd) error {
 		x.Pcms[i] = e
 	}
 	return nil
+}
+
+func (x *DeviceVsnd) toC() (xc C.libxl_device_vsnd, err error) {
+	C.libxl_device_vsnd_init(&xc)
+	xc.backend_domid = C.libxl_domid(x.BackendDomid)
+	xc.backend_domname = C.CString(x.BackendDomname)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.short_name = C.CString(x.ShortName)
+	xc.long_name = C.CString(x.LongName)
+	xc.params, err = x.Params.toC()
+	if err != nil {
+		C.libxl_device_vsnd_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
 }
 
 func (x *DomainConfig) fromC(xc *C.libxl_domain_config) error {
@@ -1310,6 +2019,26 @@ func (x *DomainConfig) fromC(xc *C.libxl_domain_config) error {
 	return nil
 }
 
+func (x *DomainConfig) toC() (xc C.libxl_domain_config, err error) {
+	C.libxl_domain_config_init(&xc)
+	xc.c_info, err = x.CInfo.toC()
+	if err != nil {
+		C.libxl_domain_config_dispose(&xc)
+		return xc, err
+	}
+	xc.b_info, err = x.BInfo.toC()
+	if err != nil {
+		C.libxl_domain_config_dispose(&xc)
+		return xc, err
+	}
+	xc.on_poweroff = C.libxl_action_on_shutdown(x.OnPoweroff)
+	xc.on_reboot = C.libxl_action_on_shutdown(x.OnReboot)
+	xc.on_watchdog = C.libxl_action_on_shutdown(x.OnWatchdog)
+	xc.on_crash = C.libxl_action_on_shutdown(x.OnCrash)
+	xc.on_soft_reset = C.libxl_action_on_shutdown(x.OnSoftReset)
+	return xc, nil
+}
+
 func (x *Diskinfo) fromC(xc *C.libxl_diskinfo) error {
 	x.Backend = C.GoString(xc.backend)
 	x.BackendId = uint32(xc.backend_id)
@@ -1320,6 +2049,19 @@ func (x *Diskinfo) fromC(xc *C.libxl_diskinfo) error {
 	x.Evtch = int(xc.evtch)
 	x.Rref = int(xc.rref)
 	return nil
+}
+
+func (x *Diskinfo) toC() (xc C.libxl_diskinfo, err error) {
+	C.libxl_diskinfo_init(&xc)
+	xc.backend = C.CString(x.Backend)
+	xc.backend_id = C.uint32_t(x.BackendId)
+	xc.frontend = C.CString(x.Frontend)
+	xc.frontend_id = C.uint32_t(x.FrontendId)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.state = C.int(x.State)
+	xc.evtch = C.int(x.Evtch)
+	xc.rref = C.int(x.Rref)
+	return xc, nil
 }
 
 func (x *Nicinfo) fromC(xc *C.libxl_nicinfo) error {
@@ -1333,6 +2075,20 @@ func (x *Nicinfo) fromC(xc *C.libxl_nicinfo) error {
 	x.RrefTx = int(xc.rref_tx)
 	x.RrefRx = int(xc.rref_rx)
 	return nil
+}
+
+func (x *Nicinfo) toC() (xc C.libxl_nicinfo, err error) {
+	C.libxl_nicinfo_init(&xc)
+	xc.backend = C.CString(x.Backend)
+	xc.backend_id = C.uint32_t(x.BackendId)
+	xc.frontend = C.CString(x.Frontend)
+	xc.frontend_id = C.uint32_t(x.FrontendId)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.state = C.int(x.State)
+	xc.evtch = C.int(x.Evtch)
+	xc.rref_tx = C.int(x.RrefTx)
+	xc.rref_rx = C.int(x.RrefRx)
+	return xc, nil
 }
 
 func (x *Vtpminfo) fromC(xc *C.libxl_vtpminfo) error {
@@ -1352,6 +2108,24 @@ func (x *Vtpminfo) fromC(xc *C.libxl_vtpminfo) error {
 	return nil
 }
 
+func (x *Vtpminfo) toC() (xc C.libxl_vtpminfo, err error) {
+	C.libxl_vtpminfo_init(&xc)
+	xc.backend = C.CString(x.Backend)
+	xc.backend_id = C.uint32_t(x.BackendId)
+	xc.frontend = C.CString(x.Frontend)
+	xc.frontend_id = C.uint32_t(x.FrontendId)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.state = C.int(x.State)
+	xc.evtch = C.int(x.Evtch)
+	xc.rref = C.int(x.Rref)
+	xc.uuid, err = x.Uuid.toC()
+	if err != nil {
+		C.libxl_vtpminfo_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
+}
+
 func (x *Usbctrlinfo) fromC(xc *C.libxl_usbctrlinfo) error {
 	x.Type = UsbctrlType(xc._type)
 	x.Devid = Devid(xc.devid)
@@ -1366,6 +2140,23 @@ func (x *Usbctrlinfo) fromC(xc *C.libxl_usbctrlinfo) error {
 	x.RefUrb = int(xc.ref_urb)
 	x.RefConn = int(xc.ref_conn)
 	return nil
+}
+
+func (x *Usbctrlinfo) toC() (xc C.libxl_usbctrlinfo, err error) {
+	C.libxl_usbctrlinfo_init(&xc)
+	xc._type = C.libxl_usbctrl_type(x.Type)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.version = C.int(x.Version)
+	xc.ports = C.int(x.Ports)
+	xc.backend = C.CString(x.Backend)
+	xc.backend_id = C.uint32_t(x.BackendId)
+	xc.frontend = C.CString(x.Frontend)
+	xc.frontend_id = C.uint32_t(x.FrontendId)
+	xc.state = C.int(x.State)
+	xc.evtch = C.int(x.Evtch)
+	xc.ref_urb = C.int(x.RefUrb)
+	xc.ref_conn = C.int(x.RefConn)
+	return xc, nil
 }
 
 func (x *Vcpuinfo) fromC(xc *C.libxl_vcpuinfo) error {
@@ -1386,6 +2177,27 @@ func (x *Vcpuinfo) fromC(xc *C.libxl_vcpuinfo) error {
 	}
 	x.CpumapSoft = bitmapCpumapSoft
 	return nil
+}
+
+func (x *Vcpuinfo) toC() (xc C.libxl_vcpuinfo, err error) {
+	C.libxl_vcpuinfo_init(&xc)
+	xc.vcpuid = C.uint32_t(x.Vcpuid)
+	xc.cpu = C.uint32_t(x.Cpu)
+	xc.online = C.bool(x.Online)
+	xc.blocked = C.bool(x.Blocked)
+	xc.running = C.bool(x.Running)
+	xc.vcpu_time = C.uint64_t(x.VcpuTime)
+	xc.cpumap, err = x.Cpumap.toC()
+	if err != nil {
+		C.libxl_vcpuinfo_dispose(&xc)
+		return xc, err
+	}
+	xc.cpumap_soft, err = x.CpumapSoft.toC()
+	if err != nil {
+		C.libxl_vcpuinfo_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
 }
 
 func (x *Physinfo) fromC(xc *C.libxl_physinfo) error {
@@ -1416,6 +2228,35 @@ func (x *Physinfo) fromC(xc *C.libxl_physinfo) error {
 	return nil
 }
 
+func (x *Physinfo) toC() (xc C.libxl_physinfo, err error) {
+	C.libxl_physinfo_init(&xc)
+	xc.threads_per_core = C.uint32_t(x.ThreadsPerCore)
+	xc.cores_per_socket = C.uint32_t(x.CoresPerSocket)
+	xc.max_cpu_id = C.uint32_t(x.MaxCpuId)
+	xc.nr_cpus = C.uint32_t(x.NrCpus)
+	xc.cpu_khz = C.uint32_t(x.CpuKhz)
+	xc.total_pages = C.uint64_t(x.TotalPages)
+	xc.free_pages = C.uint64_t(x.FreePages)
+	xc.scrub_pages = C.uint64_t(x.ScrubPages)
+	xc.outstanding_pages = C.uint64_t(x.OutstandingPages)
+	xc.sharing_freed_pages = C.uint64_t(x.SharingFreedPages)
+	xc.sharing_used_frames = C.uint64_t(x.SharingUsedFrames)
+	xc.max_possible_mfn = C.uint64_t(x.MaxPossibleMfn)
+	xc.nr_nodes = C.uint32_t(x.NrNodes)
+	xc.hw_cap, err = x.HwCap.toC()
+	if err != nil {
+		C.libxl_physinfo_dispose(&xc)
+		return xc, err
+	}
+	xc.cap_hvm = C.bool(x.CapHvm)
+	xc.cap_pv = C.bool(x.CapPv)
+	xc.cap_hvm_directio = C.bool(x.CapHvmDirectio)
+	xc.cap_hap = C.bool(x.CapHap)
+	xc.cap_shadow = C.bool(x.CapShadow)
+	xc.cap_iommu_hap_pt_share = C.bool(x.CapIommuHapPtShare)
+	return xc, nil
+}
+
 func (x *Connectorinfo) fromC(xc *C.libxl_connectorinfo) error {
 	x.UniqueId = C.GoString(xc.unique_id)
 	x.Width = uint32(xc.width)
@@ -1425,6 +2266,18 @@ func (x *Connectorinfo) fromC(xc *C.libxl_connectorinfo) error {
 	x.EvtEvtch = int(xc.evt_evtch)
 	x.EvtRref = int(xc.evt_rref)
 	return nil
+}
+
+func (x *Connectorinfo) toC() (xc C.libxl_connectorinfo, err error) {
+	C.libxl_connectorinfo_init(&xc)
+	xc.unique_id = C.CString(x.UniqueId)
+	xc.width = C.uint32_t(x.Width)
+	xc.height = C.uint32_t(x.Height)
+	xc.req_evtch = C.int(x.ReqEvtch)
+	xc.req_rref = C.int(x.ReqRref)
+	xc.evt_evtch = C.int(x.EvtEvtch)
+	xc.evt_rref = C.int(x.EvtRref)
+	return xc, nil
 }
 
 func (x *Vdisplinfo) fromC(xc *C.libxl_vdisplinfo) error {
@@ -1448,10 +2301,29 @@ func (x *Vdisplinfo) fromC(xc *C.libxl_vdisplinfo) error {
 	return nil
 }
 
+func (x *Vdisplinfo) toC() (xc C.libxl_vdisplinfo, err error) {
+	C.libxl_vdisplinfo_init(&xc)
+	xc.backend = C.CString(x.Backend)
+	xc.backend_id = C.uint32_t(x.BackendId)
+	xc.frontend = C.CString(x.Frontend)
+	xc.frontend_id = C.uint32_t(x.FrontendId)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.state = C.int(x.State)
+	xc.be_alloc = C.bool(x.BeAlloc)
+	return xc, nil
+}
+
 func (x *Streaminfo) fromC(xc *C.libxl_streaminfo) error {
 	x.ReqEvtch = int(xc.req_evtch)
 	x.ReqRref = int(xc.req_rref)
 	return nil
+}
+
+func (x *Streaminfo) toC() (xc C.libxl_streaminfo, err error) {
+	C.libxl_streaminfo_init(&xc)
+	xc.req_evtch = C.int(x.ReqEvtch)
+	xc.req_rref = C.int(x.ReqRref)
+	return xc, nil
 }
 
 func (x *Pcminfo) fromC(xc *C.libxl_pcminfo) error {
@@ -1466,6 +2338,11 @@ func (x *Pcminfo) fromC(xc *C.libxl_pcminfo) error {
 		x.Streams[i] = e
 	}
 	return nil
+}
+
+func (x *Pcminfo) toC() (xc C.libxl_pcminfo, err error) {
+	C.libxl_pcminfo_init(&xc)
+	return xc, nil
 }
 
 func (x *Vsndinfo) fromC(xc *C.libxl_vsndinfo) error {
@@ -1488,6 +2365,17 @@ func (x *Vsndinfo) fromC(xc *C.libxl_vsndinfo) error {
 	return nil
 }
 
+func (x *Vsndinfo) toC() (xc C.libxl_vsndinfo, err error) {
+	C.libxl_vsndinfo_init(&xc)
+	xc.backend = C.CString(x.Backend)
+	xc.backend_id = C.uint32_t(x.BackendId)
+	xc.frontend = C.CString(x.Frontend)
+	xc.frontend_id = C.uint32_t(x.FrontendId)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.state = C.int(x.State)
+	return xc, nil
+}
+
 func (x *Vkbinfo) fromC(xc *C.libxl_vkbinfo) error {
 	x.Backend = C.GoString(xc.backend)
 	x.BackendId = uint32(xc.backend_id)
@@ -1498,6 +2386,19 @@ func (x *Vkbinfo) fromC(xc *C.libxl_vkbinfo) error {
 	x.Evtch = int(xc.evtch)
 	x.Rref = int(xc.rref)
 	return nil
+}
+
+func (x *Vkbinfo) toC() (xc C.libxl_vkbinfo, err error) {
+	C.libxl_vkbinfo_init(&xc)
+	xc.backend = C.CString(x.Backend)
+	xc.backend_id = C.uint32_t(x.BackendId)
+	xc.frontend = C.CString(x.Frontend)
+	xc.frontend_id = C.uint32_t(x.FrontendId)
+	xc.devid = C.libxl_devid(x.Devid)
+	xc.state = C.int(x.State)
+	xc.evtch = C.int(x.Evtch)
+	xc.rref = C.int(x.Rref)
+	return xc, nil
 }
 
 func (x *Numainfo) fromC(xc *C.libxl_numainfo) error {
@@ -1512,11 +2413,26 @@ func (x *Numainfo) fromC(xc *C.libxl_numainfo) error {
 	return nil
 }
 
+func (x *Numainfo) toC() (xc C.libxl_numainfo, err error) {
+	C.libxl_numainfo_init(&xc)
+	xc.size = C.uint64_t(x.Size)
+	xc.free = C.uint64_t(x.Free)
+	return xc, nil
+}
+
 func (x *Cputopology) fromC(xc *C.libxl_cputopology) error {
 	x.Core = uint32(xc.core)
 	x.Socket = uint32(xc.socket)
 	x.Node = uint32(xc.node)
 	return nil
+}
+
+func (x *Cputopology) toC() (xc C.libxl_cputopology, err error) {
+	C.libxl_cputopology_init(&xc)
+	xc.core = C.uint32_t(x.Core)
+	xc.socket = C.uint32_t(x.Socket)
+	xc.node = C.uint32_t(x.Node)
+	return xc, nil
 }
 
 func (x *Pcitopology) fromC(xc *C.libxl_pcitopology) error {
@@ -1527,6 +2443,15 @@ func (x *Pcitopology) fromC(xc *C.libxl_pcitopology) error {
 	return nil
 }
 
+func (x *Pcitopology) toC() (xc C.libxl_pcitopology, err error) {
+	C.libxl_pcitopology_init(&xc)
+	xc.seg = C.uint16_t(x.Seg)
+	xc.bus = C.uint8_t(x.Bus)
+	xc.devfn = C.uint8_t(x.Devfn)
+	xc.node = C.uint32_t(x.Node)
+	return xc, nil
+}
+
 func (x *SchedCreditParams) fromC(xc *C.libxl_sched_credit_params) error {
 	x.TsliceMs = int(xc.tslice_ms)
 	x.RatelimitUs = int(xc.ratelimit_us)
@@ -1534,9 +2459,23 @@ func (x *SchedCreditParams) fromC(xc *C.libxl_sched_credit_params) error {
 	return nil
 }
 
+func (x *SchedCreditParams) toC() (xc C.libxl_sched_credit_params, err error) {
+	C.libxl_sched_credit_params_init(&xc)
+	xc.tslice_ms = C.int(x.TsliceMs)
+	xc.ratelimit_us = C.int(x.RatelimitUs)
+	xc.vcpu_migr_delay_us = C.int(x.VcpuMigrDelayUs)
+	return xc, nil
+}
+
 func (x *SchedCredit2Params) fromC(xc *C.libxl_sched_credit2_params) error {
 	x.RatelimitUs = int(xc.ratelimit_us)
 	return nil
+}
+
+func (x *SchedCredit2Params) toC() (xc C.libxl_sched_credit2_params, err error) {
+	C.libxl_sched_credit2_params_init(&xc)
+	xc.ratelimit_us = C.int(x.RatelimitUs)
+	return xc, nil
 }
 
 func (x *DomainRemusInfo) fromC(xc *C.libxl_domain_remus_info) error {
@@ -1578,6 +2517,48 @@ func (x *DomainRemusInfo) fromC(xc *C.libxl_domain_remus_info) error {
 	}
 	x.UserspaceColoProxy = defboolUserspaceColoProxy
 	return nil
+}
+
+func (x *DomainRemusInfo) toC() (xc C.libxl_domain_remus_info, err error) {
+	C.libxl_domain_remus_info_init(&xc)
+	xc.interval = C.int(x.Interval)
+	xc.allow_unsafe, err = x.AllowUnsafe.toC()
+	if err != nil {
+		C.libxl_domain_remus_info_dispose(&xc)
+		return xc, err
+	}
+	xc.blackhole, err = x.Blackhole.toC()
+	if err != nil {
+		C.libxl_domain_remus_info_dispose(&xc)
+		return xc, err
+	}
+	xc.compression, err = x.Compression.toC()
+	if err != nil {
+		C.libxl_domain_remus_info_dispose(&xc)
+		return xc, err
+	}
+	xc.netbuf, err = x.Netbuf.toC()
+	if err != nil {
+		C.libxl_domain_remus_info_dispose(&xc)
+		return xc, err
+	}
+	xc.netbufscript = C.CString(x.Netbufscript)
+	xc.diskbuf, err = x.Diskbuf.toC()
+	if err != nil {
+		C.libxl_domain_remus_info_dispose(&xc)
+		return xc, err
+	}
+	xc.colo, err = x.Colo.toC()
+	if err != nil {
+		C.libxl_domain_remus_info_dispose(&xc)
+		return xc, err
+	}
+	xc.userspace_colo_proxy, err = x.UserspaceColoProxy.toC()
+	if err != nil {
+		C.libxl_domain_remus_info_dispose(&xc)
+		return xc, err
+	}
+	return xc, nil
 }
 
 func (x *Event) fromC(xc *C.libxl_event) error {
@@ -1652,12 +2633,38 @@ func (x *EventTypeUnionOperationComplete) fromC(xc *C.libxl_event) error {
 	return nil
 }
 
+func (x *Event) toC() (xc C.libxl_event, err error) {
+	C.libxl_event_init(&xc)
+	xc.link, err = x.Link.toC()
+	if err != nil {
+		C.libxl_event_dispose(&xc)
+		return xc, err
+	}
+	xc.domid = C.libxl_domid(x.Domid)
+	xc.domuuid, err = x.Domuuid.toC()
+	if err != nil {
+		C.libxl_event_dispose(&xc)
+		return xc, err
+	}
+	xc.for_user = C.uint64_t(x.ForUser)
+	return xc, nil
+}
+
 func (x *PsrCatInfo) fromC(xc *C.libxl_psr_cat_info) error {
 	x.Id = uint32(xc.id)
 	x.CosMax = uint32(xc.cos_max)
 	x.CbmLen = uint32(xc.cbm_len)
 	x.CdpEnabled = bool(xc.cdp_enabled)
 	return nil
+}
+
+func (x *PsrCatInfo) toC() (xc C.libxl_psr_cat_info, err error) {
+	C.libxl_psr_cat_info_init(&xc)
+	xc.id = C.uint32_t(x.Id)
+	xc.cos_max = C.uint32_t(x.CosMax)
+	xc.cbm_len = C.uint32_t(x.CbmLen)
+	xc.cdp_enabled = C.bool(x.CdpEnabled)
+	return xc, nil
 }
 
 func (x *PsrHwInfo) fromC(xc *C.libxl_psr_hw_info) error {
@@ -1704,4 +2711,10 @@ func (x *PsrHwInfoTypeUnionMba) fromC(xc *C.libxl_psr_hw_info) error {
 	x.ThrtlMax = uint32(tmp.thrtl_max)
 	x.Linear = bool(tmp.linear)
 	return nil
+}
+
+func (x *PsrHwInfo) toC() (xc C.libxl_psr_hw_info, err error) {
+	C.libxl_psr_hw_info_init(&xc)
+	xc.id = C.uint32_t(x.Id)
+	return xc, nil
 }
