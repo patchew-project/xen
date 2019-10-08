@@ -1477,7 +1477,7 @@ typedef struct libxl__ddomain_device {
  */
 typedef struct libxl__ddomain_guest {
     uint32_t domid;
-    int num_vifs, num_vbds, num_qdisks;
+    int num_qdisks;
     LIBXL_SLIST_HEAD(, struct libxl__ddomain_device) devices;
     LIBXL_SLIST_ENTRY(struct libxl__ddomain_guest) next;
 } libxl__ddomain_guest;
@@ -1530,8 +1530,7 @@ static void check_and_maybe_remove_guest(libxl__gc *gc,
 {
     assert(ddomain);
 
-    if (dguest != NULL &&
-        dguest->num_vifs + dguest->num_vbds + dguest->num_qdisks == 0) {
+    if (dguest != NULL && LIBXL_SLIST_FIRST(&dguest->devices) == NULL) {
         LIBXL_SLIST_REMOVE(&ddomain->guests, dguest, libxl__ddomain_guest,
                            next);
         LOGD(DEBUG, dguest->domid, "Removed domain from the list of active guests");
@@ -1573,9 +1572,6 @@ static int add_device(libxl__egc *egc, libxl__ao *ao,
     switch(dev->backend_kind) {
     case LIBXL__DEVICE_KIND_VBD:
     case LIBXL__DEVICE_KIND_VIF:
-        if (dev->backend_kind == LIBXL__DEVICE_KIND_VBD) dguest->num_vbds++;
-        if (dev->backend_kind == LIBXL__DEVICE_KIND_VIF) dguest->num_vifs++;
-
         GCNEW(aodev);
         libxl__prepare_ao_device(ao, aodev);
         /*
@@ -1619,11 +1615,11 @@ static int remove_device(libxl__egc *egc, libxl__ao *ao,
     int rc = 0;
 
     switch(ddev->dev->backend_kind) {
+    case LIBXL__DEVICE_KIND_VDISPL:
+    case LIBXL__DEVICE_KIND_VSND:
+    case LIBXL__DEVICE_KIND_VINPUT:
     case LIBXL__DEVICE_KIND_VBD:
     case LIBXL__DEVICE_KIND_VIF:
-        if (dev->backend_kind == LIBXL__DEVICE_KIND_VBD) dguest->num_vbds--;
-        if (dev->backend_kind == LIBXL__DEVICE_KIND_VIF) dguest->num_vifs--;
-
         GCNEW(aodev);
         libxl__prepare_ao_device(ao, aodev);
         /*
