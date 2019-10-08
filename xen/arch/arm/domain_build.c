@@ -789,8 +789,8 @@ static int __init make_cpus_node(const struct domain *d, void *fdt)
     unsigned int cpu;
     const void *compatible = NULL;
     u32 len;
-    /* Placeholder for cpu@ + a 32-bit number + \0 */
-    char buf[15];
+    /* Placeholder for cpu@ + a 64-bit number + \0 */
+    char buf[21];
     u32 clock_frequency;
     bool clock_valid;
     uint64_t mpidr_aff;
