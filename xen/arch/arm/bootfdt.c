@@ -385,6 +385,23 @@ static void __init early_print_info(void)
                mem_resv->bank[j].start + mem_resv->bank[j].size - 1);
     }
     printk("\n");
+
+#ifndef NDEBUG
+    /*
+     * Assuming all combinations are checked, only the starting address
+     * has to be checked if it's in another memory module's range.
+     */
+    for ( i = 0 ; i < mods->nr_mods; i++ )
+        for ( j = 0 ; j < mods->nr_mods; j++ )
+            if ( (i != j) &&
+                 (mods->module[i].start >= mods->module[j].start) &&
+                 (mods->module[i].start <
+                  mods->module[j].start + mods->module[j].size) )
+                printk("WARNING: modules %-12s and %-12s overlap\n",
+                       boot_module_kind_as_string(mods->module[i].kind),
+                       boot_module_kind_as_string(mods->module[j].kind));
+#endif
+
     for ( i = 0 ; i < cmds->nr_mods; i++ )
         printk("CMDLINE[%"PRIpaddr"]:%s %s\n", cmds->cmdline[i].start,
                cmds->cmdline[i].dt_name,
