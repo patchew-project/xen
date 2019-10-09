@@ -320,7 +320,7 @@ static inline int avc_reclaim_node(void)
         head = &avc_cache.slots[hvalue];
         lock = &avc_cache.slots_lock[hvalue];
 
-        spin_lock_irqsave(&avc_cache.slots_lock[hvalue], flags);
+        spin_lock_irqsave(lock, flags);
         rcu_read_lock(&avc_rcu_lock);
         hlist_for_each_entry(node, next, head, list)
         {
