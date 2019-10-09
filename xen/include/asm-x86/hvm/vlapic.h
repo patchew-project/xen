@@ -150,4 +150,6 @@ bool_t vlapic_match_dest(
     const struct vlapic *target, const struct vlapic *source,
     int short_hand, uint32_t dest, bool_t dest_mode);
 
+void vlapic_sync_pir_to_irr(struct vcpu *v);
+
 #endif /* __ASM_X86_HVM_VLAPIC_H__ */
