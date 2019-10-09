@@ -341,7 +341,7 @@ int pt_irq_create_bind(
     {
         uint8_t dest, delivery_mode;
         bool dest_mode;
-        int dest_vcpu_id;
+        int dest_vcpu_id, prev_vcpu_id = -1;
         const struct vcpu *vcpu;
         uint32_t gflags = pt_irq_bind->u.msi.gflags &
                           ~XEN_DOMCTL_VMSI_X86_UNMASKED;
@@ -411,6 +411,7 @@ int pt_irq_create_bind(
 
                 pirq_dpci->gmsi.gvec = pt_irq_bind->u.msi.gvec;
                 pirq_dpci->gmsi.gflags = gflags;
+                prev_vcpu_id = pirq_dpci->gmsi.dest_vcpu_id;
             }
         }
         /* Calculate dest_vcpu_id for MSI-type pirq migration. */
@@ -432,7 +433,10 @@ int pt_irq_create_bind(
                 vcpu = vector_hashing_dest(d, dest, dest_mode,
                                            pirq_dpci->gmsi.gvec);
             if ( vcpu )
+            {
                 pirq_dpci->gmsi.posted = true;
+                pirq_dpci->gmsi.dest_vcpu_id = vcpu->vcpu_id;
+            }
         }
         if ( vcpu && is_iommu_enabled(d) )
             hvm_migrate_pirq(pirq_dpci, vcpu);
@@ -440,7 +444,8 @@ int pt_irq_create_bind(
         /* Use interrupt posting if it is supported. */
         if ( iommu_intpost )
             pi_update_irte(vcpu ? &vcpu->arch.hvm.vmx.pi_desc : NULL,
-                           info, pirq_dpci->gmsi.gvec);
+                           info, pirq_dpci->gmsi.gvec,
+                           prev_vcpu_id >= 0 ? d->vcpu[prev_vcpu_id] : NULL);
 
         if ( pt_irq_bind->u.msi.gflags & XEN_DOMCTL_VMSI_X86_UNMASKED )
         {
@@ -729,7 +734,9 @@ int pt_irq_destroy_bind(
             what = "bogus";
     }
     else if ( pirq_dpci && pirq_dpci->gmsi.posted )
-        pi_update_irte(NULL, pirq, 0);
+        pi_update_irte(NULL, pirq, 0,
+                       pirq_dpci->gmsi.dest_vcpu_id >= 0
+                       ? d->vcpu[pirq_dpci->gmsi.dest_vcpu_id] : NULL);
 
     if ( pirq_dpci && (pirq_dpci->flags & HVM_IRQ_DPCI_MAPPED) &&
          list_empty(&pirq_dpci->digl_list) )
