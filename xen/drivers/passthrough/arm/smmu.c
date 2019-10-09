@@ -804,9 +804,6 @@ static int register_smmu_master(struct arm_smmu_device *smmu,
 	master->of_node			= masterspec->np;
 	master->cfg.num_streamids	= masterspec->args_count;
 
-	/* Xen: Let Xen know that the device is protected by an SMMU */
-	dt_device_set_protected(masterspec->np);
-
 	for (i = 0; i < master->cfg.num_streamids; ++i) {
 		u16 streamid = masterspec->args[i];
 
@@ -815,10 +812,15 @@ static int register_smmu_master(struct arm_smmu_device *smmu,
 			dev_err(dev,
 				"stream ID for master device %s greater than maximum allowed (%d)\n",
 				masterspec->np->name, smmu->num_mapping_groups);
+			devm_free(master);
 			return -ERANGE;
 		}
 		master->cfg.streamids[i] = streamid;
 	}
+
+        /* Xen: Let Xen know that the device is protected by an SMMU */
+        dt_device_set_protected(masterspec->np);
+
 	return insert_smmu_master(smmu, master);
 }
 
