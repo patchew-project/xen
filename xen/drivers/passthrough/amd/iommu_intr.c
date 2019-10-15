@@ -439,6 +439,80 @@ int __init amd_iommu_setup_ioapic_remapping(void)
     return 0;
 }
 
+void setup_forced_ioapic_rte(unsigned int apic, unsigned int pin,
+                             struct amd_iommu *iommu,
+                             struct IO_APIC_route_entry *rte)
+{
+    unsigned int idx = ioapic_id_to_index(IO_APIC_ID(apic));
+    struct amd_iommu_dte *table = iommu->dev_table.buffer;
+    unsigned int req_id, dest, offset;
+    union irte_ptr entry;
+
+    ASSERT(x2apic_enabled);
+
+    if ( idx == MAX_IO_APICS )
+    {
+        rte->mask = true;
+        return;
+    }
+
+    req_id = get_intremap_requestor_id(ioapic_sbdf[idx].seg,
+                                       ioapic_sbdf[idx].bdf);
+
+    switch ( rte->delivery_mode )
+    {
+    case dest_SMI:
+        break;
+
+#define DEL_CHECK(type, dte_field)                                      \
+    case dest_ ## type:                                                 \
+        if ( !table[req_id].dte_field )                                 \
+            printk(XENLOG_WARNING                                       \
+                   STR(type) " on IO-APIC %u pin %u will be aborted\n", \
+                   apic, pin);                                          \
+        break;
+
+    DEL_CHECK(NMI, nmi_pass);
+    DEL_CHECK(INIT, init_pass);
+    DEL_CHECK(ExtINT, ext_int_pass);
+#undef DEL_CHECK
+
+    default:
+        ASSERT_UNREACHABLE();
+        return;
+    }
+
+    offset = ioapic_sbdf[idx].pin_2_idx[pin];
+    if ( offset >= INTREMAP_MAX_ENTRIES )
+    {
+        rte->mask = true;
+        return;
+    }
+
+    entry = get_intremap_entry(iommu, req_id, offset);
+    dest = get_full_dest(entry.ptr128);
+
+#define SET_DEST(name, dest_mask) {                                            \
+    if ( dest & ~(dest_mask) )                                                 \
+    {                                                                          \
+        printk(XENLOG_WARNING                                                  \
+               "IO-APIC %u pin %u " STR(name) " destination (%x) > %x\n",      \
+               apic, pin, dest, dest_mask);                                    \
+        rte->mask = true;                                                      \
+        return;                                                                \
+    }                                                                          \
+    rte->dest.name.name ## _dest = dest;                                       \
+}
+
+    if ( rte->dest_mode )
+        SET_DEST(physical, 0xf)
+    else
+        SET_DEST(logical, 0xff)
+#undef SET_DEST
+
+    return;
+}
+
 void amd_iommu_ioapic_update_ire(
     unsigned int apic, unsigned int reg, unsigned int value)
 {
@@ -482,6 +556,13 @@ void amd_iommu_ioapic_update_ire(
         *((u32 *)&new_rte) = value;
         /* read upper 32 bits from io-apic rte */
         *(((u32 *)&new_rte) + 1) = __io_apic_read(apic, reg + 1);
+
+        if ( new_rte.delivery_mode > 1 && x2apic_enabled )
+        {
+            setup_forced_ioapic_rte(apic, pin, iommu, &new_rte);
+            __ioapic_write_entry(apic, pin, true, new_rte);
+            return;
+        }
     }
     else
     {
