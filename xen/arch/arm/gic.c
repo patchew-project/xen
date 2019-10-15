@@ -294,7 +294,7 @@ void __init gic_init(void)
 
 void send_SGI_mask(const cpumask_t *cpumask, enum gic_sgi sgi)
 {
-    ASSERT(sgi < 16); /* There are only 16 SGIs */
+    ASSERT(sgi < NUMBER_OF_GIC_SGIS);
 
     gic_hw_ops->send_SGI(sgi, SGI_TARGET_LIST, cpumask);
 }
@@ -306,14 +306,14 @@ void send_SGI_one(unsigned int cpu, enum gic_sgi sgi)
 
 void send_SGI_self(enum gic_sgi sgi)
 {
-    ASSERT(sgi < 16); /* There are only 16 SGIs */
+    ASSERT(sgi < NUMBER_OF_GIC_SGIS);
 
     gic_hw_ops->send_SGI(sgi, SGI_TARGET_SELF, NULL);
 }
 
 void send_SGI_allbutself(enum gic_sgi sgi)
 {
-   ASSERT(sgi < 16); /* There are only 16 SGIs */
+   ASSERT(sgi < NUMBER_OF_GIC_SGIS);
 
    gic_hw_ops->send_SGI(sgi, SGI_TARGET_OTHERS, NULL);
 }

@@ -280,6 +280,8 @@ enum gic_sgi {
     GIC_SGI_EVENT_CHECK = 0,
     GIC_SGI_DUMP_STATE  = 1,
     GIC_SGI_CALL_FUNCTION = 2,
+    /* There are only 16 SGIs */
+    NUMBER_OF_GIC_SGIS = 16
 };
 
 /* SGI irq mode types */
