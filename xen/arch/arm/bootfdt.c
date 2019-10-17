@@ -387,6 +387,10 @@ static void __init early_print_info(void)
                mem_resv->bank[j].start + mem_resv->bank[j].size - 1);
     }
     printk("\n");
+
+    if ( mem_module_overlap )
+        printk("WARNING: overlap detected in the memory module addresses.\n");
+
     for ( i = 0 ; i < cmds->nr_mods; i++ )
         printk("CMDLINE[%"PRIpaddr"]:%s %s\n", cmds->cmdline[i].start,
                cmds->cmdline[i].dt_name,

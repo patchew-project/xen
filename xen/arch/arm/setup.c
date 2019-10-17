@@ -69,6 +69,8 @@ integer_param("xenheap_megabytes", opt_xenheap_megabytes);
 
 domid_t __read_mostly max_init_domid;
 
+bool __initdata mem_module_overlap;
+
 static __used void init_done(void)
 {
     /* Must be done past setting system_state. */
@@ -254,6 +256,10 @@ struct bootmodule __init *add_boot_module(bootmodule_kind kind,
                 mod->domU = false;
             return mod;
         }
+
+        if ( ((mod->start >= start) && (mod->start < start + size)) ||
+             ((start >= mod->start) && (start < mod->start + mod->size)) )
+            mem_module_overlap = true;
     }
 
     mod = &mods->module[mods->nr_mods++];
