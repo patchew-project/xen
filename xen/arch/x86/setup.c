@@ -689,6 +689,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
     int i, j, e820_warn = 0, bytes = 0;
     bool acpi_boot_table_init_done = false, relocated = false;
     int ret;
+    bool running_on_hypervisor;
     struct ns16550_defaults ns16550 = {
         .data_bits = 8,
         .parity    = 'n',
@@ -763,7 +764,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
      * allocing any xenheap structures wanted in lower memory. */
     kexec_early_calculations();
 
-    hypervisor_probe();
+    running_on_hypervisor = hypervisor_probe();
 
     parse_video_info();
 
@@ -788,6 +789,9 @@ void __init noreturn __start_xen(unsigned long mbi_p)
     printk("Command line: %s\n", cmdline);
 
     printk("Xen image load base address: %#lx\n", xen_phys_start);
+
+    if ( running_on_hypervisor )
+        printk("Running on %s\n", hypervisor_name());
 
 #ifdef CONFIG_VIDEO
     printk("Video information:\n");

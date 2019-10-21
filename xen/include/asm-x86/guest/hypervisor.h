@@ -36,15 +36,18 @@ bool hypervisor_probe(void);
 void hypervisor_setup(void);
 void hypervisor_ap_setup(void);
 void hypervisor_resume(void);
+const char *hypervisor_name(void);
 
 #else
 
+#include <xen/lib.h>
 #include <xen/types.h>
 
 static inline bool hypervisor_probe(void) { return false; }
 static inline void hypervisor_setup(void) {}
 static inline void hypervisor_ap_setup(void) {}
 static inline void hypervisor_resume(void) {}
+static inline char *hypervisor_name(void) { ASSERT_UNREACHABLE(); return NULL; }
 
 #endif  /* CONFIG_GUEST */
 
