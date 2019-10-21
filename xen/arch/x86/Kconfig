@@ -161,8 +161,12 @@ config XEN_ALIGN_2M
 
 endchoice
 
+config GUEST
+	bool
+
 config XEN_GUEST
 	def_bool n
+	select GUEST
 	prompt "Xen Guest"
 	---help---
 	  Support for Xen detecting when it is running under Xen.
