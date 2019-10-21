@@ -43,6 +43,14 @@ bool hypervisor_probe(void)
     }
 #endif
 
+#ifdef CONFIG_HYPERV_GUEST
+    if ( hyperv_probe() )
+    {
+        hops = &hyperv_ops;
+        return true;
+    }
+#endif
+
     return false;
 }
 
