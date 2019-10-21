@@ -1,5 +1,5 @@
 /******************************************************************************
- * asm-x86/guest/xen.h
+ * asm-x86/guest/hypervisor.h
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms and conditions of the GNU General Public
@@ -13,41 +13,42 @@
  * You should have received a copy of the GNU General Public
  * License along with this program; If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright (c) 2017 Citrix Systems Ltd.
+ * Copyright (c) 2019 Microsoft.
  */
 
-#ifndef __X86_GUEST_XEN_H__
-#define __X86_GUEST_XEN_H__
+#ifndef __X86_HYPERVISOR_H__
+#define __X86_HYPERVISOR_H__
 
-#include <xen/types.h>
+#ifdef CONFIG_GUEST
 
-#include <asm/e820.h>
-#include <asm/fixmap.h>
+struct hypervisor_ops {
+    /* Name of the hypervisor */
+    const char *name;
+    /* Main setup routine */
+    void (*setup)(void);
+    /* AP setup */
+    void (*ap_setup)(void);
+    /* Resume from suspension */
+    void (*resume)(void);
+};
 
-#define XEN_shared_info ((struct shared_info *)fix_to_virt(FIX_XEN_SHARED_INFO))
-
-#ifdef CONFIG_XEN_GUEST
-
-extern bool xen_guest;
-extern bool pv_console;
-extern uint32_t xen_cpuid_base;
-
-void probe_hypervisor(void);
-int hypervisor_alloc_unused_page(mfn_t *mfn);
-int hypervisor_free_unused_page(mfn_t mfn);
-
-DECLARE_PER_CPU(unsigned int, vcpu_id);
-DECLARE_PER_CPU(struct vcpu_info *, vcpu_info);
+bool hypervisor_probe(void);
+void hypervisor_setup(void);
+void hypervisor_ap_setup(void);
+void hypervisor_resume(void);
 
 #else
 
-#define xen_guest 0
-#define pv_console 0
+#include <xen/types.h>
 
-static inline void probe_hypervisor(void) {}
+static inline bool hypervisor_probe(void) { return false; }
+static inline void hypervisor_setup(void) {}
+static inline void hypervisor_ap_setup(void) {}
+static inline void hypervisor_resume(void) {}
 
-#endif /* CONFIG_XEN_GUEST */
-#endif /* __X86_GUEST_XEN_H__ */
+#endif  /* CONFIG_GUEST */
+
+#endif /* __X86_HYPERVISOR_H__ */
 
 /*
  * Local variables:
