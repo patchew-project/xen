@@ -67,24 +67,19 @@ static void __init find_xen_leaves(void)
     }
 }
 
-void __init probe_hypervisor(void)
+bool __init xen_probe(void)
 {
-    if ( xen_guest )
-        return;
-
-    /* Too early to use cpu_has_hypervisor */
-    if ( !(cpuid_ecx(1) & cpufeat_mask(X86_FEATURE_HYPERVISOR)) )
-        return;
-
     find_xen_leaves();
 
     if ( !xen_cpuid_base )
-        return;
+        return false;
 
     /* Fill the hypercall page. */
     wrmsrl(cpuid_ebx(xen_cpuid_base + 2), __pa(hypercall_page));
 
     xen_guest = true;
+
+    return true;
 }
 
 static void map_shared_info(void)
@@ -249,7 +244,7 @@ static void init_evtchn(void)
     }
 }
 
-void __init hypervisor_setup(void)
+static void __init xen_setup(void)
 {
     init_memmap();
 
@@ -277,7 +272,7 @@ void __init hypervisor_setup(void)
     init_evtchn();
 }
 
-void hypervisor_ap_setup(void)
+static void xen_ap_setup(void)
 {
     set_vcpu_id();
     map_vcpuinfo();
@@ -307,7 +302,7 @@ static void ap_resume(void *unused)
     init_evtchn();
 }
 
-void hypervisor_resume(void)
+static void xen_resume(void)
 {
     /* Reset shared info page. */
     map_shared_info();
@@ -329,6 +324,13 @@ void hypervisor_resume(void)
     if ( pv_console )
         pv_console_init();
 }
+
+struct hypervisor_ops xen_ops = {
+    .name = "Xen",
+    .setup = xen_setup,
+    .ap_setup = xen_ap_setup,
+    .resume = xen_resume,
+};
 
 /*
  * Local variables:
