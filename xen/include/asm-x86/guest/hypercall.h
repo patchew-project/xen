@@ -182,6 +182,8 @@ static inline long xen_hypercall_set_evtchn_upcall_vector(
 
 #else /* CONFIG_XEN_GUEST */
 
+#include <xen/lib.h>
+
 #include <public/sched.h>
 
 static inline void xen_hypercall_console_write(
