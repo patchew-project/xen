@@ -1,4 +1,4 @@
-CFLAGS += -fshort-wchar
+ccflags-y += -fshort-wchar
 
 %.o: %.ihex
 	$(OBJCOPY) -I ihex -O binary $< $@

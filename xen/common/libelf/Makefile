@@ -3,7 +3,7 @@ nocov-y += libelf.o
 
 SECTIONS := text data $(SPECIAL_DATA_SECTIONS)
 
-CFLAGS += -Wno-pointer-sign
+ccflags-y += -Wno-pointer-sign
 
 libelf.o: libelf-temp.o Makefile
 	$(OBJCOPY) $(foreach s,$(SECTIONS),--rename-section .$(s)=.init.$(s)) $< $@

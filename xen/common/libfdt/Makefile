@@ -5,7 +5,7 @@ SECTIONS := text data $(SPECIAL_DATA_SECTIONS)
 obj-y += libfdt.o
 nocov-y += libfdt.o
 
-CFLAGS += -I$(BASEDIR)/include/xen/libfdt/
+ccflags-y += -I$(BASEDIR)/include/xen/libfdt/
 
 libfdt.o: libfdt-temp.o Makefile
 	$(OBJCOPY) $(foreach s,$(SECTIONS),--rename-section .$(s)=.init.$(s)) $< $@

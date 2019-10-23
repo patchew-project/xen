@@ -73,8 +73,8 @@ obj-$(CONFIG_COMPAT) += $(addprefix compat/,domain.o kernel.o memory.o multicall
 
 extra-y := symbols-dummy.o
 
-subdir-$(CONFIG_COVERAGE) += coverage
-subdir-$(CONFIG_UBSAN) += ubsan
+obj-$(CONFIG_COVERAGE) += coverage/
+obj-$(CONFIG_UBSAN) += ubsan/
 
-subdir-$(CONFIG_NEEDS_LIBELF) += libelf
-subdir-$(CONFIG_HAS_DEVICE_TREE) += libfdt
+obj-$(CONFIG_NEEDS_LIBELF) += libelf/
+obj-$(CONFIG_HAS_DEVICE_TREE) += libfdt/
