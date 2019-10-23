@@ -1821,7 +1821,8 @@ static int __init verify_tsc_reliability(void)
      * are not marked as 'reliable', re-sync during rendezvous.
      */
     if ( boot_cpu_has(X86_FEATURE_CONSTANT_TSC) &&
-         !boot_cpu_has(X86_FEATURE_TSC_RELIABLE) )
+         !boot_cpu_has(X86_FEATURE_TSC_RELIABLE) &&
+         num_present_cpus() > 1 )
         time_calibration_rendezvous_fn = time_calibration_tsc_rendezvous;
 
     return 0;
