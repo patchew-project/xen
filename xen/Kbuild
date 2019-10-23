@@ -1,0 +1,10 @@
+#####
+# Generate asm-offsets.h
+
+offsets-file := include/asm-$(SRCARCH)/asm-offsets.h
+
+always  += $(offsets-file)
+
+$(offsets-file): arch/$(SRCARCH)/asm-offsets.s FORCE
+	$(call filechk,offsets,__ASM_OFFSETS_H__)
+

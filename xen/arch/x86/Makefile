@@ -64,11 +64,17 @@ LDFLAGS_emulation_OpenBSD := _obsd
 LDFLAGS_emulation_FreeBSD := _fbsd
 KBUILD_LDFLAGS += -melf_x86_64$(LDFLAGS_emulation_$(XEN_OS))
 
+archheaders: $(objtree)/include/asm-x86/asm-macros.h
+
+archprepare:
+	$(Q)$(MAKE) $(build)=arch/$(SRCARCH) arch/$(SRCARCH)/asm-offsets.s
+
 efi-y := $(shell if [ ! -r $(BASEDIR)/include/xen/compile.h -o \
                       -O $(BASEDIR)/include/xen/compile.h ]; then \
                          echo '$(TARGET).efi'; fi)
 
-ALL_OBJS := $(BASEDIR)/arch/x86/boot/built_in.o $(BASEDIR)/arch/x86/efi/built_in.o $(ALL_OBJS)
+head-y := arch/x86/boot/
+head-y += arch/x86/efi/
 
 ifeq ($(CONFIG_LTO),y)
 # Gather all LTO objects together
@@ -104,7 +110,10 @@ EFI_LDFLAGS += --major-os-version=2 --minor-os-version=0
 EFI_LDFLAGS += --major-subsystem-version=2 --minor-subsystem-version=0
 
 # Check if the compiler supports the MS ABI.
-export XEN_BUILD_EFI := $(shell $(CC) $(filter-out $(CFLAGS-y) .%.d,$(CFLAGS)) -c efi/check.c -o efi/check.o 2>/dev/null && echo y)
+#export XEN_BUILD_EFI := $(shell $(CC) $(filter-out $(CFLAGS-y) .%.d,$(CFLAGS)) -c efi/check.c -o efi/check.o 2>/dev/null && echo y)
+# XXX FIXME: The subdir efi/ depends on symbolic links of files in common/efi/
+# XXX Disable EFI build for now.
+override XEN_BUILD_EFI :=
 # Check if the linker supports PE.
 XEN_BUILD_PE := $(if $(XEN_BUILD_EFI),$(shell $(LD) -mi386pep --subsystem=10 -o efi/check.efi efi/check.o 2>/dev/null && echo y))
 CFLAGS-$(XEN_BUILD_EFI) += -DXEN_BUILD_EFI
@@ -154,31 +163,22 @@ $(TARGET).efi: prelink-efi.o $(note_file) efi.lds efi/relocs-dummy.o efi/mkreloc
 efi/boot.init.o efi/runtime.o efi/compat.o efi/buildid.o: $(BASEDIR)/arch/x86/efi/built_in.o
 efi/boot.init.o efi/runtime.o efi/compat.o efi/buildid.o: ;
 
-$(BASEDIR)/include/asm-x86/asm-macros.h: asm-macros.i Makefile
-	echo '#if 0' >$@.new
-	echo '.if 0' >>$@.new
-	echo '#endif' >>$@.new
-	echo 'asm ( ".include \"$@\"" );' >>$@.new
-	echo '#if 0' >>$@.new
-	echo '.endif' >>$@.new
-	cat $< >>$@.new
-	echo '#endif' >>$@.new
-	$(call move-if-changed,$@.new,$@)
+define filechk_asm-macros.h
+	echo '#if 0'; \
+	echo '.if 0'; \
+	echo '#endif'; \
+	echo 'asm ( ".include \"$@\"" );'; \
+	echo '#if 0'; \
+	echo '.endif'; \
+	cat $<; \
+	echo '#endif'
+endef
+
+$(objtree)/arch/x86/asm-macros.i: FORCE
+	$(Q)$(MAKE) $(build)=$(@D) $@
+
+$(objtree)/include/asm-x86/asm-macros.h: $(objtree)/arch/x86/asm-macros.i Makefile FORCE
+	$(call filechk,asm-macros.h)
 
 efi/mkreloc: efi/mkreloc.c
 	$(HOSTCC) $(HOSTCFLAGS) -g -o $@ $<
-
-.PHONY: clean
-clean::
-	rm -f asm-offsets.s *.lds boot/*.o boot/*~ boot/core boot/mkelf32
-	rm -f asm-macros.i $(BASEDIR)/include/asm-x86/asm-macros.*
-	rm -f $(BASEDIR)/.xen-syms.[0-9]* boot/.*.d $(BASEDIR)/.xen.elf32
-	rm -f $(BASEDIR)/.xen.efi.[0-9]* efi/*.efi efi/mkreloc
-	rm -f boot/cmdline.S boot/reloc.S boot/*.lnk boot/*.bin
-	rm -f note.o
-
-# Suppress loading of DEPS files for internal, temporary target files.  This
-# then also suppresses re-generation of the respective .*.d2 files.
-ifeq ($(filter-out .xen%.o,$(notdir $(MAKECMDGOALS))),)
-DEPS:=
-endif
