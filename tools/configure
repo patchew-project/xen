@@ -6931,10 +6931,8 @@ fi
 if echo "$PYTHON" | grep -q "^/"; then :
 
 else
-  PYTHON=`type -p "$PYTHON"`
+  PYTHONPATH=`type -p "$PYTHON"`
 fi
-PYTHONPATH=$PYTHON
-PYTHON=`basename $PYTHONPATH`
 
 # Extract the first word of "$PYTHON", so it can be a program name with args.
 set dummy $PYTHON; ac_word=$2
