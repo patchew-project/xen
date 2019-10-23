@@ -13,8 +13,6 @@ export XEN_BUILD_DATE	?= $(shell LC_ALL=C date)
 export XEN_BUILD_TIME	?= $(shell LC_ALL=C date +%T)
 export XEN_BUILD_HOST	?= $(shell hostname)
 
-export XEN_ROOT := $(CURDIR)/..
-
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
 # More info can be located in ./README
@@ -238,8 +236,10 @@ endif
 
 objtree		:= .
 VPATH		:= $(srctree)
+XEN_ROOT	:= $(abs_srctree)/..
 
 export building_out_of_srctree srctree objtree VPATH
+export XEN_ROOT
 
 # To make sure we do not include .config for any of the *config targets
 # catch them early, and hand them over to scripts/kconfig/Makefile
@@ -316,6 +316,15 @@ else
 
 include scripts/Kbuild.include
 
+# XXX From Config.mk
+XEN_COMPILE_ARCH    ?= $(shell uname -m | sed -e s/i.86/x86_32/ \
+                         -e s/i86pc/x86_32/ -e s/amd64/x86_64/ \
+                         -e s/armv7.*/arm32/ -e s/armv8.*/arm64/ \
+                         -e s/aarch64/arm64/)
+XEN_TARGET_ARCH     ?= $(XEN_COMPILE_ARCH)
+XEN_OS              ?= $(shell uname -s)
+export XEN_OS
+
 # Cross compiling and selecting different set of gcc/bin-utils
 # ---------------------------------------------------------------------------
 #
@@ -334,7 +343,7 @@ include scripts/Kbuild.include
 # Alternatively CROSS_COMPILE can be set in the environment.
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
-ARCH		?= $(SUBARCH)
+ARCH		?= $(XEN_COMPILE_ARCH)
 SRCARCH		:= $(shell echo $(XEN_TARGET_ARCH) | \
                               sed -e 's/x86.*/x86/' -e s'/arm\(32\|64\)/arm/g')
 
@@ -363,6 +372,7 @@ KBUILD_HOSTLDLIBS   := $(HOST_LFS_LIBS) $(HOSTLDLIBS)
 AS		= $(CROSS_COMPILE)as
 LD		= $(CROSS_COMPILE)ld
 CC		= $(CROSS_COMPILE)gcc
+CXX		= $(CROSS_COMPILE)g++
 CPP		= $(CC) -E
 AR		= $(CROSS_COMPILE)ar
 NM		= $(CROSS_COMPILE)nm
@@ -385,7 +395,7 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 NOSTDINC_FLAGS :=
 CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
-LDFLAGS_vmlinux =
+LDFLAGS_xen	=
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
@@ -395,13 +405,35 @@ LINUXINCLUDE    := \
 
 KBUILD_AFLAGS   := -D__ASSEMBLY__ -fno-PIE
 KBUILD_CFLAGS   :=
+
+# XXX CFLAGS found in xen.git/config/$(XEN_TARGET_ARCH).mk
+KBUILD_CFLAGS	+= -m64
+# XXX CFLAGS found in Config.mk
+export XEN_HAS_BUILD_ID ?= n
+ifeq ($(call ld-option,--build-id),)
+build_id_linker :=
+else
+KBUILD_CFLAGS += -DBUILD_ID
+export XEN_HAS_BUILD_ID=y
+build_id_linker := --build-id=sha1
+# possible improvement: LDFLAGS_xen-syms := --build-id=sha1
+endif
+export build_id_linker
+KBUILD_CFLAGS	+= -fno-strict-aliasing -std=gnu99 -Wall -Wstrict-prototypes
+KBUILD_CFLAGS	+= $(call cc-option,-Wdeclaration-after-statement)
+KBUILD_CFLAGS	+= $(call cc-disable-warning,unused-but-set-variable)
+KBUILD_CFLAGS	+= $(call cc-disable-warning,unused-local-typedefs)
+
+EMBEDDED_EXTRA_CFLAGS := -nopie -fno-stack-protector -fno-stack-protector-all
+EMBEDDED_EXTRA_CFLAGS += -fno-exceptions
+
 KBUILD_CPPFLAGS :=
 KBUILD_LDFLAGS :=
 GCC_PLUGINS_CFLAGS :=
 CLANG_FLAGS :=
 
 export ARCH SRCARCH CONFIG_SHELL HOSTCC KBUILD_HOSTCFLAGS CROSS_COMPILE AS LD CC
-export CPP AR NM STRIP OBJCOPY OBJDUMP OBJSIZE PAHOLE LEX YACC AWK
+export CXX CPP AR NM STRIP OBJCOPY OBJDUMP OBJSIZE PAHOLE LEX YACC AWK
 export PERL PYTHON PYTHON2 PYTHON3 CHECK CHECKFLAGS MAKE HOSTCXX
 export KBUILD_HOSTCXXFLAGS KBUILD_HOSTLDFLAGS KBUILD_HOSTLDLIBS
 
@@ -469,7 +501,7 @@ CC_VERSION_TEXT = $(shell $(CC) --version 2>/dev/null | head -n 1)
 ifeq ($(config-targets),1)
 # ===========================================================================
 # *config targets only - make sure prerequisites are updated, and descend
-# in scripts/kconfig to make the *config target
+# in tools/kconfig to make the *config target
 
 # Read arch specific Makefile to set KBUILD_DEFCONFIG as needed.
 # KBUILD_DEFCONFIG may point out an alternative default configuration
@@ -478,10 +510,10 @@ include arch/$(SRCARCH)/Makefile
 export KBUILD_DEFCONFIG KBUILD_KCONFIG CC_VERSION_TEXT
 
 config: scripts_basic outputmakefile FORCE
-	$(Q)$(MAKE) $(build)=scripts/kconfig $@
+	$(Q)$(MAKE) $(build)=tools/kconfig $@
 
 %config: scripts_basic outputmakefile FORCE
-	$(Q)$(MAKE) $(build)=scripts/kconfig $@
+	$(Q)$(MAKE) $(build)=tools/kconfig $@
 
 else
 # ===========================================================================
@@ -501,23 +533,18 @@ ifeq ($(dot-config),1)
 include include/config/auto.conf
 endif
 
-ifeq ($(KBUILD_EXTMOD),)
-# Objects we will link into vmlinux / subdirs we need to visit
-init-y		:= init/
-drivers-y	:= drivers/ sound/
-drivers-$(CONFIG_SAMPLES) += samples/
-drivers-$(CONFIG_KERNEL_HEADER_TEST) += include/
-net-y		:= net/
-libs-y		:= lib/
-core-y		:= usr/
-virt-y		:= virt/
-endif # KBUILD_EXTMOD
+# Objects we will link into xen / subdirs we need to visit
+common-y		:= common/
+drivers-y		:= drivers/
+libs-$(CONFIG_X86)	:= lib/
+xsm-y			:= xsm/
+arch-y			:= arch/$(SRCARCH)/
+crypto-$(CONFIG_CRYPTO)	:= crypto/
 
 # The all: target is the default when no target is given on the
 # command line.
-# This allow a user to issue only 'make' to build a kernel including modules
-# Defaults to vmlinux, but the arch makefile usually adds further targets
-all: vmlinux
+# Defaults to xen, but the arch makefile usually adds further targets
+all: xen
 
 CFLAGS_GCOV	:= -fprofile-arcs -ftest-coverage \
 	$(call cc-option,-fno-tree-loop-im) \
@@ -552,14 +579,9 @@ ifeq ($(may-sync-config),1)
 # because some architectures define CROSS_COMPILE there.
 include include/config/auto.conf.cmd
 
+# Allow people to just run `make` as before and not force them to configure
 $(KCONFIG_CONFIG):
-	@echo >&2 '***'
-	@echo >&2 '*** Configuration file "$@" not found!'
-	@echo >&2 '***'
-	@echo >&2 '*** Please run some configurator (e.g. "make oldconfig" or'
-	@echo >&2 '*** "make menuconfig" or "make xconfig").'
-	@echo >&2 '***'
-	@/bin/false
+	$(Q)$(MAKE) -f $(srctree)/Makefile defconfig
 
 # The actual configuration files used during the build are stored in
 # include/generated/ and include/config/. Update them if .config is newer than
@@ -587,14 +609,39 @@ include/config/auto.conf:
 endif # may-sync-config
 endif # $(dot-config)
 
+# XXX CFLAGS found in Rules.mk
+ifeq ($(CONFIG_DEBUG),y)
+KBUILD_CFLAGS += -O1
+else
+KBUILD_CFLAGS += -O2
+endif
+
+ifeq ($(CONFIG_FRAME_POINTER),y)
+KBUILD_CFLAGS += -fno-omit-frame-pointer
+else
+KBUILD_CFLAGS += -fomit-frame-pointer
+endif
+
+KBUILD_CFLAGS += -fno-builtin -fno-common
+KBUILD_CFLAGS += -Werror -Wredundant-decls -Wno-pointer-arith
+KBUILD_CFLAGS += $(call cc-option,-Wvla)
+KBUILD_CFLAGS += -pipe -D__XEN__ -include $(srctree)/include/xen/config.h
+ifeq ($(CONFIG_DEBUG_INFO),y)
+KBUILD_CFLAGS += -g
+endif
+
+KBUILD_CFLAGS	+= -Wa,--strip-local-absolute
 
 # arch Makefile may override CC so keep this after arch Makefile is included
-NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
-
-
+NOSTDINC_FLAGS += -nostdinc
 
 # use the deterministic mode of AR if available
 KBUILD_ARFLAGS := $(call ar-option,D)
+
+# Most CFLAGS are safe for assembly files:
+#  -std=gnu{89,99} gets confused by #-prefixed end-of-line comments
+#  -flto makes no sense and annoys clang
+KBUILD_AFLAGS  += $(filter-out -std=gnu% -flto,$(KBUILD_CFLAGS))
 
 include scripts/Makefile.kasan
 include scripts/Makefile.ubsan
@@ -616,7 +663,7 @@ CHECKFLAGS += $(if $(CONFIG_64BIT),-m64,-m32)
 # set in the environment
 # Also any assignments in arch/$(ARCH)/Makefile take precedence over
 # this default value
-export KBUILD_IMAGE ?= vmlinux
+export KBUILD_IMAGE ?= xen
 
 #
 # INSTALL_PATH specifies where to place the updated kernel and system map
@@ -627,74 +674,59 @@ HOST_LIBELF_LIBS = $(shell pkg-config libelf --libs 2>/dev/null || echo -lelf)
 
 PHONY += prepare0
 
-core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/
+xen-dirs	:= $(patsubst %/,%,$(filter %/, $(head-y) $(common-y) \
+		     $(drivers-y) $(libs-y) $(xsm-y) $(arch-y) \
+		     $(crypto-y)))
 
-vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, $(init-y) $(init-m) \
-		     $(core-y) $(core-m) $(drivers-y) $(drivers-m) \
-		     $(net-y) $(net-m) $(libs-y) $(libs-m) $(virt-y)))
+xen-alldirs	:= $(sort $(xen-dirs) \
+		     $(patsubst %/,%,$(filter %/, $(head-y) $(common-) \
+			$(drivers-) $(libs-) $(xsm-) $(arch-) $(crypto-))))
+xen-alldirs	+= include
 
-vmlinux-alldirs	:= $(sort $(vmlinux-dirs) Documentation \
-		     $(patsubst %/,%,$(filter %/, $(init-) $(core-) \
-			$(drivers-) $(net-) $(libs-) $(virt-))))
-
-init-y		:= $(patsubst %/, %/built-in.a, $(init-y))
-core-y		:= $(patsubst %/, %/built-in.a, $(core-y))
+head-y		:= $(patsubst %/, %/built-in.a, $(head-y))
+common-y	:= $(patsubst %/, %/built-in.a, $(common-y))
 drivers-y	:= $(patsubst %/, %/built-in.a, $(drivers-y))
-net-y		:= $(patsubst %/, %/built-in.a, $(net-y))
 libs-y1		:= $(patsubst %/, %/lib.a, $(libs-y))
 libs-y2		:= $(patsubst %/, %/built-in.a, $(filter-out %.a, $(libs-y)))
-virt-y		:= $(patsubst %/, %/built-in.a, $(virt-y))
+xsm-y		:= $(patsubst %/, %/built-in.a, $(xsm-y))
+arch-y		:= $(patsubst %/, %/built-in.a, $(arch-y))
+crypto-y	:= $(patsubst %/, %/built-in.a, $(crypto-y))
 
-# Externally visible symbols (used by link-vmlinux.sh)
-export KBUILD_VMLINUX_OBJS := $(head-y) $(init-y) $(core-y) $(libs-y2) \
-			      $(drivers-y) $(net-y) $(virt-y)
+# Externally visible symbols
+export ALL_OBJS            := $(head-y) $(common-y) $(drivers-y) $(libs-y2) \
+			      $(xsm-y) $(arch-y) $(crypto-y)
 export KBUILD_VMLINUX_LIBS := $(libs-y1)
-export KBUILD_LDS          := arch/$(SRCARCH)/kernel/vmlinux.lds
-export LDFLAGS_vmlinux
-# used by scripts/package/Makefile
-export KBUILD_ALLDIRS := $(sort $(filter-out arch/%,$(vmlinux-alldirs)) LICENSES arch include scripts tools)
+export KBUILD_LDS          := arch/$(SRCARCH)/xen.lds
+export LDFLAGS_xen
+export TARGET		   := xen
 
-vmlinux-deps := $(KBUILD_LDS) $(KBUILD_VMLINUX_OBJS) $(KBUILD_VMLINUX_LIBS)
+xen-deps := $(KBUILD_LDS) $(ALL_OBJS) $(KBUILD_VMLINUX_LIBS)
 
-ARCH_POSTLINK := $(wildcard $(srctree)/arch/$(SRCARCH)/Makefile.postlink)
+xen: $(xen-deps) FORCE
+	$(Q)$(MAKE) $(build)=arch/$(SRCARCH) xen
 
-# Final link of vmlinux with optional arch pass after final link
-cmd_link-vmlinux =                                                 \
-	$(CONFIG_SHELL) $< $(LD) $(KBUILD_LDFLAGS) $(LDFLAGS_vmlinux) ;    \
-	$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) $@, true)
-
-vmlinux: scripts/link-vmlinux.sh autoksyms_recursive $(vmlinux-deps) FORCE
-	+$(call if_changed,link-vmlinux)
-
-targets := vmlinux
+targets := xen
 
 # The actual objects are generated when descending,
 # make sure no implicit rule kicks in
-$(sort $(vmlinux-deps)): $(vmlinux-dirs) ;
+$(sort $(xen-deps)): $(xen-dirs) ;
 
-# Handle descending into subdirectories listed in $(vmlinux-dirs)
+# Handle descending into subdirectories listed in $(xen-dirs)
 # Preset locale variables to speed up the build process. Limit locale
 # tweaks to this spot to avoid wrong language settings when running
 # make menuconfig etc.
 # Error messages still appears in the original language
 
-PHONY += $(vmlinux-dirs)
-$(vmlinux-dirs): prepare
+PHONY += $(xen-dirs)
+$(xen-dirs): prepare
 	$(Q)$(MAKE) $(build)=$@ need-builtin=1 need-modorder=1
-
-filechk_kernel.release = \
-	echo "$(KERNELVERSION)$$($(CONFIG_SHELL) $(srctree)/scripts/setlocalversion $(srctree))"
-
-# Store (new) KERNELRELEASE string in include/config/kernel.release
-include/config/kernel.release: FORCE
-	$(call filechk,kernel.release)
 
 # Additional helpers built in scripts/
 # Carefully list dependencies so we do not try to build scripts twice
 # in parallel
 PHONY += scripts
-scripts: scripts_basic scripts_dtc
-	$(Q)$(MAKE) $(build)=$(@)
+scripts: scripts_basic
+	$(Q)$(MAKE) $(build)=tools
 
 # Things we need to do before we recursively start building the kernel
 # or the modules are listed in "prepare".
@@ -707,7 +739,7 @@ PHONY += prepare archprepare prepare3
 # prepare3 is used to check if we are building in a separate output directory,
 # and if so do:
 # 1) Check that make has not been executed in the kernel src $(srctree)
-prepare3: include/config/kernel.release
+prepare3:
 ifdef building_out_of_srctree
 	@$(kecho) '  Using $(srctree) as source for kernel'
 	$(Q)if [ -f $(srctree)/.config -o \
@@ -719,11 +751,15 @@ ifdef building_out_of_srctree
 	fi;
 endif
 
-archprepare: archheaders archscripts scripts prepare3 outputmakefile \
-	asm-generic $(version_h) $(autoksyms_h) include/generated/utsrelease.h
+PHONY += preprepare
+preprepare:
+	$(Q)[ -e $(objtree)/include/asm ] || ln -sf asm-$(SRCARCH) $(objtree)/include/asm
+	$(Q)$(MAKE) $(build)=include all
+
+archprepare: preprepare archheaders scripts prepare3 outputmakefile \
+	$(version_h)
 
 prepare0: archprepare
-	$(Q)$(MAKE) $(build)=scripts/mod
 	$(Q)$(MAKE) $(build)=.
 
 # All the preparing..
@@ -732,73 +768,63 @@ prepare: prepare0
 # Generate some files
 # ---------------------------------------------------------------------------
 
-# KERNELRELEASE can change from a few different places, meaning version.h
+# KERNELRELEASE can change from a few different places, meaning compile.h
 # needs to be updated, so this check is forced on all builds
 
-uts_len := 64
-define filechk_utsrelease.h
-	if [ `echo -n "$(KERNELRELEASE)" | wc -c ` -gt $(uts_len) ]; then \
-	  echo '"$(KERNELRELEASE)" exceeds $(uts_len) characters' >&2;    \
-	  exit 1;                                                         \
-	fi;                                                               \
-	echo \#define UTS_RELEASE \"$(KERNELRELEASE)\"
-endef
-
+# compile.h contains dynamic build info. Rebuilt on every 'make' invocation.
 define filechk_version.h
-	echo \#define LINUX_VERSION_CODE $(shell                         \
-	expr $(VERSION) \* 65536 + 0$(PATCHLEVEL) \* 256 + 0$(SUBLEVEL)); \
-	echo '#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))'
+	echo '#define XEN_COMPILE_DATE	"$(XEN_BUILD_DATE)"'; \
+	echo '#define XEN_COMPILE_TIME	"$(XEN_BUILD_TIME)"'; \
+	echo '#define XEN_COMPILE_BY		"$(XEN_WHOAMI)"'; \
+	echo '#define XEN_COMPILE_DOMAIN	"$(XEN_DOMAIN)"'; \
+	echo '#define XEN_COMPILE_HOST	"$(XEN_BUILD_HOST)"'; \
+	echo '#define XEN_COMPILER		"$(shell $(CC) $(KBUILD_CFLAGS) --version 2>&1 | head -1)"'; \
+	echo; \
+	echo '#define XEN_VERSION		$(XEN_VERSION)'; \
+	echo '#define XEN_SUBVERSION		$(XEN_SUBVERSION)'; \
+	echo '#define XEN_EXTRAVERSION	"$(XEN_EXTRAVERSION)"'; \
+	echo; \
+	echo '#define XEN_CHANGESET		"$(shell tools/scmversion $(XEN_ROOT) || echo "unavailable")"'; \
+	echo '#define XEN_BANNER		"Xen $(XEN_FULLVERSION)"'
 endef
 
 $(version_h): FORCE
 	$(call filechk,version.h)
-	$(Q)rm -f $(old_version_h)
 
 ###
 # Cleaning is done on three levels.
 # make clean     Delete most generated files
-#                Leave enough to build external modules
 # make mrproper  Delete the current configuration, and all generated files
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  += include/ksym
-CLEAN_FILES += modules.builtin.modinfo
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated          \
-		  arch/$(SRCARCH)/include/generated .tmp_objdiff
-MRPROPER_FILES += .config .config.old .version \
-		  Module.symvers \
-		  signing_key.pem signing_key.priv signing_key.x509	\
-		  x509.genkey extra_certificates signing_key.x509.keyid	\
-		  signing_key.x509.signer vmlinux-gdb.py
+		  arch/$(SRCARCH)/include/generated
+MRPROPER_FILES += .config .config.old include/asm
 
 # Directories & files removed with 'make distclean'
 DISTCLEAN_DIRS  +=
 DISTCLEAN_FILES += tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS
 
-# clean - Delete most, but leave enough to build external modules
+# clean - Delete most
 #
 clean: rm-dirs  := $(CLEAN_DIRS)
 clean: rm-files := $(CLEAN_FILES)
-clean-dirs      := $(addprefix _clean_, . $(vmlinux-alldirs))
+clean-dirs      := $(addprefix _clean_, . $(xen-alldirs))
 
-PHONY += $(clean-dirs) clean archclean vmlinuxclean
+PHONY += $(clean-dirs) clean archclean
 $(clean-dirs):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
 
-vmlinuxclean:
-	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-vmlinux.sh clean
-	$(Q)$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) clean)
-
-clean: archclean vmlinuxclean
+clean: archclean
 
 # mrproper - Delete all generated files, including .config
 #
 mrproper: rm-dirs  := $(wildcard $(MRPROPER_DIRS))
 mrproper: rm-files := $(wildcard $(MRPROPER_FILES))
-mrproper-dirs      := $(addprefix _mrproper_,scripts)
+mrproper-dirs      := $(addprefix _mrproper_,tools)
 
 PHONY += $(mrproper-dirs) mrproper
 $(mrproper-dirs):
@@ -842,7 +868,7 @@ help:
 	@echo  '  distclean	  - mrproper + remove editor backup and patch files'
 	@echo  ''
 	@echo  'Configuration targets:'
-	@$(MAKE) -f $(srctree)/scripts/kconfig/Makefile help
+	@$(MAKE) -f $(srctree)/tools/kconfig/Makefile help
 	@echo  ''
 	@echo  'Other generic targets:'
 	@echo  '  all		  - Build all targets marked with [*]'
@@ -950,17 +976,14 @@ $(help-board-dirs): help-%:
 clean: $(clean-dirs)
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
-	@find $(if $(KBUILD_EXTMOD), $(KBUILD_EXTMOD), .) $(RCS_FIND_IGNORE) \
-		\( -name '*.[aios]' -o -name '*.ko' -o -name '.*.cmd' \
-		-o -name '*.ko.*' \
-		-o -name '*.dtb' -o -name '*.dtb.S' -o -name '*.dt.yaml' \
-		-o -name '*.dwo' -o -name '*.lst' \
+	@find . $(RCS_FIND_IGNORE) \
+		\( -name '*.[aios]' -o -name '.*.cmd' \
+		-o -name '*.dwo' \
 		-o -name '*.su' -o -name '*.mod' \
-		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
+		-o -name '.*.d' -o -name '.*.tmp' \
 		-o -name '*.lex.c' -o -name '*.tab.[ch]' \
 		-o -name '*.asn1.[ch]' \
-		-o -name '*.symtypes' -o -name 'modules.order' \
-		-o -name modules.builtin -o -name '.tmp_*.o.*' \
+		-o -name '.tmp_*.o.*' \
 		-o -name '*.c.[012]*.*' \
 		-o -name '*.ll' \
 		-o -name '*.gcno' \) -type f -print | xargs rm -f
