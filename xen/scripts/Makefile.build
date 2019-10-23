@@ -114,7 +114,7 @@ $(obj)/%.s: $(src)/%.c FORCE
 	$(call if_changed_dep,cc_s_c)
 
 quiet_cmd_cpp_i_c = CPP $(quiet_modtag) $@
-cmd_cpp_i_c       = $(CPP) $(c_flags) -o $@ $<
+cmd_cpp_i_c       = $(CPP) $(filter-out -Wa$(comma)%,$(c_flags)) -o $@ $<
 
 $(obj)/%.i: $(src)/%.c FORCE
 	$(call if_changed_dep,cpp_i_c)
