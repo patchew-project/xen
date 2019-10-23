@@ -1,0 +1,153 @@
+obj-y += acpi/
+obj-y += cpu/
+obj-y += genapic/
+obj-$(CONFIG_XEN_GUEST) += guest/
+obj-$(CONFIG_HVM) += hvm/
+obj-y += mm/
+obj-$(CONFIG_XENOPROF) += oprofile/
+obj-$(CONFIG_PV) += pv/
+obj-y += x86_64/
+
+alternative-y := alternative.init.o
+alternative-$(CONFIG_LIVEPATCH) :=
+obj-bin-y += $(alternative-y)
+obj-y += apic.o
+obj-y += bitops.o
+obj-bin-y += bzimage.init.o
+obj-bin-y += clear_page.o
+obj-bin-y += copy_page.o
+obj-y += cpuid.o
+obj-$(CONFIG_PV) += compat.o x86_64/compat.o
+obj-$(CONFIG_KEXEC) += crash.o
+obj-y += debug.o
+obj-y += delay.o
+obj-y += desc.o
+obj-bin-y += dmi_scan.init.o
+obj-y += domctl.o
+obj-y += domain.o
+obj-bin-y += dom0_build.init.o
+obj-y += domain_page.o
+obj-y += e820.o
+obj-y += emul-i8254.o
+obj-y += extable.o
+obj-y += flushtlb.o
+obj-$(CONFIG_CRASH_DEBUG) += gdbstub.o
+obj-y += hypercall.o
+obj-y += i387.o
+obj-y += i8259.o
+obj-y += io_apic.o
+obj-$(CONFIG_LIVEPATCH) += alternative.o livepatch.o
+obj-y += msi.o
+obj-y += msr.o
+obj-$(CONFIG_INDIRECT_THUNK) += indirect-thunk.o
+obj-y += ioport_emulate.o
+obj-y += irq.o
+obj-$(CONFIG_KEXEC) += machine_kexec.o
+obj-y += microcode_amd.o
+obj-y += microcode_intel.o
+obj-y += microcode.o
+obj-y += mm.o x86_64/mm.o
+obj-$(CONFIG_HVM) += monitor.o
+obj-y += mpparse.o
+obj-y += nmi.o
+obj-y += numa.o
+obj-y += pci.o
+obj-y += percpu.o
+obj-y += physdev.o x86_64/physdev.o
+obj-y += platform_hypercall.o x86_64/platform_hypercall.o
+obj-y += psr.o
+obj-y += setup.o
+obj-y += shutdown.o
+obj-y += smp.o
+obj-y += smpboot.o
+obj-y += spec_ctrl.o
+obj-y += srat.o
+obj-y += string.o
+obj-y += sysctl.o
+obj-y += time.o
+obj-y += trace.o
+obj-y += traps.o
+obj-y += usercopy.o
+obj-y += x86_emulate.o
+obj-$(CONFIG_TBOOT) += tboot.o
+obj-y += hpet.o
+obj-y += vm_event.o
+obj-y += xstate.o
+
+extra-y += xen.lds efi.lds
+
+hostprogs-y += boot/mkelf32
+
+ifneq ($(build_id_linker),)
+notes_phdrs = --notes
+else
+ifeq ($(CONFIG_PVH_GUEST),y)
+notes_phdrs = --notes
+endif
+endif
+
+ifdef CONFIG_LIVEPATCH
+all_symbols = --all-symbols
+ifdef CONFIG_FAST_SYMBOL_LOOKUP
+all_symbols = --all-symbols --sort-by-name
+endif
+else
+all_symbols =
+endif
+
+syms-warn-dup-y := --warn-dup
+syms-warn-dup-$(CONFIG_SUPPRESS_DUPLICATE_SYMBOL_WARNINGS) :=
+
+$(TARGET): TMP = $(@D)/.$(@F).elf32
+$(TARGET): $(TARGET)-syms $(efi-y) $(obj)/boot/mkelf32
+	$(obj)/boot/mkelf32 $(notes_phdrs) $(TARGET)-syms $(TMP) $(XEN_IMG_OFFSET) \
+	               `$(NM) $(TARGET)-syms | sed -ne 's/^\([^ ]*\) . __2M_rwdata_end$$/0x\1/p'`
+	od -t x4 -N 8192 $(TMP)  | grep 1badb002 > /dev/null || \
+		{ echo "No Multiboot1 header found" >&2; false; }
+	od -t x4 -N 32768 $(TMP) | grep e85250d6 > /dev/null || \
+		{ echo "No Multiboot2 header found" >&2; false; }
+	mv $(TMP) $(TARGET)
+
+targets += prelink.o
+LDFLAGS_prelink.o := -r --whole-archive
+$(obj)/prelink.o: $(ALL_OBJS) FORCE
+	$(call if_changed,ld)
+
+LDFLAGS_$(TARGET)-syms += -T $(obj)/xen.lds -N
+$(TARGET)-syms: $(obj)/prelink.o $(obj)/xen.lds
+	$(LD) $(ld_flags) $< $(build_id_linker) \
+	    $(objtree)/common/symbols-dummy.o -o $(@D)/.$(@F).0
+	$(NM) -pa --format=sysv $(@D)/.$(@F).0 \
+		| $(objtree)/tools/symbols $(all_symbols) --sysv --sort \
+		>$(@D)/.$(@F).0.S
+	$(MAKE) $(build)=$(@D) $(@D)/.$(@F).0.o
+	$(LD) $(ld_flags) $< $(build_id_linker) \
+	    $(@D)/.$(@F).0.o -o $(@D)/.$(@F).1
+	$(NM) -pa --format=sysv $(@D)/.$(@F).1 \
+		| $(objtree)/tools/symbols $(all_symbols) --sysv --sort $(syms-warn-dup-y) \
+		>$(@D)/.$(@F).1.S
+	$(MAKE) $(build)=$(@D) $(@D)/.$(@F).1.o
+	$(LD) $(ld_flags) $< $(build_id_linker) \
+	    $(@D)/.$(@F).1.o -o $@
+	$(NM) -pa --format=sysv $(@D)/$(@F) \
+		| $(objtree)/tools/symbols --xensyms --sysv --sort \
+		>$(@D)/$(@F).map
+	rm -f $(@D)/.$(@F).[0-9]* $(@D)/..$(@F).[0-9]*
+
+targets += asm-offsets.s
+CFLAGS_REMOVE_asm-offsets.o := -flto
+$(obj)/asm-offsets.s: $(src)/$(ARCH)/asm-offsets.c $(objtree)/include/asm-x86/asm-macros.h FORCE
+	$(call if_changed_dep,cc_s_c)
+
+# FLAGS for asm-macros.i
+CFLAGS_asm-macros.o := -D__ASSEMBLY__ -P
+
+# Extra aflags for efi.lds
+AFLAGS_efi.o := -DEFI
+
+quiet_cmd_xen_cpp_lds_S = LDS     $@
+      cmd_xen_cpp_lds_S = $(CPP) $(filter-out -Wa$(comma)%,$(a_flags)) -P -Ui386 \
+                            -o $@ $<
+
+$(obj)/%.lds: $(src)/xen.lds.S FORCE
+	$(call if_changed_dep,xen_cpp_lds_S)
