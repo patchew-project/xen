@@ -12,7 +12,8 @@
 #include <asm/nospec.h>
 
 /**
- * array_index_mask_nospec() - generate a ~0 mask when index < size, 0 otherwise
+ * array_index_mask_nospec() - generate a mask to bound an array index
+ * which is safe even under adverse speculation.
  * @index: array element index
  * @size: number of elements in array
  *

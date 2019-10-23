@@ -7,13 +7,20 @@
 #include <asm/alternative.h>
 
 /**
- * array_index_mask_nospec() - generate a mask that is ~0UL when the
- *      bounds check succeeds and 0 otherwise
+ * array_index_mask_nospec() - generate a mask to bound an array index
+ * which is safe even under adverse speculation.
  * @index: array element index
  * @size: number of elements in array
  *
- * Returns:
+ * In general, returns:
  *     0 - (index < size)
+ *
+ * This yeild ~0UL in within-bounds case, and 0 in the out-of-bounds
+ * case.
+ *
+ * When the compiler can determine that the array is a power of two, a
+ * lower overhead option is to mask the index with a single and
+ * instruction.
  */
 #define array_index_mask_nospec array_index_mask_nospec
 static inline unsigned long array_index_mask_nospec(unsigned long index,
@@ -21,9 +28,15 @@ static inline unsigned long array_index_mask_nospec(unsigned long index,
 {
     unsigned long mask;
 
-    asm volatile ( "cmp %[size], %[index]; sbb %[mask], %[mask];"
-                   : [mask] "=r" (mask)
-                   : [size] "g" (size), [index] "r" (index) );
+    if ( __builtin_constant_p(size) && IS_POWER_OF_2(size) )
+    {
+        mask = size - 1;
+        OPTIMIZER_HIDE_VAR(mask);
+    }
+    else
+        asm volatile ( "cmp %[size], %[index]; sbb %[mask], %[mask];"
+                       : [mask] "=r" (mask)
+                       : [size] "g" (size), [index] "r" (index) );
 
     return mask;
 }
