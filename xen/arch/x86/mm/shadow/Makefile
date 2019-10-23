@@ -6,11 +6,11 @@ else
 obj-y += none.o
 endif
 
-guest_%.o: multi.c Makefile
-	$(CC) $(CFLAGS) -DGUEST_PAGING_LEVELS=$* -c $< -o $@
+$(foreach sfx,o i s,$(obj)/guest_%.$(sfx)): ccflags-y = -DGUEST_PAGING_LEVELS=$*
 
-guest_%.i: multi.c Makefile
-	$(CPP) $(filter-out -Wa$(comma)%,$(CFLAGS)) -DGUEST_PAGING_LEVELS=$* -c $< -o $@
-
-guest_%.s: multi.c Makefile
-	$(CC) $(filter-out -Wa$(comma)%,$(CFLAGS)) -DGUEST_PAGING_LEVELS=$* -S $< -o $@
+$(obj)/guest_%.o: $(src)/multi.c FORCE
+	$(call if_changed_dep,cc_o_c)
+$(obj)/guest_%.i: $(src)/multi.c FORCE
+	$(call if_changed_dep,cpp_i_c)
+$(obj)/guest_%.s: $(src)/multi.c FORCE
+	$(call if_changed_dep,cc_s_c)

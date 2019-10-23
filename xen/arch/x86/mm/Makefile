@@ -11,11 +11,11 @@ obj-y += p2m.o p2m-pt.o
 obj-$(CONFIG_HVM) += p2m-ept.o p2m-pod.o
 obj-y += paging.o
 
-guest_walk_%.o: guest_walk.c Makefile
-	$(CC) $(CFLAGS) -DGUEST_PAGING_LEVELS=$* -c $< -o $@
+$(foreach sfx,o i s,$(obj)/guest_walk_%.$(sfx)): ccflags-y = -DGUEST_PAGING_LEVELS=$*
 
-guest_walk_%.i: guest_walk.c Makefile
-	$(CPP) $(filter-out -Wa$(comma)%,$(CFLAGS)) -DGUEST_PAGING_LEVELS=$* -c $< -o $@
-
-guest_walk_%.s: guest_walk.c Makefile
-	$(CC) $(filter-out -Wa$(comma)%,$(CFLAGS)) -DGUEST_PAGING_LEVELS=$* -S $< -o $@
+$(obj)/guest_walk_%.o: $(src)/guest_walk.c FORCE
+	$(call if_changed_dep,cc_o_c)
+$(obj)/guest_walk_%.i: $(src)/guest_walk.c FORCE
+	$(call if_changed_dep,cpp_i_c)
+$(obj)/guest_walk_%.s: $(src)/guest_walk.c FORCE
+	$(call if_changed_dep,cc_s_c)
