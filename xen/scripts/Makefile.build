@@ -384,6 +384,30 @@ $(obj)/%.o: $(src)/%.S $(objtool_dep) FORCE
 targets += $(filter-out $(subdir-obj-y), $(real-obj-y)) $(real-obj-m) $(lib-y)
 targets += $(extra-y) $(MAKECMDGOALS) $(always)
 
+# %.init.o objects
+# ----------------
+
+quiet_cmd_obj_init_o = INIT_OBJ $@
+define cmd_obj_init_o
+	set -e; \
+	$(OBJDUMP) -h $< | sed -n '/[0-9]/{s,00*,0,g;p;}' | while read idx name sz rest; do \
+		case "$$name" in \
+		.*.local) ;; \
+		.text|.text.*|.data|.data.*|.bss) \
+			test $$sz != 0 || continue; \
+			echo "Error: size of $<:$$name is 0x$$sz" >&2; \
+			exit $$(expr $$idx + 1);; \
+		esac; \
+	done; \
+	$(OBJCOPY) $(foreach s,$(SPECIAL_DATA_SECTIONS),--rename-section .$(s)=.init.$(s)) $< $@
+endef
+
+$(obj)/%.init.o: $(obj)/%.o FORCE
+	$(call if_changed,obj_init_o)
+
+# Add intermediates files into tagets
+targets += $(patsubst %.init.o,%.o,$(filter %.init.o,$(targets)))
+
 # Linker scripts preprocessor (.lds.S -> .lds)
 # ---------------------------------------------------------------------------
 quiet_cmd_cpp_lds_S = LDS     $@

@@ -16,6 +16,10 @@ KBUILD_CFLAGS += $(subdir-ccflags-y)
 # only build the compiled-in version
 obj-m := $(filter-out $(obj-y),$(obj-m))
 
+# For a non-LTO build, bundle obj-bin targets in with the normal objs.
+obj-y += $(obj-bin-y)
+obj-bin-y :=
+
 # Libraries are always collected in one lib file.
 # Filter out objects already built-in
 lib-y := $(filter-out $(obj-y), $(sort $(lib-y) $(lib-m)))
@@ -107,6 +111,9 @@ modname = $(if $(modname-multi),$(modname-multi),$(basetarget))
 name-fix = $(squote)$(quote)$(subst $(comma),_,$(subst -,_,$1))$(quote)$(squote)
 basename_flags = -DKBUILD_BASENAME=$(call name-fix,$(basetarget))
 modname_flags  = -DKBUILD_MODNAME=$(call name-fix,$(modname))
+
+# See comment about INIT_SECTIONS_ONLY in include/xen/compiler.h
+$(filter %.init.o,$(real-obj-y) $(extra-y)): ccflags-y += -DINIT_SECTIONS_ONLY
 
 orig_c_flags   = $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) \
                  $(ccflags-y) $(CFLAGS_$(basetarget).o)
