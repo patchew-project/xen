@@ -7,7 +7,8 @@
 #ifndef XEN_NOSPEC_H
 #define XEN_NOSPEC_H
 
-#include <asm/system.h>
+#include <xen/compiler.h>
+
 #include <asm/nospec.h>
 
 /**
