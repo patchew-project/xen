@@ -1,3 +1,68 @@
+# select defconfig based on actual architecture
+KBUILD_DEFCONFIG := $(ARCH)_defconfig
+
+export XEN_IMG_OFFSET := 0x200000
+
+KBUILD_CFLAGS += -I$(srctree)/include
+KBUILD_CFLAGS += -I$(srctree)/include/asm-x86/mach-generic
+KBUILD_CFLAGS += -I$(srctree)/include/asm-x86/mach-default
+KBUILD_CFLAGS += -DXEN_IMG_OFFSET=$(XEN_IMG_OFFSET)
+
+# Prevent floating-point variables from creeping into Xen.
+KBUILD_CFLAGS += -msoft-float
+
+KBUILD_CFLAGS += $(foreach o,$(EMBEDDED_EXTRA_CFLAGS),$(call cc-option,$(o)))
+KBUILD_CFLAGS += $(call cc-option,-Wnested-externs)
+KBUILD_CFLAGS += $(call as-instr,vmcall,-DHAVE_AS_VMX)
+KBUILD_CFLAGS += $(call as-instr,crc32 %eax$(comma)%eax,-DHAVE_AS_SSE4_2)
+KBUILD_CFLAGS += $(call as-instr,invept (%rax)$(comma)%rax,-DHAVE_AS_EPT)
+KBUILD_CFLAGS += $(call as-instr,rdrand %eax,-DHAVE_AS_RDRAND)
+KBUILD_CFLAGS += $(call as-instr,rdfsbase %rax,-DHAVE_AS_FSGSBASE)
+KBUILD_CFLAGS += $(call as-instr,xsaveopt (%rax),-DHAVE_AS_XSAVEOPT)
+KBUILD_CFLAGS += $(call as-instr,rdseed %eax,-DHAVE_AS_RDSEED)
+KBUILD_CFLAGS += $(call as-instr,clwb (%rax),-DHAVE_AS_CLWB)
+KBUILD_CFLAGS += $(call as-instr,.equ \"x\"$(comma)1,-DHAVE_AS_QUOTED_SYM)
+KBUILD_CFLAGS += $(call as-instr,invpcid (%rax)$(comma)%rax,-DHAVE_AS_INVPCID)
+
+# GAS's idea of true is -1.  Clang's idea is 1
+KBUILD_CFLAGS += $(call as-instr,\
+    .if ((1 > 0) < 0); .error "";.endif,,-DHAVE_AS_NEGATIVE_TRUE)
+
+# Check to see whether the assmbler supports the .nop directive.
+KBUILD_CFLAGS += $(call as-instr,\
+    .L1: .L2: .nops (.L2 - .L1)$(comma)9,-DHAVE_AS_NOPS_DIRECTIVE)
+
+KBUILD_CFLAGS += -mno-red-zone -fpic -fno-asynchronous-unwind-tables
+
+# Xen doesn't use SSE interally.  If the compiler supports it, also skip the
+# SSE setup for variadic function calls.
+KBUILD_CFLAGS += -mno-sse $(call cc-option,-mskip-rax-setup)
+
+# -fvisibility=hidden reduces -fpic cost, if it's available
+ifeq ($(call cc-option-yn,-fvisibility=hidden),y)
+KBUILD_CFLAGS += -DGCC_HAS_VISIBILITY_ATTRIBUTE
+endif
+
+# Compile with thunk-extern, indirect-branch-register if avaiable.
+ifeq ($(call cc-option-yn,-mindirect-branch-register),y)
+KBUILD_CFLAGS += -mindirect-branch=thunk-extern -mindirect-branch-register
+KBUILD_CFLAGS += -DCONFIG_INDIRECT_THUNK
+KBUILD_CFLAGS += -fno-jump-tables
+export CONFIG_INDIRECT_THUNK=y
+endif
+
+# If supported by the compiler, reduce stack alignment to 8 bytes. But allow
+# this to be overridden elsewhere.
+# XXX adding to cflags instead of CFLAGS-stack-boundary
+KBUILD_CFLAGS += $(call cc-option,-mpreferred-stack-boundary=3)
+
+# Set up the assembler include path properly for older toolchains.
+KBUILD_CFLAGS += -Wa,-I$(srctree)/include
+
+# XXX from xen.git/config/x86_64.mk
+LDFLAGS_emulation_OpenBSD := _obsd
+LDFLAGS_emulation_FreeBSD := _fbsd
+KBUILD_LDFLAGS += -melf_x86_64$(LDFLAGS_emulation_$(XEN_OS))
 
 efi-y := $(shell if [ ! -r $(BASEDIR)/include/xen/compile.h -o \
                       -O $(BASEDIR)/include/xen/compile.h ]; then \
