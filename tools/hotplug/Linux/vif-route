@@ -35,7 +35,7 @@ case "${command}" in
         ;;
 esac
 
-if [ "${ip}" ] ; then
+if [ "${ipcmd}" ] ; then
     # If we've been given a list of IP addresses, then add routes from dom0 to
     # the guest using those addresses.
     for addr in ${ip} ; do
