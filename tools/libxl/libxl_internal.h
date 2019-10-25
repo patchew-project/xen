@@ -364,6 +364,18 @@ struct libxl__ev_child {
     LIBXL_LIST_ENTRY(struct libxl__ev_child) entry;
 };
 
+struct libxl__ev_devlock {
+    /* filled by user */
+    libxl__ao *ao;
+    libxl_domid domid;
+    void (*callback)(libxl__egc *, libxl__ev_devlock *, int rc);
+    /* private to libxl__ev_devlock* */
+    libxl__ev_child child;
+    char *path; /* path of the lock file itself */
+    int fd;
+    bool held;
+};
+
 /*
  * QMP asynchronous calls
  *
@@ -428,6 +440,8 @@ _hidden void libxl__ev_qmp_dispose(libxl__gc *gc, libxl__ev_qmp *ev);
 typedef enum {
     /* initial state */
     qmp_state_disconnected = 1,
+    /* waiting for lock */
+    qmp_state_waiting_lock,
     /* connected to QMP socket, waiting for greeting message */
     qmp_state_connecting,
     /* qmp_capabilities command sent, waiting for reply */
@@ -461,6 +475,7 @@ struct libxl__ev_qmp {
     libxl__carefd *cfd;
     libxl__ev_fd efd;
     libxl__qmp_state state;
+    libxl__ev_qmplock lock;
     int id;
     int next_id;        /* next id to use */
     /* receive buffer */
@@ -4686,6 +4701,9 @@ static inline const char *libxl__qemu_qmp_path(libxl__gc *gc, int domid)
  * which may take a significant amount time.
  * It is to be acquired by an ao event callback.
  *
+ * If libxl__ev_devlock is needed, it should be acquired while every
+ * libxl__ev_qmp are Idle for the current domain.
+ *
  * It is to be acquired when adding/removing devices or making changes
  * to them when this is a slow operation and json_lock isn't appropriate.
  *
@@ -4711,17 +4729,6 @@ static inline const char *libxl__qemu_qmp_path(libxl__gc *gc, int domid)
  *  callback:     When called: Active -> LockAcquired (on error: Idle)
  *    The callback is only called once.
  */
-struct libxl__ev_devlock {
-    /* filled by user */
-    libxl__ao *ao;
-    libxl_domid domid;
-    void (*callback)(libxl__egc *, libxl__ev_devlock *, int rc);
-    /* private to libxl__ev_devlock* */
-    libxl__ev_child child;
-    char *path; /* path of the lock file itself */
-    int fd;
-    bool held;
-};
 _hidden void libxl__ev_devlock_init(libxl__ev_devlock *);
 _hidden void libxl__ev_devlock_lock(libxl__egc *, libxl__ev_devlock *);
 _hidden void libxl__ev_devlock_unlock(libxl__gc *, libxl__ev_devlock *);
