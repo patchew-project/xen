@@ -727,6 +727,7 @@ struct libxl__ao {
     libxl__poller *poller;
     uint32_t domid;
     LIBXL_TAILQ_ENTRY(libxl__ao) entry_for_callback;
+    int outstanding_killed_child;
 };
 
 #define LIBXL_INIT_GC(gc,ctx) do{               \
@@ -1167,6 +1168,13 @@ static inline int libxl__ev_child_inuse(const libxl__ev_child *childw_out)
  * xenstore operations.  logs failure in the form "what: <error
  * message>". */
 _hidden int libxl__ev_child_xenstore_reopen(libxl__gc *gc, const char *what);
+
+/*
+ * Allow to send a SIGKILL signal to a child and deregister the death
+ * callback.
+ * state: Active/Idle -> Idle
+ */
+_hidden void libxl__ev_child_kill(libxl__ao *ao, libxl__ev_child *ch);
 
 
 /*

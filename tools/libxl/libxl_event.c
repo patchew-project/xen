@@ -1891,7 +1891,8 @@ static bool ao_work_outstanding(libxl__ao *ao)
      * decrement progress_reports_outstanding, and call
      * libxl__ao_complete_check_progress_reports.
      */
-    return !ao->complete || ao->progress_reports_outstanding;
+    return !ao->complete || ao->progress_reports_outstanding
+        || ao->outstanding_killed_child;
 }
 
 void libxl__ao_complete_check_progress_reports(libxl__egc *egc, libxl__ao *ao)
