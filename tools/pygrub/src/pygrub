@@ -457,10 +457,25 @@ class Grub:
         # limit read size to avoid pathological cases
         buf = f.read(FS_READ_MAX)
         del f
-        if sys.version_info[0] < 3:
-            self.cf.parse(buf)
+        # check for a grubenv file next to the grub.cfg file
+        (fdir, fsep, ffile) = self.cf.filename.rpartition("/")
+        if fdir != "" and ffile == "grub.cfg":
+            fenv = fdir + "/grubenv"
         else:
-            self.cf.parse(buf.decode())
+            fenv = ""
+        if fenv != "" and fs.file_exists(fenv):
+            fenvf = fs.open_file(fenv)
+            grubenv = fenvf.read(FS_READ_MAX)
+            del fenvf
+            if sys.version_info[0] < 3:
+                self.cf.parse(buf, grubenv)
+            else:
+                self.cf.parse(buf.decode(), grubenv.decode())
+        else:
+            if sys.version_info[0] < 3:
+                self.cf.parse(buf)
+            else:
+                self.cf.parse(buf.decode())
 
     def image_index(self):
         if isinstance(self.cf.default, int):
