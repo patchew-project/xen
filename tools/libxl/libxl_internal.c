@@ -583,17 +583,25 @@ void libxl__ev_devlock_init(libxl__ev_devlock *lock)
     lock->held = false;
 }
 
+static void ev_lock_lock(libxl__egc *egc, libxl__ev_devlock *lock,
+                         const char *userdata_userid);
 static void ev_lock_prepare_fork(libxl__egc *egc, libxl__ev_devlock *lock);
 static void ev_lock_child_callback(libxl__egc *egc, libxl__ev_child *child,
                                    pid_t pid, int status);
 
 void libxl__ev_devlock_lock(libxl__egc *egc, libxl__ev_devlock *lock)
 {
+    ev_lock_lock(egc, lock, "libxl-device-changes-lock");
+}
+
+static void ev_lock_lock(libxl__egc *egc, libxl__ev_devlock *lock,
+                         const char *userdata_userid)
+{
     STATE_AO_GC(lock->ao);
     const char *lockfile;
 
     lockfile = libxl__userdata_path(gc, lock->domid,
-                                    "libxl-device-changes-lock", "l");
+                                    userdata_userid, "l");
     if (!lockfile) goto out;
     lock->path = libxl__strdup(NOGC, lockfile);
 
@@ -755,6 +763,27 @@ void libxl__ev_devlock_unlock(libxl__gc *gc, libxl__ev_devlock *lock)
     }
     free(lock->path);
     libxl__ev_devlock_init(lock);
+}
+
+void libxl__ev_qmplock_init(libxl__ev_qmplock *lock)
+{
+    libxl__ev_devlock_init(lock);
+}
+
+void libxl__ev_qmplock_lock(libxl__egc *egc, libxl__ev_qmplock *lock)
+{
+    ev_lock_lock(egc, lock, "qmp-socket-lock");
+}
+
+void libxl__ev_qmplock_unlock(libxl__gc *gc, libxl__ev_qmplock *lock)
+{
+    libxl__ev_devlock_unlock(gc, lock);
+}
+
+void libxl__ev_qmplock_dispose(libxl__gc *gc, libxl__ev_qmplock *lock)
+{
+    libxl__ev_child_kill(lock->ao, &lock->child);
+    libxl__ev_devlock_unlock(gc, lock);
 }
 
 /*

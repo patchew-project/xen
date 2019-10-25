@@ -197,6 +197,7 @@ typedef struct libxl__device_type libxl__device_type;
 typedef struct libxl__json_object libxl__json_object;
 typedef struct libxl__carefd libxl__carefd;
 typedef struct libxl__ev_devlock libxl__ev_devlock;
+typedef struct libxl__ev_devlock libxl__ev_qmplock;
 typedef struct libxl__dm_resume_state libxl__dm_resume_state;
 typedef struct libxl__ao_device libxl__ao_device;
 typedef struct libxl__multidev libxl__multidev;
@@ -4724,6 +4725,19 @@ struct libxl__ev_devlock {
 _hidden void libxl__ev_devlock_init(libxl__ev_devlock *);
 _hidden void libxl__ev_devlock_lock(libxl__egc *, libxl__ev_devlock *);
 _hidden void libxl__ev_devlock_unlock(libxl__gc *, libxl__ev_devlock *);
+
+/* libxl__ev_qmplock
+ *
+ * See "Lock for device hotplug, qmp_lock." as it is similar but is used
+ * to regulate access the QEMU's QMP socket.
+ *
+ * libxl__ev_qmplock_dispose: Idle/Active/LockAcquired -> Idle
+ *   The callback will not be called anymore.
+ */
+_hidden void libxl__ev_qmplock_init(libxl__ev_qmplock *);
+_hidden void libxl__ev_qmplock_lock(libxl__egc *, libxl__ev_qmplock *);
+_hidden void libxl__ev_qmplock_unlock(libxl__gc *, libxl__ev_qmplock *);
+_hidden void libxl__ev_qmplock_dispose(libxl__gc *, libxl__ev_qmplock *);
 
 /* Send control commands over xenstore and wait for an Ack. */
 _hidden int libxl__domain_pvcontrol(libxl__egc *egc,
