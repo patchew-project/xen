@@ -368,7 +368,7 @@ class Grub2ConfigFile(_GrubConfigFile):
     def new_image(self, title, lines):
         return Grub2Image(title, lines)
  
-    def parse(self, buf = None):
+    def parse(self, buf = None, grubenv = None):
         if buf is None:
             if self.filename is None:
                 raise ValueError("No config file defined to parse!")
@@ -379,10 +379,17 @@ class Grub2ConfigFile(_GrubConfigFile):
         else:
             lines = buf.split("\n")
 
+        if grubenv is not None:
+            lines = grubenv.split("\n") + lines
+
         in_function = False
         img = None
         title = ""
         menu_level=0
+        img_count=0
+        saved_entry = ""
+        next_entry = ""
+        entry_matched = False
         for l in lines:
             l = l.strip()
             # skip blank lines
@@ -408,6 +415,13 @@ class Grub2ConfigFile(_GrubConfigFile):
                     raise RuntimeError("syntax error: cannot nest menuentry (%d %s)" % (len(img),img))
                 img = []
                 title = title_match.group(1)
+                if title == next_entry:
+                    setattr(self, 'default', img_count)
+                    entry_matched = True
+                if title == saved_entry and not entry_matched:
+                    setattr(self, 'default', img_count)
+                    entry_matched = True
+                img_count += 1
                 continue
 
             if l.startswith("submenu"):
@@ -432,6 +446,14 @@ class Grub2ConfigFile(_GrubConfigFile):
 
             (com, arg) = grub_exact_split(l, 2)
         
+            if com == "next_entry":
+                next_entry = arg
+                continue
+
+            if com == "saved_entry":
+                saved_entry = arg
+                continue
+
             if com == "set":
                 (com,arg) = grub2_handle_set(arg)
                 
@@ -448,6 +470,13 @@ class Grub2ConfigFile(_GrubConfigFile):
                 pass
             else:
                 logging.warning("Unknown directive %s" %(com,))
+
+        if next_entry.isdigit():
+            setattr(self, 'default', next_entry)
+        elif saved_entry.isdigit() and not entry_matched:
+            setattr(self, 'default', saved_entry)
+        elif (next_entry != "" or saved_entry != "") and not entry_matched:
+            setattr(self, 'default', 0)
             
         if img is not None:
             raise RuntimeError("syntax error: end of file with open menuentry(%d %s)" % (len(img),img))
