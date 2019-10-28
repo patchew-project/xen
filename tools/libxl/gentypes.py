@@ -456,6 +456,8 @@ def libxl_C_type_parse_json(ty, w, v, indent = "    ", parent = None, discrimina
         s += "        goto out;\n"
         s += "    }\n"
         s += "    for (i=0; (t=libxl__json_array_get(x,i)); i++) {\n"
+        if ty.elem_type.init_fn is not None and ty.elem_type.autogenerate_init_fn:
+            s += indent + "    "+"%s_init(&%s[i]);\n" % (ty.elem_type.typename, v)
         s += libxl_C_type_parse_json(ty.elem_type, "t", v+"[i]",
                                      indent + "    ", parent)
         s += "    }\n"
