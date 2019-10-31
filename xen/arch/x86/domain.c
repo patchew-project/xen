@@ -1229,11 +1229,11 @@ int arch_set_info_guest(
 
 int arch_initialise_vcpu(struct vcpu *v, XEN_GUEST_HANDLE_PARAM(void) arg)
 {
+    struct domain *d = v->domain;
     int rc;
 
     if ( is_hvm_vcpu(v) )
     {
-        struct domain *d = v->domain;
         struct vcpu_hvm_context ctxt;
 
         if ( copy_from_guest(&ctxt, arg, 1) )
@@ -1244,7 +1244,25 @@ int arch_initialise_vcpu(struct vcpu *v, XEN_GUEST_HANDLE_PARAM(void) arg)
         domain_unlock(d);
     }
     else
-        rc = default_initialise_vcpu(v, arg);
+    {
+        struct vcpu_guest_context *ctxt = alloc_vcpu_guest_context();
+
+        if ( !ctxt )
+            return -ENOMEM;
+
+        if ( copy_from_guest(ctxt, arg, 1) )
+        {
+            rc = -EFAULT;
+            goto free_context;
+        }
+
+        domain_lock(d);
+        rc = v->is_initialised ? -EEXIST : arch_set_info_guest(v, ctxt);
+        domain_unlock(d);
+
+    free_context:
+        free_vcpu_guest_context(ctxt);
+    }
 
     return rc;
 }

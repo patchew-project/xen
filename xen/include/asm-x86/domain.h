@@ -648,6 +648,9 @@ void arch_vcpu_regs_init(struct vcpu *v);
 struct vcpu_hvm_context;
 int arch_set_info_hvm_guest(struct vcpu *v, const struct vcpu_hvm_context *ctx);
 
+#define arch_initialise_vcpu arch_initialise_vcpu
+int arch_initialise_vcpu(struct vcpu *v, XEN_GUEST_HANDLE_PARAM(void) arg);
+
 #ifdef CONFIG_PV
 void pv_inject_event(const struct x86_event *event);
 #else

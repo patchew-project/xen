@@ -78,9 +78,6 @@ void arch_p2m_set_access_required(struct domain *d, bool access_required);
 int arch_set_info_guest(struct vcpu *, vcpu_guest_context_u);
 void arch_get_info_guest(struct vcpu *, vcpu_guest_context_u);
 
-int arch_initialise_vcpu(struct vcpu *v, XEN_GUEST_HANDLE_PARAM(void) arg);
-int default_initialise_vcpu(struct vcpu *v, XEN_GUEST_HANDLE_PARAM(void) arg);
-
 int domain_relinquish_resources(struct domain *d);
 
 void dump_pageframe_info(struct domain *d);

@@ -1381,30 +1381,6 @@ void unmap_vcpu_info(struct vcpu *v)
     put_page_and_type(mfn_to_page(mfn));
 }
 
-int default_initialise_vcpu(struct vcpu *v, XEN_GUEST_HANDLE_PARAM(void) arg)
-{
-    struct vcpu_guest_context *ctxt;
-    struct domain *d = v->domain;
-    int rc;
-
-    if ( (ctxt = alloc_vcpu_guest_context()) == NULL )
-        return -ENOMEM;
-
-    if ( copy_from_guest(ctxt, arg, 1) )
-    {
-        free_vcpu_guest_context(ctxt);
-        return -EFAULT;
-    }
-
-    domain_lock(d);
-    rc = v->is_initialised ? -EEXIST : arch_set_info_guest(v, ctxt);
-    domain_unlock(d);
-
-    free_vcpu_guest_context(ctxt);
-
-    return rc;
-}
-
 long do_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) arg)
 {
     struct domain *d = current->domain;
@@ -1416,6 +1392,7 @@ long do_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) arg)
 
     switch ( cmd )
     {
+#ifdef arch_initialise_vcpu
     case VCPUOP_initialise:
         if ( v->vcpu_info == &dummy_vcpu_info )
             return -EINVAL;
@@ -1426,6 +1403,7 @@ long do_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) arg)
                                                cmd, vcpuid, arg);
 
         break;
+#endif /* arch_initialise_vcpu */
 
     case VCPUOP_up:
 #ifdef CONFIG_X86
