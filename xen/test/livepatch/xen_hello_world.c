@@ -16,9 +16,11 @@ static const char hello_world_patch_this_fnc[] = "xen_extra_version";
 extern const char *xen_hello_world(void);
 static unsigned int cnt;
 
-static void apply_hook(void)
+static int apply_hook(void)
 {
     printk(KERN_DEBUG "Hook executing.\n");
+
+    return 0;
 }
 
 static void revert_hook(void)
@@ -26,10 +28,14 @@ static void revert_hook(void)
     printk(KERN_DEBUG "Hook unloaded.\n");
 }
 
-static void  hi_func(void)
+static int hi_func(void)
 {
     printk(KERN_DEBUG "%s: Hi! (called %u times)\n", __func__, ++cnt);
+
+    return 0;
 };
+/* Safe to cast away the return value for this trivial case. */
+void (void_hi_func)(void) __attribute__((alias("hi_func")));
 
 static void check_fnc(void)
 {
@@ -43,7 +49,7 @@ LIVEPATCH_UNLOAD_HOOK(revert_hook);
 /* Imbalance here. Two load and three unload. */
 
 LIVEPATCH_LOAD_HOOK(hi_func);
-LIVEPATCH_UNLOAD_HOOK(hi_func);
+LIVEPATCH_UNLOAD_HOOK(void_hi_func);
 
 LIVEPATCH_UNLOAD_HOOK(check_fnc);
 

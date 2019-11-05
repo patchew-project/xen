@@ -1076,25 +1076,33 @@ static int apply_payload(struct payload *data)
      * temporarily disable the spin locks IRQ state checks.
      */
     spin_debug_disable();
-    for ( i = 0; i < data->n_load_funcs; i++ )
-        data->load_funcs[i]();
+    for ( i = 0; !rc && i < data->n_load_funcs; i++ )
+        rc = data->load_funcs[i]();
     spin_debug_enable();
+
+    if ( rc )
+        printk(XENLOG_ERR LIVEPATCH "%s: load_funcs[%u] failed: %d\n",
+               data->name, i, rc);
 
     ASSERT(!local_irq_is_enabled());
 
-    for ( i = 0; i < data->nfuncs; i++ )
-        arch_livepatch_apply(&data->funcs[i]);
+    if ( !rc )
+        for ( i = 0; i < data->nfuncs; i++ )
+            arch_livepatch_apply(&data->funcs[i]);
 
     arch_livepatch_revive();
 
-    /*
-     * We need RCU variant (which has barriers) in case we crash here.
-     * The applied_list is iterated by the trap code.
-     */
-    list_add_tail_rcu(&data->applied_list, &applied_list);
-    register_virtual_region(&data->region);
+    if ( !rc )
+    {
+        /*
+         * We need RCU variant (which has barriers) in case we crash here.
+         * The applied_list is iterated by the trap code.
+         */
+        list_add_tail_rcu(&data->applied_list, &applied_list);
+        register_virtual_region(&data->region);
+    }
 
-    return 0;
+    return rc;
 }
 
 static int revert_payload(struct payload *data)

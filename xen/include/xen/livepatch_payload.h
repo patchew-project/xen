@@ -9,7 +9,7 @@
  * The following definitions are to be used in patches. They are taken
  * from kpatch.
  */
-typedef void livepatch_loadcall_t(void);
+typedef int livepatch_loadcall_t(void);
 typedef void livepatch_unloadcall_t(void);
 
 /*
