@@ -1060,6 +1060,13 @@ static int apply_payload(struct payload *data)
     unsigned int i;
     int rc;
 
+    rc = apply_safety_checks();
+    if ( rc )
+    {
+        printk(XENLOG_ERR LIVEPATCH "%s: Safety checks failed\n", data->name);
+        return rc;
+    }
+
     printk(XENLOG_INFO LIVEPATCH "%s: Applying %u functions\n",
             data->name, data->nfuncs);
 
