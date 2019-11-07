@@ -513,13 +513,13 @@ static void clear_IO_APIC_pin(unsigned int apic, unsigned int pin)
         entry.mask = 1;
         __ioapic_write_entry(apic, pin, false, entry);
     }
-    entry = __ioapic_read_entry(apic, pin, true);
+    entry = __ioapic_read_entry(apic, pin, false);
 
     if (entry.irr) {
         /* Make sure the trigger mode is set to level. */
         if (!entry.trigger) {
             entry.trigger = 1;
-            __ioapic_write_entry(apic, pin, true, entry);
+            __ioapic_write_entry(apic, pin, false, entry);
         }
         __io_apic_eoi(apic, entry.vector, pin);
     }
@@ -529,9 +529,9 @@ static void clear_IO_APIC_pin(unsigned int apic, unsigned int pin)
      */
     memset(&entry, 0, sizeof(entry));
     entry.mask = 1;
-    __ioapic_write_entry(apic, pin, true, entry);
+    __ioapic_write_entry(apic, pin, false, entry);
 
-    entry = __ioapic_read_entry(apic, pin, true);
+    entry = __ioapic_read_entry(apic, pin, false);
     if (entry.irr)
         printk(KERN_ERR "IO-APIC%02x-%u: Unable to reset IRR\n",
                IO_APIC_ID(apic), pin);
