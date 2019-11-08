@@ -3915,10 +3915,6 @@ csched2_deinit_pdata(const struct scheduler *ops, void *pcpu, int cpu)
     write_lock_irqsave(&prv->lock, flags);
 
     /*
-     * alloc_pdata is not implemented, so pcpu must be NULL. On the other
-     * hand, init_pdata must have been called for this pCPU.
-     */
-    /*
      * Scheduler specific data for this pCPU must still be there and and be
      * valid. In fact, if we are here:
      *  1. alloc_pdata must have been called for this cpu, and free_pdata
@@ -3969,18 +3965,6 @@ csched2_deinit_pdata(const struct scheduler *ops, void *pcpu, int cpu)
 static void
 csched2_free_pdata(const struct scheduler *ops, void *pcpu, int cpu)
 {
-    struct csched2_pcpu *spc = pcpu;
-
-    /*
-     * pcpu either points to a valid struct csched2_pcpu, or is NULL (if
-     * CPU bringup failed, and we're beeing called from CPU_UP_CANCELLED).
-     * xfree() does not really mind, but we want to be sure that either
-     * init_pdata has never been called, or deinit_pdata has been called
-     * already.
-     */
-    ASSERT(!pcpu || spc->runq_id == -1);
-    ASSERT(!cpumask_test_cpu(cpu, &csched2_priv(ops)->initialized));
-
     xfree(pcpu);
 }
 
