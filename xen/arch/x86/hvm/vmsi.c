@@ -118,7 +118,16 @@ void vmsi_deliver_pirq(struct domain *d, const struct hvm_pirq_dpci *pirq_dpci)
 
     ASSERT(pirq_dpci->flags & HVM_IRQ_DPCI_GUEST_MSI);
 
-    vmsi_deliver(d, vector, dest, dest_mode, delivery_mode, trig_mode);
+    if ( hvm_funcs.deliver_posted_intr && pirq_dpci->gmsi.dest_vcpu_id != -1 )
+        /*
+         * When using posted interrupts multi-destination delivery mode is
+         * forced to select a specific vCPU so that the PIRR can be synced into
+         * IRR when the interrupt is destroyed or moved.
+         */
+        vmsi_inj_irq(vcpu_vlapic(d->vcpu[pirq_dpci->gmsi.dest_vcpu_id]),
+                     vector, trig_mode, delivery_mode);
+    else
+        vmsi_deliver(d, vector, dest, dest_mode, delivery_mode, trig_mode);
 }
 
 /* Return value, -1 : multi-dests, non-negative value: dest_vcpu_id */

@@ -341,7 +341,7 @@ int pt_irq_create_bind(
     {
         uint8_t dest, delivery_mode;
         bool dest_mode;
-        int dest_vcpu_id;
+        int dest_vcpu_id, prev_vcpu_id = -1;
         const struct vcpu *vcpu;
         uint32_t gflags = pt_irq_bind->u.msi.gflags &
                           ~XEN_DOMCTL_VMSI_X86_UNMASKED;
@@ -411,6 +411,7 @@ int pt_irq_create_bind(
 
                 pirq_dpci->gmsi.gvec = pt_irq_bind->u.msi.gvec;
                 pirq_dpci->gmsi.gflags = gflags;
+                prev_vcpu_id = pirq_dpci->gmsi.dest_vcpu_id;
             }
         }
         /* Calculate dest_vcpu_id for MSI-type pirq migration. */
@@ -426,14 +427,24 @@ int pt_irq_create_bind(
 
         pirq_dpci->gmsi.posted = false;
         vcpu = (dest_vcpu_id >= 0) ? d->vcpu[dest_vcpu_id] : NULL;
-        if ( iommu_intpost )
+        if ( hvm_funcs.deliver_posted_intr && delivery_mode == dest_LowestPrio )
         {
-            if ( delivery_mode == dest_LowestPrio )
-                vcpu = vector_hashing_dest(d, dest, dest_mode,
-                                           pirq_dpci->gmsi.gvec);
+            /*
+             * NB: when using posted interrupts the vector is signaled
+             * on the PIRR, and hence Xen needs to force interrupts to be
+             * delivered to a specific vCPU in order to be able to sync PIRR
+             * with IRR when the interrupt binding is destroyed, or else
+             * pending interrupts in the previous vCPU PIRR field could be
+             * delivered after the update.
+             */
+            vcpu = vector_hashing_dest(d, dest, dest_mode,
+                                       pirq_dpci->gmsi.gvec);
             if ( vcpu )
-                pirq_dpci->gmsi.posted = true;
+                pirq_dpci->gmsi.dest_vcpu_id = vcpu->vcpu_id;
         }
+        if ( iommu_intpost && vcpu )
+            pirq_dpci->gmsi.posted = true;
+
         if ( vcpu && is_iommu_enabled(d) )
             hvm_migrate_pirq(pirq_dpci, vcpu);
 
@@ -441,6 +452,9 @@ int pt_irq_create_bind(
         if ( iommu_intpost )
             pi_update_irte(vcpu ? &vcpu->arch.hvm.vmx.pi_desc : NULL,
                            info, pirq_dpci->gmsi.gvec);
+
+        if ( hvm_funcs.deliver_posted_intr && prev_vcpu_id >= 0 )
+            vlapic_sync_pir_to_irr(d->vcpu[prev_vcpu_id]);
 
         if ( pt_irq_bind->u.msi.gflags & XEN_DOMCTL_VMSI_X86_UNMASKED )
         {
@@ -730,6 +744,9 @@ int pt_irq_destroy_bind(
     }
     else if ( pirq_dpci && pirq_dpci->gmsi.posted )
         pi_update_irte(NULL, pirq, 0);
+
+    if ( hvm_funcs.deliver_posted_intr && pirq_dpci->gmsi.dest_vcpu_id >= 0 )
+        vlapic_sync_pir_to_irr(d->vcpu[pirq_dpci->gmsi.dest_vcpu_id]);
 
     if ( pirq_dpci && (pirq_dpci->flags & HVM_IRQ_DPCI_MAPPED) &&
          list_empty(&pirq_dpci->digl_list) )
