@@ -552,7 +552,7 @@ static inline bool is_system_domain(const struct domain *d)
 
 /*
  * Use this when you don't have an existing reference to @d. It returns
- * FALSE if @d is being destroyed.
+ * false if @d is being destroyed.
  */
 static always_inline int get_domain(struct domain *d)
 {

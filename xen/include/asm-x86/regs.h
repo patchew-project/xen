@@ -11,7 +11,7 @@
     ASSERT(diff < STACK_SIZE);                                                \
     /* If not a guest frame, it must be a hypervisor frame. */                \
     ASSERT((diff == 0) || (r->cs == __HYPERVISOR_CS));                        \
-    /* Return TRUE if it's a guest frame. */                                  \
+    /* Return true if it's a guest frame. */                                  \
     (diff == 0);                                                              \
 })
 

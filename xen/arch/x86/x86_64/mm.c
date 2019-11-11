@@ -1077,7 +1077,7 @@ long do_set_segment_base(unsigned int which, unsigned long base)
 }
 
 
-/* Returns TRUE if given descriptor is valid for GDT or LDT. */
+/* Returns true if given descriptor is valid for GDT or LDT. */
 int check_descriptor(const struct domain *dom, seg_desc_t *d)
 {
     u32 a = d->a, b = d->b;

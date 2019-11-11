@@ -607,7 +607,7 @@ int __must_check donate_page(struct domain *d, struct page_info *page,
 #define RAM_TYPE_UNUSABLE     0x00000004
 #define RAM_TYPE_ACPI         0x00000008
 #define RAM_TYPE_UNKNOWN      0x00000010
-/* TRUE if the whole page at @mfn is of the requested RAM type(s) above. */
+/* true if the whole page at @mfn is of the requested RAM type(s) above. */
 int page_is_ram_type(unsigned long mfn, unsigned long mem_type);
 /* Returns the page type(s). */
 unsigned int page_get_ram_type(mfn_t mfn);

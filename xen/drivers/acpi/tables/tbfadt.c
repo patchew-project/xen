@@ -250,9 +250,9 @@ void __init acpi_tb_create_local_fadt(struct acpi_table_header *table, u32 lengt
 
 	/* Take a copy of the Hardware Reduced flag */
 
-	acpi_gbl_reduced_hardware = FALSE;
+	acpi_gbl_reduced_hardware = false;
 	if (acpi_gbl_FADT.flags & ACPI_FADT_HW_REDUCED) {
-		acpi_gbl_reduced_hardware = TRUE;
+		acpi_gbl_reduced_hardware = true;
 	}
 
 	/*

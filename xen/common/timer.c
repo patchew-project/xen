@@ -100,7 +100,7 @@ static void up_heap(struct timer **heap, unsigned int pos)
 }
 
 
-/* Delete @t from @heap. Return TRUE if new top of heap. */
+/* Delete @t from @heap. Return true if new top of heap. */
 static int remove_from_heap(struct timer **heap, struct timer *t)
 {
     unsigned int sz = heap_metadata(heap)->size;
@@ -127,7 +127,7 @@ static int remove_from_heap(struct timer **heap, struct timer *t)
 }
 
 
-/* Add new entry @t to @heap. Return TRUE if new top of heap. */
+/* Add new entry @t to @heap. Return true if new top of heap. */
 static int add_to_heap(struct timer **heap, struct timer *t)
 {
     unsigned int sz = heap_metadata(heap)->size;

@@ -107,7 +107,7 @@ typedef uint64_t   UINTN;
 #define POST_CODE(_Data)
 
 
-#define BREAKPOINT()        while (TRUE);    // Make it hang on Bios[Dbg]32
+#define BREAKPOINT()        while (true);    // Make it hang on Bios[Dbg]32
 
 //
 // Pointers must be aligned to these address to function

@@ -124,7 +124,7 @@
  *
  ******************************************************************************/
 
-typedef unsigned char BOOLEAN;
+typedef bool BOOLEAN;
 typedef unsigned char UINT8;
 typedef unsigned short UINT16;
 typedef COMPILER_DEPENDENT_UINT64 UINT64;
@@ -259,22 +259,6 @@ typedef acpi_native_uint acpi_size;
  * Independent types
  *
  ******************************************************************************/
-
-/* Logical defines and NULL */
-
-#ifdef FALSE
-#undef FALSE
-#endif
-#define FALSE                           (1 == 0)
-
-#ifdef TRUE
-#undef TRUE
-#endif
-#define TRUE                            (1 == 1)
-
-#ifndef NULL
-#define NULL                            (void *) 0
-#endif
 
 /*
  * Mescellaneous types
@@ -503,7 +487,7 @@ typedef u32 acpi_event_type;
  * Event Status - Per event
  * -------------
  * The encoding of acpi_event_status is illustrated below.
- * Note that a set bit (1) indicates the property is TRUE
+ * Note that a set bit (1) indicates the property is true
  * (e.g. if bit 0 is set then the event is enabled).
  * +-------------+-+-+-+
  * |   Bits 31:3 |2|1|0|

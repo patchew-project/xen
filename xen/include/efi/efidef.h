@@ -22,16 +22,7 @@ Revision History
 
 typedef UINT16          CHAR16;
 typedef UINT8           CHAR8;
-typedef UINT8           BOOLEAN;
-
-#ifndef TRUE
-    #define TRUE    ((BOOLEAN) 1)
-    #define FALSE   ((BOOLEAN) 0)
-#endif
-
-#ifndef NULL
-    #define NULL    ((VOID *) 0)
-#endif
+typedef bool            BOOLEAN;
 
 typedef UINTN           EFI_STATUS;
 typedef UINT64          EFI_LBA;

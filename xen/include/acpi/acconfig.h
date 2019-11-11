@@ -87,7 +87,7 @@
  * Should the subsystem abort the loading of an ACPI table if the
  * table checksum is incorrect?
  */
-#define ACPI_CHECKSUM_ABORT             FALSE
+#define ACPI_CHECKSUM_ABORT             false
 
 /******************************************************************************
  *

@@ -53,7 +53,7 @@ static inline bool guest_mode(const struct cpu_user_regs *r)
     ASSERT(diff < STACK_SIZE);
     /* If not a guest frame, it must be a hypervisor frame. */
     ASSERT((diff == 0) || hyp_mode(r));
-    /* Return TRUE if it's a guest frame. */
+    /* Return true if it's a guest frame. */
     return (diff == 0);
 }
 

@@ -127,7 +127,7 @@ typedef uint64_t   UINTN;
 #ifdef EFI_NT_EMULATOR
     #define BREAKPOINT()        __asm { int 3 }
 #else
-    #define BREAKPOINT()        while (TRUE);    // Make it hang on Bios[Dbg]32
+    #define BREAKPOINT()        while (true);    // Make it hang on Bios[Dbg]32
 #endif
 
 //
