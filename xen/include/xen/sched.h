@@ -652,7 +652,11 @@ void domain_destroy(struct domain *d);
 int domain_kill(struct domain *d);
 int domain_shutdown(struct domain *d, u8 reason);
 void domain_resume(struct domain *d);
+#ifdef CONFIG_GDBSX
 void domain_pause_for_debugger(void);
+#else
+static inline void domain_pause_for_debugger(void) { }
+#endif
 
 int domain_soft_reset(struct domain *d);
 
