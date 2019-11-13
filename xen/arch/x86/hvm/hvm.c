@@ -43,6 +43,7 @@
 #include <asm/current.h>
 #include <asm/e820.h>
 #include <asm/io.h>
+#include <asm/io_apic.h>
 #include <asm/regs.h>
 #include <asm/cpufeature.h>
 #include <asm/processor.h>
@@ -5264,6 +5265,36 @@ void hvm_set_segment_register(struct vcpu *v, enum x86_segment seg,
     }
 
     alternative_vcall(hvm_funcs.set_segment_register, v, seg, reg);
+}
+
+int hvm_intr_get_dests(struct domain *d, uint8_t dest, uint8_t dest_mode,
+                       uint8_t delivery_mode, unsigned long *vcpus)
+{
+    struct vcpu *v;
+
+    switch ( delivery_mode )
+    {
+    case dest_LowestPrio:
+        /*
+         * Get all the possible destinations, but note that lowest priority
+         * mode is only going to inject the interrupt to the vCPU running at
+         * the least privilege level.
+         *
+         * Fallthrough
+         */
+    case dest_Fixed:
+        for_each_vcpu ( d, v )
+            if ( vlapic_match_dest(vcpu_vlapic(v), NULL, 0, dest, dest_mode) )
+                __set_bit(v->vcpu_id, vcpus);
+        break;
+
+    default:
+        gprintk(XENLOG_WARNING, "unsupported interrupt delivery mode %u\n",
+                delivery_mode);
+        return -EINVAL;
+    }
+
+    return 0;
 }
 
 /*

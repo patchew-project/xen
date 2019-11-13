@@ -266,7 +266,6 @@ int vmsi_deliver(
     uint8_t delivery_mode, uint8_t trig_mode);
 struct hvm_pirq_dpci;
 void vmsi_deliver_pirq(struct domain *d, const struct hvm_pirq_dpci *);
-int hvm_girq_dest_2_vcpu_id(struct domain *d, uint8_t dest, uint8_t dest_mode);
 
 enum hvm_intblk
 hvm_interrupt_blocked(struct vcpu *v, struct hvm_intack intack);
@@ -335,6 +334,10 @@ unsigned long hvm_cr4_guest_valid_bits(const struct domain *d, bool restore);
 
 bool hvm_flush_vcpu_tlb(bool (*flush_vcpu)(void *ctxt, struct vcpu *v),
                         void *ctxt);
+
+/* Get all the possible destination vCPUs of an interrupt. */
+int hvm_intr_get_dests(struct domain *d, uint8_t dest, uint8_t dest_mode,
+                       uint8_t delivery_mode, unsigned long *vcpus);
 
 #ifdef CONFIG_HVM
 

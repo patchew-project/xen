@@ -121,29 +121,6 @@ void vmsi_deliver_pirq(struct domain *d, const struct hvm_pirq_dpci *pirq_dpci)
     vmsi_deliver(d, vector, dest, dest_mode, delivery_mode, trig_mode);
 }
 
-/* Return value, -1 : multi-dests, non-negative value: dest_vcpu_id */
-int hvm_girq_dest_2_vcpu_id(struct domain *d, uint8_t dest, uint8_t dest_mode)
-{
-    int dest_vcpu_id = -1, w = 0;
-    struct vcpu *v;
-    
-    if ( d->max_vcpus == 1 )
-        return 0;
- 
-    for_each_vcpu ( d, v )
-    {
-        if ( vlapic_match_dest(vcpu_vlapic(v), NULL, 0, dest, dest_mode) ) 
-        {
-            w++;
-            dest_vcpu_id = v->vcpu_id;
-        }
-    }
-    if ( w > 1 )
-        return -1;
-
-    return dest_vcpu_id;
-}
-
 /* MSI-X mask bit hypervisor interception */
 struct msixtbl_entry
 {

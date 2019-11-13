@@ -150,4 +150,7 @@ bool_t vlapic_match_dest(
     const struct vlapic *target, const struct vlapic *source,
     int short_hand, uint32_t dest, bool_t dest_mode);
 
+/* Sync the PIR to IRR of all vlapics in the vcpus bitmap. */
+void domain_sync_vlapic_pir(struct domain *d, unsigned long *vcpus);
+
 #endif /* __ASM_X86_HVM_VLAPIC_H__ */

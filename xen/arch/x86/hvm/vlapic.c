@@ -112,6 +112,25 @@ static void sync_pir_to_irr(struct vcpu *v)
         alternative_vcall(hvm_funcs.sync_pir_to_irr, v);
 }
 
+void domain_sync_vlapic_pir(struct domain *d, unsigned long *vcpus)
+{
+    unsigned int id;
+
+    if ( !bitmap_weight(vcpus, d->max_vcpus) )
+        return;
+
+    for ( id = find_first_bit(vcpus, d->max_vcpus);
+          id < d->max_vcpus;
+          id = find_next_bit(vcpus, d->max_vcpus, id + 1) )
+    {
+        if ( d->vcpu[id] != current )
+            vcpu_pause(d->vcpu[id]);
+        sync_pir_to_irr(d->vcpu[id]);
+        if ( d->vcpu[id] != current )
+            vcpu_unpause(d->vcpu[id]);
+    }
+}
+
 static int vlapic_find_highest_irr(struct vlapic *vlapic)
 {
     sync_pir_to_irr(vlapic_vcpu(vlapic));

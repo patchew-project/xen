@@ -219,62 +219,6 @@ void free_hvm_irq_dpci(struct hvm_irq_dpci *dpci)
     xfree(dpci);
 }
 
-/*
- * This routine handles lowest-priority interrupts using vector-hashing
- * mechanism. As an example, modern Intel CPUs use this method to handle
- * lowest-priority interrupts.
- *
- * Here is the details about the vector-hashing mechanism:
- * 1. For lowest-priority interrupts, store all the possible destination
- *    vCPUs in an array.
- * 2. Use "gvec % max number of destination vCPUs" to find the right
- *    destination vCPU in the array for the lowest-priority interrupt.
- */
-static struct vcpu *vector_hashing_dest(const struct domain *d,
-                                        uint32_t dest_id,
-                                        bool dest_mode,
-                                        uint8_t gvec)
-
-{
-    unsigned long *dest_vcpu_bitmap;
-    unsigned int dest_vcpus = 0;
-    struct vcpu *v, *dest = NULL;
-    unsigned int i;
-
-    dest_vcpu_bitmap = xzalloc_array(unsigned long,
-                                     BITS_TO_LONGS(d->max_vcpus));
-    if ( !dest_vcpu_bitmap )
-        return NULL;
-
-    for_each_vcpu ( d, v )
-    {
-        if ( !vlapic_match_dest(vcpu_vlapic(v), NULL, APIC_DEST_NOSHORT,
-                                dest_id, dest_mode) )
-            continue;
-
-        __set_bit(v->vcpu_id, dest_vcpu_bitmap);
-        dest_vcpus++;
-    }
-
-    if ( dest_vcpus != 0 )
-    {
-        unsigned int mod = gvec % dest_vcpus;
-        unsigned int idx = 0;
-
-        for ( i = 0; i <= mod; i++ )
-        {
-            idx = find_next_bit(dest_vcpu_bitmap, d->max_vcpus, idx) + 1;
-            BUG_ON(idx > d->max_vcpus);
-        }
-
-        dest = d->vcpu[idx - 1];
-    }
-
-    xfree(dest_vcpu_bitmap);
-
-    return dest;
-}
-
 int pt_irq_create_bind(
     struct domain *d, const struct xen_domctl_bind_pt_irq *pt_irq_bind)
 {
@@ -345,6 +289,8 @@ int pt_irq_create_bind(
         const struct vcpu *vcpu;
         uint32_t gflags = pt_irq_bind->u.msi.gflags &
                           ~XEN_DOMCTL_VMSI_X86_UNMASKED;
+        DECLARE_BITMAP(dest_vcpus, MAX_VIRT_CPUS) = { };
+        DECLARE_BITMAP(prev_vcpus, MAX_VIRT_CPUS) = { };
 
         if ( !(pirq_dpci->flags & HVM_IRQ_DPCI_MAPPED) )
         {
@@ -411,6 +357,24 @@ int pt_irq_create_bind(
 
                 pirq_dpci->gmsi.gvec = pt_irq_bind->u.msi.gvec;
                 pirq_dpci->gmsi.gflags = gflags;
+                if ( pirq_dpci->gmsi.dest_vcpu_id != -1 )
+                    __set_bit(pirq_dpci->gmsi.dest_vcpu_id, prev_vcpus);
+                else
+                {
+                    /*
+                     * If previous configuration has multiple possible
+                     * destinations record them in order to sync the PIR to IRR
+                     * afterwards.
+                     */
+                    dest = MASK_EXTR(pirq_dpci->gmsi.gflags,
+                                     XEN_DOMCTL_VMSI_X86_DEST_ID_MASK);
+                    dest_mode = pirq_dpci->gmsi.gflags &
+                                XEN_DOMCTL_VMSI_X86_DM_MASK;
+                    delivery_mode = MASK_EXTR(pirq_dpci->gmsi.gflags,
+                                              XEN_DOMCTL_VMSI_X86_DELIV_MASK);
+                    hvm_intr_get_dests(d, dest, dest_mode, delivery_mode,
+                                       prev_vcpus);
+                }
             }
         }
         /* Calculate dest_vcpu_id for MSI-type pirq migration. */
@@ -420,20 +384,16 @@ int pt_irq_create_bind(
         delivery_mode = MASK_EXTR(pirq_dpci->gmsi.gflags,
                                   XEN_DOMCTL_VMSI_X86_DELIV_MASK);
 
-        dest_vcpu_id = hvm_girq_dest_2_vcpu_id(d, dest, dest_mode);
+        hvm_intr_get_dests(d, dest, dest_mode, delivery_mode, dest_vcpus);
+        dest_vcpu_id = bitmap_weight(dest_vcpus, d->max_vcpus) != 1 ?
+            -1 : find_first_bit(dest_vcpus, d->max_vcpus);
         pirq_dpci->gmsi.dest_vcpu_id = dest_vcpu_id;
         spin_unlock(&d->event_lock);
 
         pirq_dpci->gmsi.posted = false;
         vcpu = (dest_vcpu_id >= 0) ? d->vcpu[dest_vcpu_id] : NULL;
-        if ( iommu_intpost )
-        {
-            if ( delivery_mode == dest_LowestPrio )
-                vcpu = vector_hashing_dest(d, dest, dest_mode,
-                                           pirq_dpci->gmsi.gvec);
-            if ( vcpu )
-                pirq_dpci->gmsi.posted = true;
-        }
+        if ( vcpu && iommu_intpost )
+            pirq_dpci->gmsi.posted = true;
         if ( vcpu && is_iommu_enabled(d) )
             hvm_migrate_pirq(pirq_dpci, vcpu);
 
@@ -441,6 +401,9 @@ int pt_irq_create_bind(
         if ( iommu_intpost )
             pi_update_irte(vcpu ? &vcpu->arch.hvm.vmx.pi_desc : NULL,
                            info, pirq_dpci->gmsi.gvec);
+
+        if ( hvm_funcs.deliver_posted_intr )
+            domain_sync_vlapic_pir(d, prev_vcpus);
 
         if ( pt_irq_bind->u.msi.gflags & XEN_DOMCTL_VMSI_X86_UNMASKED )
         {
@@ -730,6 +693,31 @@ int pt_irq_destroy_bind(
     }
     else if ( pirq_dpci && pirq_dpci->gmsi.posted )
         pi_update_irte(NULL, pirq, 0);
+
+    if ( hvm_funcs.deliver_posted_intr )
+    {
+        DECLARE_BITMAP(vcpus, MAX_VIRT_CPUS) = { };
+
+        if ( pirq_dpci->gmsi.dest_vcpu_id != -1 )
+            __set_bit(pirq_dpci->gmsi.dest_vcpu_id, vcpus);
+        else
+        {
+            /*
+             * If previous configuration has multiple possible
+             * destinations record them in order to sync the PIR to IRR.
+             */
+            uint8_t dest = MASK_EXTR(pirq_dpci->gmsi.gflags,
+                                     XEN_DOMCTL_VMSI_X86_DEST_ID_MASK);
+            uint8_t dest_mode = pirq_dpci->gmsi.gflags &
+                                XEN_DOMCTL_VMSI_X86_DM_MASK;
+            uint8_t delivery_mode = MASK_EXTR(pirq_dpci->gmsi.gflags,
+                                              XEN_DOMCTL_VMSI_X86_DELIV_MASK);
+
+            hvm_intr_get_dests(d, dest, dest_mode, delivery_mode, vcpus);
+        }
+
+        domain_sync_vlapic_pir(d, vcpus);
+    }
 
     if ( pirq_dpci && (pirq_dpci->flags & HVM_IRQ_DPCI_MAPPED) &&
          list_empty(&pirq_dpci->digl_list) )
