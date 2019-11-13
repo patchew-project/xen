@@ -212,6 +212,44 @@ static int vioapic_hwdom_map_gsi(unsigned int gsi, unsigned int trig,
     return ret;
 }
 
+static inline int pit_channel0_enabled(void)
+{
+    return pt_active(&current->domain->arch.vpit.pt0);
+}
+
+static void sync_vcpus_pir(struct domain *d, union vioapic_redir_entry *ent,
+                           unsigned int irq)
+{
+    DECLARE_BITMAP(vcpus, MAX_VIRT_CPUS) = { };
+
+    switch ( ent->fields.delivery_mode )
+    {
+    case dest_LowestPrio:
+    case dest_Fixed:
+#ifdef IRQ0_SPECIAL_ROUTING
+        if ( (irq == hvm_isa_irq_to_gsi(0)) && pit_channel0_enabled() )
+        {
+            __set_bit(0, vcpus);
+            break;
+        }
+#endif
+        hvm_intr_get_dests(d, ent->fields.dest_id, ent->fields.dest_mode,
+                           ent->fields.delivery_mode, vcpus);
+        break;
+
+    case dest_NMI:
+        /* Nothing to do, NMIs are not signaled on the PIR. */
+        break;
+
+    default:
+        gdprintk(XENLOG_WARNING, "unsupported delivery mode %02u\n",
+                 ent->fields.delivery_mode);
+        break;
+    }
+
+    domain_sync_vlapic_pir(d, vcpus);
+}
+
 static void vioapic_write_redirent(
     struct hvm_vioapic *vioapic, unsigned int idx,
     int top_word, uint32_t val)
@@ -234,6 +272,9 @@ static void vioapic_write_redirent(
 
     pent = &vioapic->redirtbl[idx];
     ent  = *pent;
+
+    if ( !ent.fields.mask && hvm_funcs.deliver_posted_intr )
+        sync_vcpus_pir(d, pent, vioapic->base_gsi + idx);
 
     if ( top_word )
     {
@@ -389,11 +430,6 @@ static void ioapic_inj_irq(
            (delivery_mode == dest_LowestPrio));
 
     vlapic_set_irq(target, vector, trig_mode);
-}
-
-static inline int pit_channel0_enabled(void)
-{
-    return pt_active(&current->domain->arch.vpit.pt0);
 }
 
 static void vioapic_deliver(struct hvm_vioapic *vioapic, unsigned int pin)
