@@ -915,7 +915,7 @@ void vcpu_end_shutdown_deferral(struct vcpu *v)
         vcpu_check_shutdown(v);
 }
 
-#ifdef CONFIG_HAS_GDBSX
+#ifdef CONFIG_CRASH_DEBUG
 void domain_pause_for_debugger(void)
 {
     struct vcpu *curr = current;
