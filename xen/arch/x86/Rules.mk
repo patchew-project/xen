@@ -83,4 +83,9 @@ $(call as-option-add,CFLAGS,CC,".include \"asm/indirect_thunk_asm.h\"",,\
 $(call as-option-add,CFLAGS,CC,\
                      ".macro FOO\n.endm\"); asm volatile (\".macro FOO\n.endm",\
                      -no-integrated-as)
+
+# Older clang's built-in assembler doesn't understand .skip with labels:
+# https://bugs.llvm.org/show_bug.cgi?id=27369
+$(call as-option-add,CFLAGS,CC,".L0: .L1: .skip (.L1 - .L0)",,\
+                     -no-integrated-as)
 endif
