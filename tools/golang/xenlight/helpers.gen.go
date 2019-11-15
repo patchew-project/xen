@@ -383,6 +383,16 @@ func (x *SchedParams) fromC(xc *C.libxl_sched_params) error {
 
 func (x *VcpuSchedParams) fromC(xc *C.libxl_vcpu_sched_params) error {
 	x.Sched = Scheduler(xc.sched)
+	numVcpus := int(xc.num_vcpus)
+	cVcpus := (*[1 << 28]C.libxl_sched_params)(unsafe.Pointer(xc.vcpus))[:numVcpus:numVcpus]
+	x.Vcpus = make([]SchedParams, numVcpus)
+	for i, v := range cVcpus {
+		var e SchedParams
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Vcpus[i] = e
+	}
 	return nil
 }
 
@@ -400,6 +410,12 @@ func (x *DomainSchedParams) fromC(xc *C.libxl_domain_sched_params) error {
 
 func (x *VnodeInfo) fromC(xc *C.libxl_vnode_info) error {
 	x.Memkb = uint64(xc.memkb)
+	numDistances := int(xc.num_distances)
+	cDistances := (*[1 << 28]C.uint32_t)(unsafe.Pointer(xc.distances))[:numDistances:numDistances]
+	x.Distances = make([]uint32, numDistances)
+	for i, v := range cDistances {
+		x.Distances[i] = uint32(v)
+	}
 	x.Pnode = uint32(xc.pnode)
 	var bitmapVcpus Bitmap
 	if err := bitmapVcpus.fromC(&xc.vcpus); err != nil {
@@ -432,6 +448,26 @@ func (x *DomainBuildInfo) fromC(xc *C.libxl_domain_build_info) error {
 		return err
 	}
 	x.Nodemap = bitmapNodemap
+	numVcpuHardAffinity := int(xc.num_vcpu_hard_affinity)
+	cVcpuHardAffinity := (*[1 << 28]C.libxl_bitmap)(unsafe.Pointer(xc.vcpu_hard_affinity))[:numVcpuHardAffinity:numVcpuHardAffinity]
+	x.VcpuHardAffinity = make([]Bitmap, numVcpuHardAffinity)
+	for i, v := range cVcpuHardAffinity {
+		var e Bitmap
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.VcpuHardAffinity[i] = e
+	}
+	numVcpuSoftAffinity := int(xc.num_vcpu_soft_affinity)
+	cVcpuSoftAffinity := (*[1 << 28]C.libxl_bitmap)(unsafe.Pointer(xc.vcpu_soft_affinity))[:numVcpuSoftAffinity:numVcpuSoftAffinity]
+	x.VcpuSoftAffinity = make([]Bitmap, numVcpuSoftAffinity)
+	for i, v := range cVcpuSoftAffinity {
+		var e Bitmap
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.VcpuSoftAffinity[i] = e
+	}
 	var defboolNumaPlacement Defbool
 	if err := defboolNumaPlacement.fromC(&xc.numa_placement); err != nil {
 		return err
@@ -462,6 +498,16 @@ func (x *DomainBuildInfo) fromC(xc *C.libxl_domain_build_info) error {
 	}
 	x.Cpuid = cpuidPolicyListCpuid
 	x.BlkdevStart = C.GoString(xc.blkdev_start)
+	numVnumaNodes := int(xc.num_vnuma_nodes)
+	cVnumaNodes := (*[1 << 28]C.libxl_vnode_info)(unsafe.Pointer(xc.vnuma_nodes))[:numVnumaNodes:numVnumaNodes]
+	x.VnumaNodes = make([]VnodeInfo, numVnumaNodes)
+	for i, v := range cVnumaNodes {
+		var e VnodeInfo
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.VnumaNodes[i] = e
+	}
 	x.MaxGrantFrames = uint32(xc.max_grant_frames)
 	x.MaxMaptrackFrames = uint32(xc.max_maptrack_frames)
 	x.DeviceModelVersion = DeviceModelVersion(xc.device_model_version)
@@ -494,6 +540,32 @@ func (x *DomainBuildInfo) fromC(xc *C.libxl_domain_build_info) error {
 		return err
 	}
 	x.SchedParams = domainSchedParamsSchedParams
+	numIoports := int(xc.num_ioports)
+	cIoports := (*[1 << 28]C.libxl_ioport_range)(unsafe.Pointer(xc.ioports))[:numIoports:numIoports]
+	x.Ioports = make([]IoportRange, numIoports)
+	for i, v := range cIoports {
+		var e IoportRange
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Ioports[i] = e
+	}
+	numIrqs := int(xc.num_irqs)
+	cIrqs := (*[1 << 28]C.uint32_t)(unsafe.Pointer(xc.irqs))[:numIrqs:numIrqs]
+	x.Irqs = make([]uint32, numIrqs)
+	for i, v := range cIrqs {
+		x.Irqs[i] = uint32(v)
+	}
+	numIomem := int(xc.num_iomem)
+	cIomem := (*[1 << 28]C.libxl_iomem_range)(unsafe.Pointer(xc.iomem))[:numIomem:numIomem]
+	x.Iomem = make([]IomemRange, numIomem)
+	for i, v := range cIomem {
+		var e IomemRange
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Iomem[i] = e
+	}
 	var defboolClaimMode Defbool
 	if err := defboolClaimMode.fromC(&xc.claim_mode); err != nil {
 		return err
@@ -984,10 +1056,32 @@ func (x *DeviceVdispl) fromC(xc *C.libxl_device_vdispl) error {
 	x.BackendDomname = C.GoString(xc.backend_domname)
 	x.Devid = Devid(xc.devid)
 	x.BeAlloc = bool(xc.be_alloc)
+	numConnectors := int(xc.num_connectors)
+	cConnectors := (*[1 << 28]C.libxl_connector_param)(unsafe.Pointer(xc.connectors))[:numConnectors:numConnectors]
+	x.Connectors = make([]ConnectorParam, numConnectors)
+	for i, v := range cConnectors {
+		var e ConnectorParam
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Connectors[i] = e
+	}
 	return nil
 }
 
 func (x *VsndParams) fromC(xc *C.libxl_vsnd_params) error {
+	numSampleRates := int(xc.num_sample_rates)
+	cSampleRates := (*[1 << 28]C.uint32_t)(unsafe.Pointer(xc.sample_rates))[:numSampleRates:numSampleRates]
+	x.SampleRates = make([]uint32, numSampleRates)
+	for i, v := range cSampleRates {
+		x.SampleRates[i] = uint32(v)
+	}
+	numSampleFormats := int(xc.num_sample_formats)
+	cSampleFormats := (*[1 << 28]C.libxl_vsnd_pcm_format)(unsafe.Pointer(xc.sample_formats))[:numSampleFormats:numSampleFormats]
+	x.SampleFormats = make([]VsndPcmFormat, numSampleFormats)
+	for i, v := range cSampleFormats {
+		x.SampleFormats[i] = VsndPcmFormat(v)
+	}
 	x.ChannelsMin = uint32(xc.channels_min)
 	x.ChannelsMax = uint32(xc.channels_max)
 	x.BufferSize = uint32(xc.buffer_size)
@@ -1012,6 +1106,16 @@ func (x *VsndPcm) fromC(xc *C.libxl_vsnd_pcm) error {
 		return err
 	}
 	x.Params = vsndParamsParams
+	numVsndStreams := int(xc.num_vsnd_streams)
+	cStreams := (*[1 << 28]C.libxl_vsnd_stream)(unsafe.Pointer(xc.streams))[:numVsndStreams:numVsndStreams]
+	x.Streams = make([]VsndStream, numVsndStreams)
+	for i, v := range cStreams {
+		var e VsndStream
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Streams[i] = e
+	}
 	return nil
 }
 
@@ -1026,6 +1130,16 @@ func (x *DeviceVsnd) fromC(xc *C.libxl_device_vsnd) error {
 		return err
 	}
 	x.Params = vsndParamsParams
+	numVsndPcms := int(xc.num_vsnd_pcms)
+	cPcms := (*[1 << 28]C.libxl_vsnd_pcm)(unsafe.Pointer(xc.pcms))[:numVsndPcms:numVsndPcms]
+	x.Pcms = make([]VsndPcm, numVsndPcms)
+	for i, v := range cPcms {
+		var e VsndPcm
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Pcms[i] = e
+	}
 	return nil
 }
 
@@ -1040,6 +1154,156 @@ func (x *DomainConfig) fromC(xc *C.libxl_domain_config) error {
 		return err
 	}
 	x.BInfo = domainBuildInfoBInfo
+	numDisks := int(xc.num_disks)
+	cDisks := (*[1 << 28]C.libxl_device_disk)(unsafe.Pointer(xc.disks))[:numDisks:numDisks]
+	x.Disks = make([]DeviceDisk, numDisks)
+	for i, v := range cDisks {
+		var e DeviceDisk
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Disks[i] = e
+	}
+	numNics := int(xc.num_nics)
+	cNics := (*[1 << 28]C.libxl_device_nic)(unsafe.Pointer(xc.nics))[:numNics:numNics]
+	x.Nics = make([]DeviceNic, numNics)
+	for i, v := range cNics {
+		var e DeviceNic
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Nics[i] = e
+	}
+	numPcidevs := int(xc.num_pcidevs)
+	cPcidevs := (*[1 << 28]C.libxl_device_pci)(unsafe.Pointer(xc.pcidevs))[:numPcidevs:numPcidevs]
+	x.Pcidevs = make([]DevicePci, numPcidevs)
+	for i, v := range cPcidevs {
+		var e DevicePci
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Pcidevs[i] = e
+	}
+	numRdms := int(xc.num_rdms)
+	cRdms := (*[1 << 28]C.libxl_device_rdm)(unsafe.Pointer(xc.rdms))[:numRdms:numRdms]
+	x.Rdms = make([]DeviceRdm, numRdms)
+	for i, v := range cRdms {
+		var e DeviceRdm
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Rdms[i] = e
+	}
+	numDtdevs := int(xc.num_dtdevs)
+	cDtdevs := (*[1 << 28]C.libxl_device_dtdev)(unsafe.Pointer(xc.dtdevs))[:numDtdevs:numDtdevs]
+	x.Dtdevs = make([]DeviceDtdev, numDtdevs)
+	for i, v := range cDtdevs {
+		var e DeviceDtdev
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Dtdevs[i] = e
+	}
+	numVfbs := int(xc.num_vfbs)
+	cVfbs := (*[1 << 28]C.libxl_device_vfb)(unsafe.Pointer(xc.vfbs))[:numVfbs:numVfbs]
+	x.Vfbs = make([]DeviceVfb, numVfbs)
+	for i, v := range cVfbs {
+		var e DeviceVfb
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Vfbs[i] = e
+	}
+	numVkbs := int(xc.num_vkbs)
+	cVkbs := (*[1 << 28]C.libxl_device_vkb)(unsafe.Pointer(xc.vkbs))[:numVkbs:numVkbs]
+	x.Vkbs = make([]DeviceVkb, numVkbs)
+	for i, v := range cVkbs {
+		var e DeviceVkb
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Vkbs[i] = e
+	}
+	numVtpms := int(xc.num_vtpms)
+	cVtpms := (*[1 << 28]C.libxl_device_vtpm)(unsafe.Pointer(xc.vtpms))[:numVtpms:numVtpms]
+	x.Vtpms = make([]DeviceVtpm, numVtpms)
+	for i, v := range cVtpms {
+		var e DeviceVtpm
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Vtpms[i] = e
+	}
+	numP9S := int(xc.num_p9s)
+	cP9S := (*[1 << 28]C.libxl_device_p9)(unsafe.Pointer(xc.p9s))[:numP9S:numP9S]
+	x.P9S = make([]DeviceP9, numP9S)
+	for i, v := range cP9S {
+		var e DeviceP9
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.P9S[i] = e
+	}
+	numPvcallsifs := int(xc.num_pvcallsifs)
+	cPvcallsifs := (*[1 << 28]C.libxl_device_pvcallsif)(unsafe.Pointer(xc.pvcallsifs))[:numPvcallsifs:numPvcallsifs]
+	x.Pvcallsifs = make([]DevicePvcallsif, numPvcallsifs)
+	for i, v := range cPvcallsifs {
+		var e DevicePvcallsif
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Pvcallsifs[i] = e
+	}
+	numVdispls := int(xc.num_vdispls)
+	cVdispls := (*[1 << 28]C.libxl_device_vdispl)(unsafe.Pointer(xc.vdispls))[:numVdispls:numVdispls]
+	x.Vdispls = make([]DeviceVdispl, numVdispls)
+	for i, v := range cVdispls {
+		var e DeviceVdispl
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Vdispls[i] = e
+	}
+	numVsnds := int(xc.num_vsnds)
+	cVsnds := (*[1 << 28]C.libxl_device_vsnd)(unsafe.Pointer(xc.vsnds))[:numVsnds:numVsnds]
+	x.Vsnds = make([]DeviceVsnd, numVsnds)
+	for i, v := range cVsnds {
+		var e DeviceVsnd
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Vsnds[i] = e
+	}
+	numChannels := int(xc.num_channels)
+	cChannels := (*[1 << 28]C.libxl_device_channel)(unsafe.Pointer(xc.channels))[:numChannels:numChannels]
+	x.Channels = make([]DeviceChannel, numChannels)
+	for i, v := range cChannels {
+		var e DeviceChannel
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Channels[i] = e
+	}
+	numUsbctrls := int(xc.num_usbctrls)
+	cUsbctrls := (*[1 << 28]C.libxl_device_usbctrl)(unsafe.Pointer(xc.usbctrls))[:numUsbctrls:numUsbctrls]
+	x.Usbctrls = make([]DeviceUsbctrl, numUsbctrls)
+	for i, v := range cUsbctrls {
+		var e DeviceUsbctrl
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Usbctrls[i] = e
+	}
+	numUsbdevs := int(xc.num_usbdevs)
+	cUsbdevs := (*[1 << 28]C.libxl_device_usbdev)(unsafe.Pointer(xc.usbdevs))[:numUsbdevs:numUsbdevs]
+	x.Usbdevs = make([]DeviceUsbdev, numUsbdevs)
+	for i, v := range cUsbdevs {
+		var e DeviceUsbdev
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Usbdevs[i] = e
+	}
 	x.OnPoweroff = ActionOnShutdown(xc.on_poweroff)
 	x.OnReboot = ActionOnShutdown(xc.on_reboot)
 	x.OnWatchdog = ActionOnShutdown(xc.on_watchdog)
@@ -1173,6 +1437,16 @@ func (x *Vdisplinfo) fromC(xc *C.libxl_vdisplinfo) error {
 	x.Devid = Devid(xc.devid)
 	x.State = int(xc.state)
 	x.BeAlloc = bool(xc.be_alloc)
+	numConnectors := int(xc.num_connectors)
+	cConnectors := (*[1 << 28]C.libxl_connectorinfo)(unsafe.Pointer(xc.connectors))[:numConnectors:numConnectors]
+	x.Connectors = make([]Connectorinfo, numConnectors)
+	for i, v := range cConnectors {
+		var e Connectorinfo
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Connectors[i] = e
+	}
 	return nil
 }
 
@@ -1183,6 +1457,16 @@ func (x *Streaminfo) fromC(xc *C.libxl_streaminfo) error {
 }
 
 func (x *Pcminfo) fromC(xc *C.libxl_pcminfo) error {
+	numVsndStreams := int(xc.num_vsnd_streams)
+	cStreams := (*[1 << 28]C.libxl_streaminfo)(unsafe.Pointer(xc.streams))[:numVsndStreams:numVsndStreams]
+	x.Streams = make([]Streaminfo, numVsndStreams)
+	for i, v := range cStreams {
+		var e Streaminfo
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Streams[i] = e
+	}
 	return nil
 }
 
@@ -1193,6 +1477,16 @@ func (x *Vsndinfo) fromC(xc *C.libxl_vsndinfo) error {
 	x.FrontendId = uint32(xc.frontend_id)
 	x.Devid = Devid(xc.devid)
 	x.State = int(xc.state)
+	numVsndPcms := int(xc.num_vsnd_pcms)
+	cPcms := (*[1 << 28]C.libxl_pcminfo)(unsafe.Pointer(xc.pcms))[:numVsndPcms:numVsndPcms]
+	x.Pcms = make([]Pcminfo, numVsndPcms)
+	for i, v := range cPcms {
+		var e Pcminfo
+		if err := e.fromC(&v); err != nil {
+			return err
+		}
+		x.Pcms[i] = e
+	}
 	return nil
 }
 
@@ -1211,6 +1505,12 @@ func (x *Vkbinfo) fromC(xc *C.libxl_vkbinfo) error {
 func (x *Numainfo) fromC(xc *C.libxl_numainfo) error {
 	x.Size = uint64(xc.size)
 	x.Free = uint64(xc.free)
+	numDists := int(xc.num_dists)
+	cDists := (*[1 << 28]C.uint32_t)(unsafe.Pointer(xc.dists))[:numDists:numDists]
+	x.Dists = make([]uint32, numDists)
+	for i, v := range cDists {
+		x.Dists[i] = uint32(v)
+	}
 	return nil
 }
 
