@@ -882,6 +882,10 @@ int vgic_connect_hw_irq(struct domain *d, struct vcpu *vcpu,
             irq->hw = true;
             irq->hwintid = desc->irq;
         }
+        else if ( irq->hw && !irq->enabled && irq->hwintid == desc->irq )
+        {
+            /* The IRQ was already connected. No action is necessary. */
+        }
         else
             ret = -EBUSY;
     }

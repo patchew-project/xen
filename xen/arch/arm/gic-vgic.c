@@ -460,9 +460,14 @@ int vgic_connect_hw_irq(struct domain *d, struct vcpu *v, unsigned int virq,
     if ( connect )
     {
         /* The VIRQ should not be already enabled by the guest */
-        if ( !p->desc &&
-             !test_bit(GIC_IRQ_GUEST_ENABLED, &p->status) )
+        if ( !test_bit(GIC_IRQ_GUEST_ENABLED, &p->status) )
+        {
+            if (p->desc && p->desc != desc)
+            {
+                BUG();
+            }
             p->desc = desc;
+        }
         else
             ret = -EBUSY;
     }
