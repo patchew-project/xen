@@ -64,6 +64,17 @@ unsigned int gic_number_lines(void)
     return gic_hw_ops->info->nr_lines;
 }
 
+void gic_hwppi_state_init(struct hwppi_state *s, unsigned irq)
+{
+    memset(s, 0, sizeof(*s));
+    s->irq = irq;
+}
+
+void gic_hwppi_set_pending(struct hwppi_state *s)
+{
+    s->pending = true;
+}
+
 void gic_save_state(struct vcpu *v)
 {
     ASSERT(!local_irq_is_enabled());
@@ -78,6 +89,25 @@ void gic_save_state(struct vcpu *v)
     isb();
 }
 
+void gic_save_and_mask_hwppi(struct vcpu *v, const unsigned virq,
+                             struct hwppi_state *s)
+{
+    struct pending_irq *p = irq_to_pending(v, virq);
+    struct irq_desc *desc = p->desc;
+
+    spin_lock(&desc->lock);
+
+    ASSERT(virq >= 16 && virq < 32);
+    ASSERT(desc->irq >= 16 && desc->irq < 32);
+    ASSERT(!is_idle_vcpu(v));
+
+    s->inprogress = test_and_clear_bit(_IRQ_INPROGRESS, &desc->status);
+
+    gic_hw_ops->save_and_mask_hwppi(desc, s);
+
+    spin_unlock(&desc->lock);
+}
+
 void gic_restore_state(struct vcpu *v)
 {
     ASSERT(!local_irq_is_enabled());
@@ -87,6 +117,30 @@ void gic_restore_state(struct vcpu *v)
     gic_hw_ops->restore_state(v);
 
     isb();
+}
+
+void gic_restore_hwppi(struct vcpu *v,
+                       const unsigned virq,
+                       const struct hwppi_state *s)
+{
+    struct pending_irq *p = irq_to_pending(v, virq);
+    struct irq_desc *desc = irq_to_desc(s->irq);
+
+    spin_lock(&desc->lock);
+
+    ASSERT(virq >= 16 && virq < 32);
+    ASSERT(!is_idle_vcpu(v));
+
+    p->desc = desc; /* Migrate to new physical processor */
+
+    irq_set_virq(desc, virq);
+
+    gic_hw_ops->restore_hwppi(desc, s);
+
+    if ( s->inprogress )
+        set_bit(_IRQ_INPROGRESS, &desc->status);
+
+    spin_unlock(&desc->lock);
 }
 
 /* desc->irq needs to be disabled before calling this function */

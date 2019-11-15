@@ -150,6 +150,13 @@ static inline struct irq_guest *irq_get_guest_info(struct irq_desc *desc)
     return desc->action->dev_id;
 }
 
+void irq_set_virq(struct irq_desc *desc, unsigned virq)
+{
+    struct irq_guest *info = irq_get_guest_info(desc);
+    ASSERT(test_bit(_IRQ_PER_CPU, &desc->status));
+    info->virq = virq;
+}
+
 static inline struct domain *irq_get_domain(struct irq_desc *desc)
 {
     return irq_get_guest_info(desc)->d;

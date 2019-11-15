@@ -63,6 +63,9 @@ static DEFINE_PER_CPU(void __iomem*, rbase);
 #define GICD_RDIST_BASE        (this_cpu(rbase))
 #define GICD_RDIST_SGI_BASE    (GICD_RDIST_BASE + SZ_64K)
 
+static void gicv3_irq_enable(struct irq_desc *desc);
+static void gicv3_irq_disable(struct irq_desc *desc);
+
 /*
  * Saves all 16(Max) LR registers. Though number of LRs implemented
  * is implementation specific.
@@ -375,6 +378,38 @@ static void gicv3_save_state(struct vcpu *v)
     v->arch.gic.v3.sre_el1 = READ_SYSREG32(ICC_SRE_EL1);
 }
 
+static void gicv3_save_and_mask_hwppi(struct irq_desc *desc,
+                                      struct hwppi_state *s)
+{
+    const uint32_t mask = (1u << desc->irq); /* PPIs are IRQ# 16-31 */
+    const uint32_t pendingr = readl_relaxed(GICD_RDIST_SGI_BASE + GICR_ISPENDR0);
+    const uint32_t activer = readl_relaxed(GICD_RDIST_SGI_BASE + GICR_ISACTIVER0);
+    const uint32_t enabler = readl_relaxed(GICD_RDIST_SGI_BASE + GICR_ISENABLER0);
+    const bool is_edge = !!(desc->arch.type & DT_IRQ_TYPE_EDGE_BOTH);
+
+    s->active = !!(activer & mask);
+    s->enabled = !!(enabler & mask);
+    s->pending = !!(pendingr & mask);
+
+    /* Write a 1 to IC...R to clear the corresponding bit of state */
+    if ( s->active )
+        writel_relaxed(mask, GICD_RDIST_SGI_BASE + GICR_ICACTIVER0);
+
+    /*
+     * For an edge interrupt clear the pending state, for a level interrupt
+     * this clears the latch there is no need since saving the peripheral state
+     * (and/or restoring the next VCPU) will cause the correct action.
+     */
+    if ( is_edge && s->pending )
+        writel_relaxed(mask, GICD_RDIST_SGI_BASE + GICR_ICPENDR0);
+
+    if ( s->enabled )
+        gicv3_irq_disable(desc);
+
+    ASSERT(!(readl_relaxed(GICD_RDIST_SGI_BASE + GICR_ISACTIVER0) & mask));
+    ASSERT(!(readl_relaxed(GICD_RDIST_SGI_BASE + GICR_ISENABLER0) & mask));
+}
+
 static void gicv3_restore_state(const struct vcpu *v)
 {
     uint32_t val;
@@ -408,6 +443,38 @@ static void gicv3_restore_state(const struct vcpu *v)
      * Make sure all stores are visible the GIC
      */
     dsb(sy);
+}
+
+static void gicv3_restore_hwppi(struct irq_desc *desc,
+                                const struct hwppi_state *s)
+{
+    const uint32_t mask = (1u << desc->irq); /* PPIs are IRQ# 16-31 */
+    const bool is_edge = !!(desc->arch.type & DT_IRQ_TYPE_EDGE_BOTH);
+
+    /*
+     * The IRQ must always have been set inactive and masked etc by
+     * the saving of the previous state via save_and_mask_hwppi.
+     */
+    ASSERT(!(readl_relaxed(GICD_RDIST_SGI_BASE + GICR_ISACTIVER0) & mask));
+    ASSERT(!(readl_relaxed(GICD_RDIST_SGI_BASE + GICR_ISENABLER0) & mask));
+
+    if ( s->active )
+        writel_relaxed(mask, GICD_RDIST_SGI_BASE + GICR_ICACTIVER0);
+
+    /*
+     * Restore pending state for edge triggered interrupts only. For
+     * level triggered interrupts the level will be restored as
+     * necessary by restoring the state of the relevant peripheral.
+     *
+     * For a level triggered interrupt ISPENDR acts as a *latch* which
+     * is only cleared by ICPENDR (i.e. the input level is no longer
+     * relevant). We certainly do not want that here.
+     */
+    if ( is_edge && s->pending )
+        writel_relaxed(mask, GICD_RDIST_SGI_BASE + GICR_ISPENDR0);
+
+    if ( s->enabled )
+        gicv3_irq_enable(desc);
 }
 
 static void gicv3_dump_state(const struct vcpu *v)
@@ -1835,7 +1902,9 @@ static const struct gic_hw_operations gicv3_ops = {
     .info                = &gicv3_info,
     .init                = gicv3_init,
     .save_state          = gicv3_save_state,
+    .save_and_mask_hwppi = gicv3_save_and_mask_hwppi,
     .restore_state       = gicv3_restore_state,
+    .restore_hwppi       = gicv3_restore_hwppi,
     .dump_state          = gicv3_dump_state,
     .gic_host_irq_type   = &gicv3_host_irq_type,
     .gic_guest_irq_type  = &gicv3_guest_irq_type,

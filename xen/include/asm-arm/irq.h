@@ -96,6 +96,8 @@ void irq_set_affinity(struct irq_desc *desc, const cpumask_t *cpu_mask);
  */
 bool irq_type_set_by_domain(const struct domain *d);
 
+void irq_set_virq(struct irq_desc *desc, unsigned virq);
+
 #endif /* _ASM_HW_IRQ_H */
 /*
  * Local variables:

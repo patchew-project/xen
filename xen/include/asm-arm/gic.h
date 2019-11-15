@@ -275,6 +275,26 @@ extern int gicv_setup(struct domain *d);
 extern void gic_save_state(struct vcpu *v);
 extern void gic_restore_state(struct vcpu *v);
 
+/*
+ * Save/restore the state of a single PPI which must be routed to
+ * <current-vcpu> (that is, is defined to be injected to the current
+ * vcpu).
+ *
+ * We expect the device which use this PPI to be quiet while we
+ * save/restore.
+ *
+ * For instance we want to disable the timer before saving the state.
+ * Otherwise we will mess up the state.
+ */
+struct hwppi_state;
+extern void gic_hwppi_state_init(struct hwppi_state *s, unsigned irq);
+extern void gic_hwppi_set_pending(struct hwppi_state *s);
+extern void gic_save_and_mask_hwppi(struct vcpu *v, unsigned irq,
+                                    struct hwppi_state *s);
+extern void gic_restore_hwppi(struct vcpu *v,
+                              const unsigned virq,
+                              const struct hwppi_state *s);
+
 /* SGI (AKA IPIs) */
 enum gic_sgi {
     GIC_SGI_EVENT_CHECK = 0,
@@ -325,8 +345,10 @@ struct gic_hw_operations {
     int (*init)(void);
     /* Save GIC registers */
     void (*save_state)(struct vcpu *);
+    void (*save_and_mask_hwppi)(struct irq_desc *desc, struct hwppi_state *s);
     /* Restore GIC registers */
     void (*restore_state)(const struct vcpu *);
+    void (*restore_hwppi)(struct irq_desc *desc, const struct hwppi_state *s);
     /* Dump GIC LR register information */
     void (*dump_state)(const struct vcpu *);
 

@@ -34,6 +34,17 @@ enum domain_type {
 /* The hardware domain has always its memory direct mapped. */
 #define is_domain_direct_mapped(d) ((d) == hardware_domain)
 
+struct hwppi_state {
+    /* h/w state */
+    unsigned irq;
+    unsigned long enabled:1;
+    unsigned long pending:1;
+    unsigned long active:1;
+
+    /* Xen s/w state */
+    unsigned long inprogress:1;
+};
+
 struct vtimer {
     struct vcpu *v;
     int irq;
