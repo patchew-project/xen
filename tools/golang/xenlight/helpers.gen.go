@@ -664,6 +664,18 @@ func (x *VcpuSchedParams) fromC(xc *C.libxl_vcpu_sched_params) error {
 func (x *VcpuSchedParams) toC() (xc C.libxl_vcpu_sched_params, err error) {
 	C.libxl_vcpu_sched_params_init(&xc)
 	xc.sched = C.libxl_scheduler(x.Sched)
+	numVcpus := len(x.Vcpus)
+	xc.vcpus = (*C.libxl_sched_params)(C.malloc(C.ulong(numVcpus) * C.sizeof_libxl_sched_params))
+	xc.num_vcpus = C.int(numVcpus)
+	cVcpus := (*[1 << 28]C.libxl_sched_params)(unsafe.Pointer(xc.vcpus))[:numVcpus:numVcpus]
+	for i, v := range x.Vcpus {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_vcpu_sched_params_dispose(&xc)
+			return xc, err
+		}
+		cVcpus[i] = tmp
+	}
 	return xc, nil
 }
 
@@ -712,6 +724,13 @@ func (x *VnodeInfo) fromC(xc *C.libxl_vnode_info) error {
 func (x *VnodeInfo) toC() (xc C.libxl_vnode_info, err error) {
 	C.libxl_vnode_info_init(&xc)
 	xc.memkb = C.uint64_t(x.Memkb)
+	numDistances := len(x.Distances)
+	xc.distances = (*C.uint32_t)(C.malloc(C.size_t(numDistances * numDistances)))
+	xc.num_distances = C.int(numDistances)
+	cDistances := (*[1 << 28]C.uint32_t)(unsafe.Pointer(xc.distances))[:numDistances:numDistances]
+	for i, v := range x.Distances {
+		cDistances[i] = C.uint32_t(v)
+	}
 	xc.pnode = C.uint32_t(x.Pnode)
 	xc.vcpus, err = x.Vcpus.toC()
 	if err != nil {
@@ -1099,6 +1118,30 @@ func (x *DomainBuildInfo) toC() (xc C.libxl_domain_build_info, err error) {
 		C.libxl_domain_build_info_dispose(&xc)
 		return xc, err
 	}
+	numVcpuHardAffinity := len(x.VcpuHardAffinity)
+	xc.vcpu_hard_affinity = (*C.libxl_bitmap)(C.malloc(C.ulong(numVcpuHardAffinity) * C.sizeof_libxl_bitmap))
+	xc.num_vcpu_hard_affinity = C.int(numVcpuHardAffinity)
+	cVcpuHardAffinity := (*[1 << 28]C.libxl_bitmap)(unsafe.Pointer(xc.vcpu_hard_affinity))[:numVcpuHardAffinity:numVcpuHardAffinity]
+	for i, v := range x.VcpuHardAffinity {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_build_info_dispose(&xc)
+			return xc, err
+		}
+		cVcpuHardAffinity[i] = tmp
+	}
+	numVcpuSoftAffinity := len(x.VcpuSoftAffinity)
+	xc.vcpu_soft_affinity = (*C.libxl_bitmap)(C.malloc(C.ulong(numVcpuSoftAffinity) * C.sizeof_libxl_bitmap))
+	xc.num_vcpu_soft_affinity = C.int(numVcpuSoftAffinity)
+	cVcpuSoftAffinity := (*[1 << 28]C.libxl_bitmap)(unsafe.Pointer(xc.vcpu_soft_affinity))[:numVcpuSoftAffinity:numVcpuSoftAffinity]
+	for i, v := range x.VcpuSoftAffinity {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_build_info_dispose(&xc)
+			return xc, err
+		}
+		cVcpuSoftAffinity[i] = tmp
+	}
 	xc.numa_placement, err = x.NumaPlacement.toC()
 	if err != nil {
 		C.libxl_domain_build_info_dispose(&xc)
@@ -1129,6 +1172,18 @@ func (x *DomainBuildInfo) toC() (xc C.libxl_domain_build_info, err error) {
 		return xc, err
 	}
 	xc.blkdev_start = C.CString(x.BlkdevStart)
+	numVnumaNodes := len(x.VnumaNodes)
+	xc.vnuma_nodes = (*C.libxl_vnode_info)(C.malloc(C.ulong(numVnumaNodes) * C.sizeof_libxl_vnode_info))
+	xc.num_vnuma_nodes = C.int(numVnumaNodes)
+	cVnumaNodes := (*[1 << 28]C.libxl_vnode_info)(unsafe.Pointer(xc.vnuma_nodes))[:numVnumaNodes:numVnumaNodes]
+	for i, v := range x.VnumaNodes {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_build_info_dispose(&xc)
+			return xc, err
+		}
+		cVnumaNodes[i] = tmp
+	}
 	xc.max_grant_frames = C.uint32_t(x.MaxGrantFrames)
 	xc.max_maptrack_frames = C.uint32_t(x.MaxMaptrackFrames)
 	xc.device_model_version = C.libxl_device_model_version(x.DeviceModelVersion)
@@ -1160,6 +1215,37 @@ func (x *DomainBuildInfo) toC() (xc C.libxl_domain_build_info, err error) {
 	if err != nil {
 		C.libxl_domain_build_info_dispose(&xc)
 		return xc, err
+	}
+	numIoports := len(x.Ioports)
+	xc.ioports = (*C.libxl_ioport_range)(C.malloc(C.ulong(numIoports) * C.sizeof_libxl_ioport_range))
+	xc.num_ioports = C.int(numIoports)
+	cIoports := (*[1 << 28]C.libxl_ioport_range)(unsafe.Pointer(xc.ioports))[:numIoports:numIoports]
+	for i, v := range x.Ioports {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_build_info_dispose(&xc)
+			return xc, err
+		}
+		cIoports[i] = tmp
+	}
+	numIrqs := len(x.Irqs)
+	xc.irqs = (*C.uint32_t)(C.malloc(C.size_t(numIrqs * numIrqs)))
+	xc.num_irqs = C.int(numIrqs)
+	cIrqs := (*[1 << 28]C.uint32_t)(unsafe.Pointer(xc.irqs))[:numIrqs:numIrqs]
+	for i, v := range x.Irqs {
+		cIrqs[i] = C.uint32_t(v)
+	}
+	numIomem := len(x.Iomem)
+	xc.iomem = (*C.libxl_iomem_range)(C.malloc(C.ulong(numIomem) * C.sizeof_libxl_iomem_range))
+	xc.num_iomem = C.int(numIomem)
+	cIomem := (*[1 << 28]C.libxl_iomem_range)(unsafe.Pointer(xc.iomem))[:numIomem:numIomem]
+	for i, v := range x.Iomem {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_build_info_dispose(&xc)
+			return xc, err
+		}
+		cIomem[i] = tmp
 	}
 	xc.claim_mode, err = x.ClaimMode.toC()
 	if err != nil {
@@ -1987,6 +2073,18 @@ func (x *DeviceVdispl) toC() (xc C.libxl_device_vdispl, err error) {
 	xc.backend_domname = C.CString(x.BackendDomname)
 	xc.devid = C.libxl_devid(x.Devid)
 	xc.be_alloc = C.bool(x.BeAlloc)
+	numConnectors := len(x.Connectors)
+	xc.connectors = (*C.libxl_connector_param)(C.malloc(C.ulong(numConnectors) * C.sizeof_libxl_connector_param))
+	xc.num_connectors = C.int(numConnectors)
+	cConnectors := (*[1 << 28]C.libxl_connector_param)(unsafe.Pointer(xc.connectors))[:numConnectors:numConnectors]
+	for i, v := range x.Connectors {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_device_vdispl_dispose(&xc)
+			return xc, err
+		}
+		cConnectors[i] = tmp
+	}
 	return xc, nil
 }
 
@@ -2011,6 +2109,20 @@ func (x *VsndParams) fromC(xc *C.libxl_vsnd_params) error {
 
 func (x *VsndParams) toC() (xc C.libxl_vsnd_params, err error) {
 	C.libxl_vsnd_params_init(&xc)
+	numSampleRates := len(x.SampleRates)
+	xc.sample_rates = (*C.uint32_t)(C.malloc(C.size_t(numSampleRates * numSampleRates)))
+	xc.num_sample_rates = C.int(numSampleRates)
+	cSampleRates := (*[1 << 28]C.uint32_t)(unsafe.Pointer(xc.sample_rates))[:numSampleRates:numSampleRates]
+	for i, v := range x.SampleRates {
+		cSampleRates[i] = C.uint32_t(v)
+	}
+	numSampleFormats := len(x.SampleFormats)
+	xc.sample_formats = (*C.libxl_vsnd_pcm_format)(C.malloc(C.size_t(numSampleFormats * numSampleFormats)))
+	xc.num_sample_formats = C.int(numSampleFormats)
+	cSampleFormats := (*[1 << 28]C.libxl_vsnd_pcm_format)(unsafe.Pointer(xc.sample_formats))[:numSampleFormats:numSampleFormats]
+	for i, v := range x.SampleFormats {
+		cSampleFormats[i] = C.libxl_vsnd_pcm_format(v)
+	}
 	xc.channels_min = C.uint32_t(x.ChannelsMin)
 	xc.channels_max = C.uint32_t(x.ChannelsMax)
 	xc.buffer_size = C.uint32_t(x.BufferSize)
@@ -2068,6 +2180,18 @@ func (x *VsndPcm) toC() (xc C.libxl_vsnd_pcm, err error) {
 		C.libxl_vsnd_pcm_dispose(&xc)
 		return xc, err
 	}
+	numVsndStreams := len(x.Streams)
+	xc.streams = (*C.libxl_vsnd_stream)(C.malloc(C.ulong(numVsndStreams) * C.sizeof_libxl_vsnd_stream))
+	xc.num_vsnd_streams = C.int(numVsndStreams)
+	cStreams := (*[1 << 28]C.libxl_vsnd_stream)(unsafe.Pointer(xc.streams))[:numVsndStreams:numVsndStreams]
+	for i, v := range x.Streams {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_vsnd_pcm_dispose(&xc)
+			return xc, err
+		}
+		cStreams[i] = tmp
+	}
 	return xc, nil
 }
 
@@ -2106,6 +2230,18 @@ func (x *DeviceVsnd) toC() (xc C.libxl_device_vsnd, err error) {
 	if err != nil {
 		C.libxl_device_vsnd_dispose(&xc)
 		return xc, err
+	}
+	numVsndPcms := len(x.Pcms)
+	xc.pcms = (*C.libxl_vsnd_pcm)(C.malloc(C.ulong(numVsndPcms) * C.sizeof_libxl_vsnd_pcm))
+	xc.num_vsnd_pcms = C.int(numVsndPcms)
+	cPcms := (*[1 << 28]C.libxl_vsnd_pcm)(unsafe.Pointer(xc.pcms))[:numVsndPcms:numVsndPcms]
+	for i, v := range x.Pcms {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_device_vsnd_dispose(&xc)
+			return xc, err
+		}
+		cPcms[i] = tmp
 	}
 	return xc, nil
 }
@@ -2290,6 +2426,186 @@ func (x *DomainConfig) toC() (xc C.libxl_domain_config, err error) {
 	if err != nil {
 		C.libxl_domain_config_dispose(&xc)
 		return xc, err
+	}
+	numDisks := len(x.Disks)
+	xc.disks = (*C.libxl_device_disk)(C.malloc(C.ulong(numDisks) * C.sizeof_libxl_device_disk))
+	xc.num_disks = C.int(numDisks)
+	cDisks := (*[1 << 28]C.libxl_device_disk)(unsafe.Pointer(xc.disks))[:numDisks:numDisks]
+	for i, v := range x.Disks {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cDisks[i] = tmp
+	}
+	numNics := len(x.Nics)
+	xc.nics = (*C.libxl_device_nic)(C.malloc(C.ulong(numNics) * C.sizeof_libxl_device_nic))
+	xc.num_nics = C.int(numNics)
+	cNics := (*[1 << 28]C.libxl_device_nic)(unsafe.Pointer(xc.nics))[:numNics:numNics]
+	for i, v := range x.Nics {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cNics[i] = tmp
+	}
+	numPcidevs := len(x.Pcidevs)
+	xc.pcidevs = (*C.libxl_device_pci)(C.malloc(C.ulong(numPcidevs) * C.sizeof_libxl_device_pci))
+	xc.num_pcidevs = C.int(numPcidevs)
+	cPcidevs := (*[1 << 28]C.libxl_device_pci)(unsafe.Pointer(xc.pcidevs))[:numPcidevs:numPcidevs]
+	for i, v := range x.Pcidevs {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cPcidevs[i] = tmp
+	}
+	numRdms := len(x.Rdms)
+	xc.rdms = (*C.libxl_device_rdm)(C.malloc(C.ulong(numRdms) * C.sizeof_libxl_device_rdm))
+	xc.num_rdms = C.int(numRdms)
+	cRdms := (*[1 << 28]C.libxl_device_rdm)(unsafe.Pointer(xc.rdms))[:numRdms:numRdms]
+	for i, v := range x.Rdms {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cRdms[i] = tmp
+	}
+	numDtdevs := len(x.Dtdevs)
+	xc.dtdevs = (*C.libxl_device_dtdev)(C.malloc(C.ulong(numDtdevs) * C.sizeof_libxl_device_dtdev))
+	xc.num_dtdevs = C.int(numDtdevs)
+	cDtdevs := (*[1 << 28]C.libxl_device_dtdev)(unsafe.Pointer(xc.dtdevs))[:numDtdevs:numDtdevs]
+	for i, v := range x.Dtdevs {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cDtdevs[i] = tmp
+	}
+	numVfbs := len(x.Vfbs)
+	xc.vfbs = (*C.libxl_device_vfb)(C.malloc(C.ulong(numVfbs) * C.sizeof_libxl_device_vfb))
+	xc.num_vfbs = C.int(numVfbs)
+	cVfbs := (*[1 << 28]C.libxl_device_vfb)(unsafe.Pointer(xc.vfbs))[:numVfbs:numVfbs]
+	for i, v := range x.Vfbs {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cVfbs[i] = tmp
+	}
+	numVkbs := len(x.Vkbs)
+	xc.vkbs = (*C.libxl_device_vkb)(C.malloc(C.ulong(numVkbs) * C.sizeof_libxl_device_vkb))
+	xc.num_vkbs = C.int(numVkbs)
+	cVkbs := (*[1 << 28]C.libxl_device_vkb)(unsafe.Pointer(xc.vkbs))[:numVkbs:numVkbs]
+	for i, v := range x.Vkbs {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cVkbs[i] = tmp
+	}
+	numVtpms := len(x.Vtpms)
+	xc.vtpms = (*C.libxl_device_vtpm)(C.malloc(C.ulong(numVtpms) * C.sizeof_libxl_device_vtpm))
+	xc.num_vtpms = C.int(numVtpms)
+	cVtpms := (*[1 << 28]C.libxl_device_vtpm)(unsafe.Pointer(xc.vtpms))[:numVtpms:numVtpms]
+	for i, v := range x.Vtpms {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cVtpms[i] = tmp
+	}
+	numP9S := len(x.P9S)
+	xc.p9s = (*C.libxl_device_p9)(C.malloc(C.ulong(numP9S) * C.sizeof_libxl_device_p9))
+	xc.num_p9s = C.int(numP9S)
+	cP9S := (*[1 << 28]C.libxl_device_p9)(unsafe.Pointer(xc.p9s))[:numP9S:numP9S]
+	for i, v := range x.P9S {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cP9S[i] = tmp
+	}
+	numPvcallsifs := len(x.Pvcallsifs)
+	xc.pvcallsifs = (*C.libxl_device_pvcallsif)(C.malloc(C.ulong(numPvcallsifs) * C.sizeof_libxl_device_pvcallsif))
+	xc.num_pvcallsifs = C.int(numPvcallsifs)
+	cPvcallsifs := (*[1 << 28]C.libxl_device_pvcallsif)(unsafe.Pointer(xc.pvcallsifs))[:numPvcallsifs:numPvcallsifs]
+	for i, v := range x.Pvcallsifs {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cPvcallsifs[i] = tmp
+	}
+	numVdispls := len(x.Vdispls)
+	xc.vdispls = (*C.libxl_device_vdispl)(C.malloc(C.ulong(numVdispls) * C.sizeof_libxl_device_vdispl))
+	xc.num_vdispls = C.int(numVdispls)
+	cVdispls := (*[1 << 28]C.libxl_device_vdispl)(unsafe.Pointer(xc.vdispls))[:numVdispls:numVdispls]
+	for i, v := range x.Vdispls {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cVdispls[i] = tmp
+	}
+	numVsnds := len(x.Vsnds)
+	xc.vsnds = (*C.libxl_device_vsnd)(C.malloc(C.ulong(numVsnds) * C.sizeof_libxl_device_vsnd))
+	xc.num_vsnds = C.int(numVsnds)
+	cVsnds := (*[1 << 28]C.libxl_device_vsnd)(unsafe.Pointer(xc.vsnds))[:numVsnds:numVsnds]
+	for i, v := range x.Vsnds {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cVsnds[i] = tmp
+	}
+	numChannels := len(x.Channels)
+	xc.channels = (*C.libxl_device_channel)(C.malloc(C.ulong(numChannels) * C.sizeof_libxl_device_channel))
+	xc.num_channels = C.int(numChannels)
+	cChannels := (*[1 << 28]C.libxl_device_channel)(unsafe.Pointer(xc.channels))[:numChannels:numChannels]
+	for i, v := range x.Channels {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cChannels[i] = tmp
+	}
+	numUsbctrls := len(x.Usbctrls)
+	xc.usbctrls = (*C.libxl_device_usbctrl)(C.malloc(C.ulong(numUsbctrls) * C.sizeof_libxl_device_usbctrl))
+	xc.num_usbctrls = C.int(numUsbctrls)
+	cUsbctrls := (*[1 << 28]C.libxl_device_usbctrl)(unsafe.Pointer(xc.usbctrls))[:numUsbctrls:numUsbctrls]
+	for i, v := range x.Usbctrls {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cUsbctrls[i] = tmp
+	}
+	numUsbdevs := len(x.Usbdevs)
+	xc.usbdevs = (*C.libxl_device_usbdev)(C.malloc(C.ulong(numUsbdevs) * C.sizeof_libxl_device_usbdev))
+	xc.num_usbdevs = C.int(numUsbdevs)
+	cUsbdevs := (*[1 << 28]C.libxl_device_usbdev)(unsafe.Pointer(xc.usbdevs))[:numUsbdevs:numUsbdevs]
+	for i, v := range x.Usbdevs {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_domain_config_dispose(&xc)
+			return xc, err
+		}
+		cUsbdevs[i] = tmp
 	}
 	xc.on_poweroff = C.libxl_action_on_shutdown(x.OnPoweroff)
 	xc.on_reboot = C.libxl_action_on_shutdown(x.OnReboot)
@@ -2570,6 +2886,18 @@ func (x *Vdisplinfo) toC() (xc C.libxl_vdisplinfo, err error) {
 	xc.devid = C.libxl_devid(x.Devid)
 	xc.state = C.int(x.State)
 	xc.be_alloc = C.bool(x.BeAlloc)
+	numConnectors := len(x.Connectors)
+	xc.connectors = (*C.libxl_connectorinfo)(C.malloc(C.ulong(numConnectors) * C.sizeof_libxl_connectorinfo))
+	xc.num_connectors = C.int(numConnectors)
+	cConnectors := (*[1 << 28]C.libxl_connectorinfo)(unsafe.Pointer(xc.connectors))[:numConnectors:numConnectors]
+	for i, v := range x.Connectors {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_vdisplinfo_dispose(&xc)
+			return xc, err
+		}
+		cConnectors[i] = tmp
+	}
 	return xc, nil
 }
 
@@ -2602,6 +2930,18 @@ func (x *Pcminfo) fromC(xc *C.libxl_pcminfo) error {
 
 func (x *Pcminfo) toC() (xc C.libxl_pcminfo, err error) {
 	C.libxl_pcminfo_init(&xc)
+	numVsndStreams := len(x.Streams)
+	xc.streams = (*C.libxl_streaminfo)(C.malloc(C.ulong(numVsndStreams) * C.sizeof_libxl_streaminfo))
+	xc.num_vsnd_streams = C.int(numVsndStreams)
+	cStreams := (*[1 << 28]C.libxl_streaminfo)(unsafe.Pointer(xc.streams))[:numVsndStreams:numVsndStreams]
+	for i, v := range x.Streams {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_pcminfo_dispose(&xc)
+			return xc, err
+		}
+		cStreams[i] = tmp
+	}
 	return xc, nil
 }
 
@@ -2633,6 +2973,18 @@ func (x *Vsndinfo) toC() (xc C.libxl_vsndinfo, err error) {
 	xc.frontend_id = C.uint32_t(x.FrontendId)
 	xc.devid = C.libxl_devid(x.Devid)
 	xc.state = C.int(x.State)
+	numVsndPcms := len(x.Pcms)
+	xc.pcms = (*C.libxl_pcminfo)(C.malloc(C.ulong(numVsndPcms) * C.sizeof_libxl_pcminfo))
+	xc.num_vsnd_pcms = C.int(numVsndPcms)
+	cPcms := (*[1 << 28]C.libxl_pcminfo)(unsafe.Pointer(xc.pcms))[:numVsndPcms:numVsndPcms]
+	for i, v := range x.Pcms {
+		tmp, err := v.toC()
+		if err != nil {
+			C.libxl_vsndinfo_dispose(&xc)
+			return xc, err
+		}
+		cPcms[i] = tmp
+	}
 	return xc, nil
 }
 
@@ -2677,6 +3029,13 @@ func (x *Numainfo) toC() (xc C.libxl_numainfo, err error) {
 	C.libxl_numainfo_init(&xc)
 	xc.size = C.uint64_t(x.Size)
 	xc.free = C.uint64_t(x.Free)
+	numDists := len(x.Dists)
+	xc.dists = (*C.uint32_t)(C.malloc(C.size_t(numDists * numDists)))
+	xc.num_dists = C.int(numDists)
+	cDists := (*[1 << 28]C.uint32_t)(unsafe.Pointer(xc.dists))[:numDists:numDists]
+	for i, v := range x.Dists {
+		cDists[i] = C.uint32_t(v)
+	}
 	return xc, nil
 }
 
