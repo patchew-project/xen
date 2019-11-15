@@ -92,8 +92,7 @@ void gic_save_state(struct vcpu *v)
 void gic_save_and_mask_hwppi(struct vcpu *v, const unsigned virq,
                              struct hwppi_state *s)
 {
-    struct pending_irq *p = irq_to_pending(v, virq);
-    struct irq_desc *desc = p->desc;
+    struct irq_desc *desc = vgic_get_hw_irq_desc(NULL, v, virq);
 
     spin_lock(&desc->lock);
 
@@ -123,7 +122,6 @@ void gic_restore_hwppi(struct vcpu *v,
                        const unsigned virq,
                        const struct hwppi_state *s)
 {
-    struct pending_irq *p = irq_to_pending(v, virq);
     struct irq_desc *desc = irq_to_desc(s->irq);
 
     spin_lock(&desc->lock);
@@ -131,7 +129,8 @@ void gic_restore_hwppi(struct vcpu *v,
     ASSERT(virq >= 16 && virq < 32);
     ASSERT(!is_idle_vcpu(v));
 
-    p->desc = desc; /* Migrate to new physical processor */
+    /* Migrate to new physical processor */
+    vgic_connect_hw_irq(v->domain, v, virq, desc, true);
 
     irq_set_virq(desc, virq);
 
@@ -176,6 +175,32 @@ void gic_route_irq_to_xen(struct irq_desc *desc, unsigned int priority)
 
     gic_set_irq_type(desc, desc->arch.type);
     gic_set_irq_priority(desc, priority);
+}
+
+/*
+ * Program the GIC to route an interrupt to the current guest.
+ *
+ * That is, the IRQ is delivered to whichever VCPU happens to be
+ * resident on the PCPU when the interrupt arrives.
+ *
+ * Currently the interrupt *must* be a PPI and the code responsible
+ * for the related hardware must save and restore the PPI with
+ * gic_save_and_mask_hwppi/gic_restore_hwppi.
+ */
+int gic_route_irq_to_current_guest(struct irq_desc *desc,
+                                   unsigned int priority)
+{
+    ASSERT(spin_is_locked(&desc->lock));
+    ASSERT(desc->irq >= 16 && desc->irq < 32);
+
+    desc->handler = gic_hw_ops->gic_guest_irq_type;
+    set_bit(_IRQ_GUEST, &desc->status);
+    set_bit(_IRQ_PER_CPU, &desc->status);
+
+    gic_set_irq_type(desc, desc->arch.type);
+    gic_set_irq_priority(desc, GIC_PRI_IRQ);
+
+    return 0;
 }
 
 /* Program the GIC to route an interrupt to a guest

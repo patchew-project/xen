@@ -236,6 +236,7 @@ void do_IRQ(struct cpu_user_regs *regs, unsigned int irq, int is_fiq)
     if ( test_bit(_IRQ_GUEST, &desc->status) )
     {
         struct irq_guest *info = irq_get_guest_info(desc);
+        struct vcpu *v;
 
         perfc_incr(guest_irqs);
         desc->handler->end(desc);
@@ -243,10 +244,15 @@ void do_IRQ(struct cpu_user_regs *regs, unsigned int irq, int is_fiq)
         set_bit(_IRQ_INPROGRESS, &desc->status);
 
         /*
-         * The irq cannot be a PPI, we only support delivery of SPIs to
-         * guests.
+         * A PPI exposed to a guest must always be in IRQ_GUEST|IRQ_PER_CPU
+         * mode ("route to active VCPU"), so we use current.
+         *
+         * For SPI, we use NULL. In this case, vgic_inject_irq() will look up
+         * the required target for delivery to a specific guest.
          */
-        vgic_inject_irq(info->d, NULL, info->virq, true);
+        v = test_bit(_IRQ_PER_CPU, &desc->status) ? current : NULL;
+        vgic_inject_irq(info->d, v, info->virq, true);
+
         goto out_no_end;
     }
 
@@ -362,11 +368,15 @@ int setup_irq(unsigned int irq, unsigned int irqflags, struct irqaction *new)
 
     if ( test_bit(_IRQ_GUEST, &desc->status) )
     {
-        struct domain *d = irq_get_domain(desc);
+        struct irq_guest *info = irq_get_guest_info(desc);
 
         spin_unlock_irqrestore(&desc->lock, flags);
-        printk(XENLOG_ERR "ERROR: IRQ %u is already in use by the domain %u\n",
-               irq, d->domain_id);
+        if ( !test_bit(_IRQ_PER_CPU, &desc->status) )
+            printk(XENLOG_ERR "ERROR: IRQ %u is already in use by domain %u\n",
+                   irq, info->d->domain_id);
+        else
+            printk(XENLOG_ERR
+                   "ERROR: IRQ %u is already in use by <current-vcpu>\n", irq);
         return -EBUSY;
     }
 
@@ -450,8 +460,14 @@ static int setup_guest_irq(struct irq_desc *desc, unsigned int virq,
 
             if ( d != ad )
             {
-                printk(XENLOG_G_ERR "IRQ %u is already used by domain %u\n",
-                       irq, ad->domain_id);
+                if ( !test_bit(_IRQ_PER_CPU, &desc->status) )
+                    printk(XENLOG_G_ERR
+                           "ERROR: IRQ %u is already used by domain %u\n",
+                           irq, ad->domain_id);
+                else
+                    printk(XENLOG_G_ERR
+                           "ERROR: IRQ %u is already used by <current-vcpu>\n",
+                           irq);
                 retval = -EBUSY;
             }
             else if ( irq_get_guest_info(desc)->virq != virq )
@@ -550,6 +566,54 @@ free_info:
     xfree(info);
 
     return retval;
+}
+
+/*
+ * Route a PPI such that it is always delivered to the current vcpu on
+ * the pcpu. The driver for the peripheral must use
+ * gic_{save_and_mask,restore}_hwppi as part of the context switch.
+ */
+int route_hwppi_to_current_vcpu(unsigned int irq, const char *devname)
+{
+    struct irq_guest *info;
+    struct irq_desc *desc;
+    unsigned long flags;
+    int retval = 0;
+
+    /* Can only route PPIs to current VCPU */
+    if ( irq < 16 || irq >= 32 )
+        return -EINVAL;
+
+    desc = irq_to_desc(irq);
+
+    info = xmalloc(struct irq_guest);
+    if ( !info )
+        return -ENOMEM;
+
+    info->d = NULL; /* Routed to current vcpu, so no specific domain */
+    /* info->virq is set by gic_restore_hwppi. */
+
+    spin_lock_irqsave(&desc->lock, flags);
+
+    retval = setup_guest_irq(desc, irq, flags, info, devname);
+    if ( retval )
+    {
+        xfree(info);
+        return retval;
+    }
+
+    retval = gic_route_irq_to_current_guest(desc, GIC_PRI_IRQ);
+
+    spin_unlock_irqrestore(&desc->lock, flags);
+
+    if ( retval )
+    {
+        release_irq(desc->irq, info);
+        xfree(info);
+        return retval;
+    }
+
+    return 0;
 }
 
 int release_guest_irq(struct domain *d, unsigned int virq)

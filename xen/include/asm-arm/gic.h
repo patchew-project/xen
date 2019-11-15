@@ -244,6 +244,8 @@ extern void gic_route_irq_to_xen(struct irq_desc *desc, unsigned int priority);
 extern int gic_route_irq_to_guest(struct domain *, unsigned int virq,
                                   struct irq_desc *desc,
                                   unsigned int priority);
+int gic_route_irq_to_current_guest(struct irq_desc *desc,
+                                   unsigned int priority);
 
 /* Remove an IRQ passthrough to a guest */
 int gic_remove_irq_from_guest(struct domain *d, unsigned int virq,

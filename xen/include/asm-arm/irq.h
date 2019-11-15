@@ -77,6 +77,7 @@ void init_secondary_IRQ(void);
 
 int route_irq_to_guest(struct domain *d, unsigned int virq,
                        unsigned int irq, const char *devname);
+int route_hwppi_to_current_vcpu(unsigned int irq, const char *devname);
 int release_guest_irq(struct domain *d, unsigned int irq);
 
 void arch_move_irqs(struct vcpu *v);
