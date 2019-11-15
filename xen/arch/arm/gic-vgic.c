@@ -418,7 +418,7 @@ struct irq_desc *vgic_get_hw_irq_desc(struct domain *d, struct vcpu *v,
 {
     struct pending_irq *p;
 
-    ASSERT(!v && virq >= 32);
+    ASSERT((!v && (virq >= 32)) || (!d && v && (virq >= 16) && (virq < 32)));
 
     if ( !v )
         v = d->vcpu[0];
@@ -434,14 +434,22 @@ int vgic_connect_hw_irq(struct domain *d, struct vcpu *v, unsigned int virq,
                         struct irq_desc *desc, bool connect)
 {
     unsigned long flags;
-    /*
-     * Use vcpu0 to retrieve the pending_irq struct. Given that we only
-     * route SPIs to guests, it doesn't make any difference.
-     */
-    struct vcpu *v_target = vgic_get_target_vcpu(d->vcpu[0], virq);
-    struct vgic_irq_rank *rank = vgic_rank_irq(v_target, virq);
-    struct pending_irq *p = irq_to_pending(v_target, virq);
+    struct vcpu *v_target;
+    struct vgic_irq_rank *rank;
+    struct pending_irq *p;
     int ret = 0;
+
+    if (v)
+        v_target = v;
+    else
+        /* Use vcpu0 to retrieve the pending_irq struct. */
+        v_target = vgic_get_target_vcpu(d->vcpu[0], virq);
+
+    rank = vgic_rank_irq(v_target, virq);
+    p = irq_to_pending(v_target, virq);
+
+    ASSERT(virq >= NR_SGIS);
+    ASSERT(p->irq >= NR_SGIS);
 
     /* "desc" is optional when we disconnect an IRQ. */
     ASSERT(!connect || desc);

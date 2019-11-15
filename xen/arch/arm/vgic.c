@@ -410,10 +410,10 @@ void vgic_enable_irqs(struct vcpu *v, uint32_t r, int n)
             irq_set_affinity(p->desc, cpumask_of(v_target->processor));
             spin_lock_irqsave(&p->desc->lock, flags);
             /*
-             * The irq cannot be a PPI, we only support delivery of SPIs
-             * to guests.
+             * The irq cannot be a SGI, we only support delivery of SPIs
+             * and PPIs to guests.
              */
-            ASSERT(irq >= 32);
+            ASSERT(irq >= NR_SGIS);
             if ( irq_type_set_by_domain(d) )
                 gic_set_irq_type(p->desc, vgic_get_virq_type(v, n, i));
             p->desc->handler->enable(p->desc);
