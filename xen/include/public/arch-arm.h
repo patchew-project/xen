@@ -451,7 +451,7 @@ typedef uint64_t xen_callback_t;
 #define GUEST_MAX_VCPUS 128
 
 /* Interrupts */
-#define GUEST_TIMER_VIRT_PPI    27
+#define GUEST_TIMER_VIRT_PPI    16
 #define GUEST_TIMER_PHYS_S_PPI  29
 #define GUEST_TIMER_PHYS_NS_PPI 30
 #define GUEST_EVTCHN_PPI        31
