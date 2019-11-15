@@ -51,6 +51,7 @@ struct vtimer {
     struct timer timer;
     uint32_t ctl;
     uint64_t cval;
+    struct hwppi_state ppi_state;
 };
 
 struct arch_domain

@@ -243,28 +243,6 @@ static void timer_interrupt(int irq, void *dev_id, struct cpu_user_regs *regs)
     }
 }
 
-static void vtimer_interrupt(int irq, void *dev_id, struct cpu_user_regs *regs)
-{
-    /*
-     * Edge-triggered interrupts can be used for the virtual timer. Even
-     * if the timer output signal is masked in the context switch, the
-     * GIC will keep track that of any interrupts raised while IRQS are
-     * disabled. As soon as IRQs are re-enabled, the virtual interrupt
-     * will be injected to Xen.
-     *
-     * If an IDLE vCPU was scheduled next then we should ignore the
-     * interrupt.
-     */
-    if ( unlikely(is_idle_vcpu(current)) )
-        return;
-
-    perfc_incr(virt_timer_irqs);
-
-    current->arch.virt_timer.ctl = READ_SYSREG32(CNTV_CTL_EL0);
-    WRITE_SYSREG32(current->arch.virt_timer.ctl | CNTx_CTL_MASK, CNTV_CTL_EL0);
-    vgic_inject_irq(current->domain, current, current->arch.virt_timer.irq, true);
-}
-
 /*
  * Arch timer interrupt really ought to be level triggered, since the
  * design of the timer/comparator mechanism is based around that
@@ -304,8 +282,8 @@ void init_timer_interrupt(void)
 
     request_irq(timer_irq[TIMER_HYP_PPI], 0, timer_interrupt,
                 "hyptimer", NULL);
-    request_irq(timer_irq[TIMER_VIRT_PPI], 0, vtimer_interrupt,
-                   "virtimer", NULL);
+    route_hwppi_to_current_vcpu(timer_irq[TIMER_VIRT_PPI], "virtimer");
+
     request_irq(timer_irq[TIMER_PHYS_NONSECURE_PPI], 0, timer_interrupt,
                 "phytimer", NULL);
 

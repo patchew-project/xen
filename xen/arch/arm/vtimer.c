@@ -55,9 +55,19 @@ static void phys_timer_expired(void *data)
 static void virt_timer_expired(void *data)
 {
     struct vtimer *t = data;
-    t->ctl |= CNTx_CTL_MASK;
-    vgic_inject_irq(t->v->domain, t->v, t->irq, true);
-    perfc_incr(vtimer_virt_inject);
+    t->ctl |= CNTx_CTL_PENDING;
+    if ( !(t->ctl & CNTx_CTL_MASK) )
+    {
+        /*
+         * An edge triggered interrupt should now be pending. Since
+         * this timer can never expire while the domain is scheduled
+         * we know that the gic_restore_hwppi in virt_timer_restore
+         * will cause the real hwppi to occur and be routed.
+         */
+        gic_hwppi_set_pending(&t->ppi_state);
+        vcpu_unblock(t->v);
+        perfc_incr(vtimer_virt_inject);
+    }
 }
 
 int domain_vtimer_init(struct domain *d, struct xen_arch_domainconfig *config)
@@ -98,8 +108,13 @@ int domain_vtimer_init(struct domain *d, struct xen_arch_domainconfig *config)
 
 int vcpu_vtimer_init(struct vcpu *v)
 {
+#ifndef CONFIG_NEW_VGIC
+    struct pending_irq *p;
+#endif
     struct vtimer *t = &v->arch.phys_timer;
     bool d0 = is_hardware_domain(v->domain);
+
+    const unsigned host_vtimer_irq_ppi = timer_get_irq(TIMER_VIRT_PPI);
 
     /*
      * Hardware domain uses the hardware interrupts, guests get the virtual
@@ -118,9 +133,17 @@ int vcpu_vtimer_init(struct vcpu *v)
     init_timer(&t->timer, virt_timer_expired, t, v->processor);
     t->ctl = 0;
     t->irq = d0
-        ? timer_get_irq(TIMER_VIRT_PPI)
+        ? host_vtimer_irq_ppi
         : GUEST_TIMER_VIRT_PPI;
     t->v = v;
+
+#ifndef CONFIG_NEW_VGIC
+    p = irq_to_pending(v, t->irq);
+    p->irq = t->irq;
+#endif
+
+    gic_hwppi_state_init(&v->arch.virt_timer.ppi_state,
+                         host_vtimer_irq_ppi);
 
     v->arch.vtimer_initialized = 1;
 
@@ -149,6 +172,16 @@ void virt_timer_save(struct vcpu *v)
         set_timer(&v->arch.virt_timer.timer, ticks_to_ns(v->arch.virt_timer.cval +
                   v->domain->arch.virt_timer_base.offset - boot_count));
     }
+
+    /*
+     * Since the vtimer irq is a PPI we don't need to worry about
+     * racing against it becoming active while we are saving the
+     * state, since that requires the guest to be reading the IAR,
+     * as long as the guest is not using I*ACTIVER register which we
+     * don't yet implement.
+     */
+    gic_save_and_mask_hwppi(v, v->arch.virt_timer.irq,
+                            &v->arch.virt_timer.ppi_state);
 }
 
 void virt_timer_restore(struct vcpu *v)
@@ -162,6 +195,10 @@ void virt_timer_restore(struct vcpu *v)
     WRITE_SYSREG64(v->domain->arch.virt_timer_base.offset, CNTVOFF_EL2);
     WRITE_SYSREG64(v->arch.virt_timer.cval, CNTV_CVAL_EL0);
     WRITE_SYSREG32(v->arch.virt_timer.ctl, CNTV_CTL_EL0);
+
+    gic_restore_hwppi(v,
+                      v->arch.virt_timer.irq,
+                      &v->arch.virt_timer.ppi_state);
 }
 
 static bool vtimer_cntp_ctl(struct cpu_user_regs *regs, uint32_t *r, bool read)
