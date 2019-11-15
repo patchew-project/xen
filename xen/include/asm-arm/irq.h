@@ -70,8 +70,6 @@ static inline bool is_lpi(unsigned int irq)
 
 #define domain_pirq_to_irq(d, pirq) (pirq)
 
-bool is_assignable_irq(unsigned int irq);
-
 void init_IRQ(void);
 void init_secondary_IRQ(void);
 

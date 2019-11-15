@@ -390,12 +390,6 @@ err:
     return rc;
 }
 
-bool is_assignable_irq(unsigned int irq)
-{
-    /* For now, we can only route SPIs to the guest */
-    return (irq >= NR_LOCAL_IRQS) && (irq < gic_number_lines());
-}
-
 /*
  * Only the hardware domain is allowed to set the configure the
  * interrupt type for now.
@@ -509,7 +503,8 @@ int route_irq_to_guest(struct domain *d, unsigned int virq,
         return -EINVAL;
     }
 
-    if ( !is_assignable_irq(irq) )
+    /* For now, we can only route SPIs to the guest */
+    if ( (irq < NR_LOCAL_IRQS) || (irq >= gic_number_lines()) )
     {
         printk(XENLOG_G_ERR "the IRQ%u is not routable\n", irq);
         return -EINVAL;
