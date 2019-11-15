@@ -407,60 +407,24 @@ bool irq_type_set_by_domain(const struct domain *d)
     return (d == hardware_domain);
 }
 
-/*
- * Route an IRQ to a specific guest.
- * For now only SPIs are assignable to the guest.
- */
-int route_irq_to_guest(struct domain *d, unsigned int virq,
-                       unsigned int irq, const char * devname)
+static int setup_guest_irq(struct irq_desc *desc, unsigned int virq,
+                           unsigned int irqflags,
+                           struct irq_guest *info, const char *devname)
 {
+    const unsigned irq = desc->irq;
     struct irqaction *action;
-    struct irq_guest *info;
-    struct irq_desc *desc;
-    unsigned long flags;
-    int retval = 0;
+    int retval;
+    struct domain *d = info->d;
 
-    if ( virq >= vgic_num_irqs(d) )
-    {
-        printk(XENLOG_G_ERR
-               "the vIRQ number %u is too high for domain %u (max = %u)\n",
-               irq, d->domain_id, vgic_num_irqs(d));
-        return -EINVAL;
-    }
-
-    /* Only routing to virtual SPIs is supported */
-    if ( virq < NR_LOCAL_IRQS )
-    {
-        printk(XENLOG_G_ERR "IRQ can only be routed to an SPI\n");
-        return -EINVAL;
-    }
-
-    if ( !is_assignable_irq(irq) )
-    {
-        printk(XENLOG_G_ERR "the IRQ%u is not routable\n", irq);
-        return -EINVAL;
-    }
-    desc = irq_to_desc(irq);
+    ASSERT(spin_is_locked(&desc->lock));
 
     action = xmalloc(struct irqaction);
     if ( !action )
         return -ENOMEM;
 
-    info = xmalloc(struct irq_guest);
-    if ( !info )
-    {
-        xfree(action);
-        return -ENOMEM;
-    }
-
-    info->d = d;
-    info->virq = virq;
-
     action->dev_id = info;
     action->name = devname;
     action->free_on_release = 1;
-
-    spin_lock_irqsave(&desc->lock, flags);
 
     if ( !irq_type_set_by_domain(d) && desc->arch.type == IRQ_TYPE_INVALID )
     {
@@ -496,6 +460,8 @@ int route_irq_to_guest(struct domain *d, unsigned int virq,
                        d->domain_id, irq, irq_get_guest_info(desc)->virq);
                 retval = -EBUSY;
             }
+            else
+                retval = 0;
         }
         else
         {
@@ -506,6 +472,61 @@ int route_irq_to_guest(struct domain *d, unsigned int virq,
     }
 
     retval = __setup_irq(desc, 0, action);
+    if ( retval )
+        goto out;
+
+    return 0;
+
+out:
+    xfree(action);
+    return retval;
+}
+
+/*
+ * Route an IRQ to a specific guest.
+ * For now only SPIs are assignable to the guest.
+ */
+int route_irq_to_guest(struct domain *d, unsigned int virq,
+                       unsigned int irq, const char * devname)
+{
+    struct irq_guest *info;
+    struct irq_desc *desc;
+    unsigned long flags;
+    int retval;
+
+    if ( virq >= vgic_num_irqs(d) )
+    {
+        printk(XENLOG_G_ERR
+               "the vIRQ number %u is too high for domain %u (max = %u)\n",
+               irq, d->domain_id, vgic_num_irqs(d));
+        return -EINVAL;
+    }
+
+    /* Only routing to virtual SPIs is supported */
+    if ( virq < NR_LOCAL_IRQS )
+    {
+        printk(XENLOG_G_ERR "IRQ can only be routed to an SPI\n");
+        return -EINVAL;
+    }
+
+    if ( !is_assignable_irq(irq) )
+    {
+        printk(XENLOG_G_ERR "the IRQ%u is not routable\n", irq);
+        return -EINVAL;
+    }
+
+    desc = irq_to_desc(irq);
+
+    info = xmalloc(struct irq_guest);
+    if ( !info )
+        return -ENOMEM;
+
+    info->d = d;
+    info->virq = virq;
+
+    spin_lock_irqsave(&desc->lock, flags);
+
+    retval = setup_guest_irq(desc, virq, flags, info, devname);
     if ( retval )
         goto out;
 
@@ -523,7 +544,6 @@ int route_irq_to_guest(struct domain *d, unsigned int virq,
 
 out:
     spin_unlock_irqrestore(&desc->lock, flags);
-    xfree(action);
 free_info:
     xfree(info);
 
