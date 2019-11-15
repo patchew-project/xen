@@ -33,7 +33,9 @@ struct arch_irq_desc {
     unsigned int type;
 };
 
-#define NR_LOCAL_IRQS	32
+#define NR_SGIS         16
+#define NR_PPIS         16
+#define NR_LOCAL_IRQS   (NR_SGIS + NR_PPIS)
 
 /*
  * This only covers the interrupts that Xen cares about, so SGIs, PPIs and
