@@ -232,6 +232,14 @@ void vmx_intr_assist(void)
     enum hvm_intblk intblk;
     int pt_vector;
 
+    if ( cpu_has_vmx_posted_intr_processing )
+        /*
+         * Always force PIR to be synced to IRR before vmentry, this is also
+         * done by vlapic_has_pending_irq but it's possible other pending
+         * interrupts prevent the execution of that function.
+         */
+        vmx_sync_pir_to_irr(v);
+
     /* Block event injection when single step with MTF. */
     if ( unlikely(v->arch.hvm.single_step) )
     {
