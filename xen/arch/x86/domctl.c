@@ -425,6 +425,18 @@ long arch_do_domctl(
                 ret = -EFAULT;
                 break;
             }
+
+            if ( hypercall_preempt_check() ) {
+                domctl->u.getpageframeinfo3.num = num - i - 1;
+                domctl->u.getpageframeinfo3.array.p =
+                    guest_handle + ((i + 1) * width);
+                if ( __copy_to_guest(u_domctl, domctl, 1) ) {
+                    ret = -EFAULT;
+                    break;
+                }
+                return hypercall_create_continuation(__HYPERVISOR_domctl,
+                                                     "h", u_domctl);
+            }
         }
 
         break;
