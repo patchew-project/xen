@@ -977,6 +977,7 @@ int guest_wrmsr_x2apic(struct vcpu *v, uint32_t msr, uint64_t msr_content)
 {
     struct vlapic *vlapic = vcpu_vlapic(v);
     uint32_t offset = (msr - MSR_X2APIC_FIRST) << 4;
+    const struct cpuid_policy *cpuid = v->domain->arch.cpuid;
 
     /* The timer handling at least is unsafe outside of current context. */
     ASSERT(v == current);
@@ -993,6 +994,14 @@ int guest_wrmsr_x2apic(struct vcpu *v, uint32_t msr, uint64_t msr_content)
 
     case APIC_SPIV:
         if ( msr_content & ~(APIC_VECTOR_MASK | APIC_SPIV_APIC_ENABLED |
+                             /*
+                              * APIC_SPIV_FOCUS_DISABLED is not supported on
+                              * Intel Pentium 4 and Xeon processors.
+                              */
+                             ((cpuid->x86_vendor != X86_VENDOR_INTEL ||
+                               get_cpu_family(cpuid->basic.raw_fms, NULL,
+                                              NULL) != 15) ?
+                               APIC_SPIV_FOCUS_DISABLED : 0) |
                              (VLAPIC_VERSION & APIC_LVR_DIRECTED_EOI
                               ? APIC_SPIV_DIRECTED_EOI : 0)) )
             return X86EMUL_EXCEPTION;
