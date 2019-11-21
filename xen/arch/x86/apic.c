@@ -492,7 +492,8 @@ static void __enable_x2apic(void)
 
 static void resume_x2apic(void)
 {
-    iommu_enable_x2apic();
+    if ( iommu_supports_x2apic() )
+        iommu_enable_x2apic();
     __enable_x2apic();
 }
 
@@ -695,7 +696,8 @@ int lapic_suspend(void)
 
     local_irq_save(flags);
     disable_local_APIC();
-    iommu_disable_x2apic();
+    if ( iommu_supports_x2apic() )
+        iommu_disable_x2apic();
     local_irq_restore(flags);
     return 0;
 }
@@ -875,56 +877,49 @@ void __init x2apic_bsp_setup(void)
         printk("x2APIC: Already enabled by BIOS: Ignoring cmdline disable.\n");
     }
 
-    if ( !iommu_supports_x2apic() )
+    if ( iommu_supports_x2apic() )
     {
-        if ( !x2apic_enabled )
+        if ( (ioapic_entries = alloc_ioapic_entries()) == NULL )
         {
-            printk("Not enabling x2APIC: depends on IOMMU support\n");
-            return;
+            printk("Allocate ioapic_entries failed\n");
+            goto out;
         }
-        panic("x2APIC: already enabled by BIOS, but no IOMMU support\n");
-    }
 
-    if ( (ioapic_entries = alloc_ioapic_entries()) == NULL )
-    {
-        printk("Allocate ioapic_entries failed\n");
-        goto out;
-    }
-
-    if ( save_IO_APIC_setup(ioapic_entries) )
-    {
-        printk("Saving IO-APIC state failed\n");
-        goto out;
-    }
-
-    mask_8259A();
-    mask_IO_APIC_setup(ioapic_entries);
-
-    switch ( iommu_enable_x2apic() )
-    {
-    case 0:
-        intremap_enabled = true;
-        break;
-    case -ENXIO: /* ACPI_DMAR_X2APIC_OPT_OUT set */
-        if ( !x2apic_enabled )
+        if ( save_IO_APIC_setup(ioapic_entries) )
         {
-            printk("Not enabling x2APIC (upon firmware request)\n");
+            printk("Saving IO-APIC state failed\n");
+            goto out;
+        }
+
+        mask_8259A();
+        mask_IO_APIC_setup(ioapic_entries);
+
+        switch ( iommu_enable_x2apic() )
+        {
+        case 0:
+            intremap_enabled = true;
+            break;
+        case -ENXIO: /* ACPI_DMAR_X2APIC_OPT_OUT set */
+            if ( !x2apic_enabled )
+            {
+                printk("Not enabling x2APIC (upon firmware request)\n");
+                intremap_enabled = false;
+                goto restore_out;
+            }
+            /* fall through */
+        default:
+            if ( x2apic_enabled )
+                panic("Interrupt remapping could not be enabled while "
+                      "x2APIC is already enabled by BIOS\n");
+
+            printk(XENLOG_ERR
+                   "Failed to enable Interrupt Remapping: Will not enable x2APIC.\n");
             intremap_enabled = false;
             goto restore_out;
         }
-        /* fall through */
-    default:
-        if ( x2apic_enabled )
-            panic("Interrupt remapping could not be enabled while "
-                  "x2APIC is already enabled by BIOS\n");
 
-        printk(XENLOG_ERR
-               "Failed to enable Interrupt Remapping: Will not enable x2APIC.\n");
-        intremap_enabled = false;
-        goto restore_out;
+        force_iommu = 1;
     }
-
-    force_iommu = 1;
 
     if ( !x2apic_enabled )
     {
@@ -938,13 +933,16 @@ void __init x2apic_bsp_setup(void)
         printk("Switched to APIC driver %s\n", genapic.name);
 
 restore_out:
-    /*
-     * NB: do not use raw mode when restoring entries if the iommu has been
-     * enabled during the process, because the entries need to be translated
-     * and added to the remapping table in that case.
-     */
-    restore_IO_APIC_setup(ioapic_entries, !intremap_enabled);
-    unmask_8259A();
+    if ( iommu_supports_x2apic() )
+    {
+        /*
+         * NB: do not use raw mode when restoring entries if the iommu has been
+         * enabled during the process, because the entries need to be translated
+         * and added to the remapping table in that case.
+         */
+        restore_IO_APIC_setup(ioapic_entries, !intremap_enabled);
+        unmask_8259A();
+    }
 
 out:
     if ( ioapic_entries )
