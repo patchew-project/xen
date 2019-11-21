@@ -2776,7 +2776,41 @@ void svm_vmexit_handler(struct cpu_user_regs *regs)
 
     case VMEXIT_TASK_SWITCH: {
         enum hvm_task_switch_reason reason;
-        int32_t errcode = -1;
+        int32_t errcode = -1, insn_len = -1;
+
+        /*
+         * All TASK_SWITCH intercepts have fault-like semantics.  NRIP is
+         * never provided, even for instruction-induced task switches, but we
+         * need to know the instruction length in order to set %eip suitably
+         * in the outgoing TSS.
+         *
+         * For a task switch which vectored through the IDT, look at the type
+         * to distinguish interrupts/exceptions from instruction based
+         * switches.
+         */
+        if ( vmcb->eventinj.fields.v )
+        {
+            /*
+             * HW_EXCEPTION, NMI and EXT_INTR are not instruction based.  All
+             * others are.
+             */
+            if ( vmcb->eventinj.fields.type <= X86_EVENTTYPE_HW_EXCEPTION )
+                insn_len = 0;
+
+            /*
+             * Clobber the vectoring information, as we are going to emulate
+             * the task switch in full.
+             */
+            vmcb->eventinj.bytes = 0;
+        }
+
+        /*
+         * insn_len being -1 indicates that we have an instruction-induced
+         * task switch.  Decode under %rip to find its length.
+         */
+        if ( insn_len < 0 && (insn_len = svm_get_task_switch_insn_len(v)) == 0 )
+            break;
+
         if ( (vmcb->exitinfo2 >> 36) & 1 )
             reason = TSW_iret;
         else if ( (vmcb->exitinfo2 >> 38) & 1 )
@@ -2786,15 +2820,7 @@ void svm_vmexit_handler(struct cpu_user_regs *regs)
         if ( (vmcb->exitinfo2 >> 44) & 1 )
             errcode = (uint32_t)vmcb->exitinfo2;
 
-        /*
-         * Some processors set the EXITINTINFO field when the task switch
-         * is caused by a task gate in the IDT. In this case we will be
-         * emulating the event injection, so we do not want the processor
-         * to re-inject the original event!
-         */
-        vmcb->eventinj.bytes = 0;
-
-        hvm_task_switch(vmcb->exitinfo1, reason, errcode, 0);
+        hvm_task_switch(vmcb->exitinfo1, reason, errcode, insn_len);
         break;
     }
 

@@ -117,6 +117,61 @@ unsigned int svm_get_insn_len(struct vcpu *v, unsigned int instr_enc)
 }
 
 /*
+ * TASK_SWITCH vmexits never provide an instruction length.  We must always
+ * decode under %rip to find the answer.
+ */
+unsigned int svm_get_task_switch_insn_len(struct vcpu *v)
+{
+    struct hvm_emulate_ctxt ctxt;
+    struct x86_emulate_state *state;
+    unsigned int emul_len, modrm_reg;
+
+    ASSERT(v == current);
+    hvm_emulate_init_once(&ctxt, NULL, guest_cpu_user_regs());
+    hvm_emulate_init_per_insn(&ctxt, NULL, 0);
+    state = x86_decode_insn(&ctxt.ctxt, hvmemul_insn_fetch);
+    if ( IS_ERR_OR_NULL(state) )
+        return 0;
+
+    emul_len = x86_insn_length(state, &ctxt.ctxt);
+
+    /*
+     * Check for an instruction which can cause a task switch.  Any far
+     * jmp/call/ret, any software interrupt/exception, and iret.
+     */
+    switch ( ctxt.ctxt.opcode )
+    {
+    case 0xff: /* Grp 5 */
+        /* call / jmp (far, absolute indirect) */
+        if ( x86_insn_modrm(state, NULL, &modrm_reg) != 3 ||
+             (modrm_reg != 3 && modrm_reg != 5) )
+        {
+            /* Wrong instruction.  Throw #GP back for now. */
+    default:
+            hvm_inject_hw_exception(TRAP_gp_fault, 0);
+            emul_len = 0;
+            break;
+        }
+        /* Fallthrough */
+    case 0x62: /* bound */
+    case 0x9a: /* call (far, absolute) */
+    case 0xca: /* ret imm16 (far) */
+    case 0xcb: /* ret (far) */
+    case 0xcc: /* int3 */
+    case 0xcd: /* int imm8 */
+    case 0xce: /* into */
+    case 0xcf: /* iret */
+    case 0xea: /* jmp (far, absolute) */
+    case 0xf1: /* icebp */
+        break;
+    }
+
+    x86_emulate_free_state(state);
+
+    return emul_len;
+}
+
+/*
  * Local variables:
  * mode: C
  * c-file-style: "BSD"
