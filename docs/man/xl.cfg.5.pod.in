@@ -1562,8 +1562,8 @@ Specifies the backend domain name or id.
 
 =item B<backend-type=type>
 
-Specifies the backend type: qemu - for QEMU backend or linux - for Linux PV
-domain.
+Specifies the backend type: qemu - for QEMU backend or pv - for PV
+backend.
 
 =item B<feature-disable-keyboard=BOOLEAN>
 

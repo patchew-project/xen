@@ -113,7 +113,7 @@ static int libxl__vkb_from_xenstore(libxl__gc *gc, const char *libxl_path,
     if (rc) goto out;
 
     vkb->backend_type = dev.backend_kind == LIBXL__DEVICE_KIND_VINPUT ?
-                                            LIBXL_VKB_BACKEND_LINUX : LIBXL_VKB_BACKEND_QEMU;
+                                            LIBXL_VKB_BACKEND_PV : LIBXL_VKB_BACKEND_QEMU;
 
     vkb->unique_id = xs_read(CTX->xsh, XBT_NULL, GCSPRINTF("%s/"XENKBD_FIELD_UNIQUE_ID, be_path), NULL);
 
@@ -219,7 +219,7 @@ static int libxl__device_from_vkb(libxl__gc *gc, uint32_t domid,
 {
     device->backend_devid   = type->devid;
     device->backend_domid   = type->backend_domid;
-    device->backend_kind    = type->backend_type == LIBXL_VKB_BACKEND_LINUX ?
+    device->backend_kind    = type->backend_type == LIBXL_VKB_BACKEND_PV ?
                               LIBXL__DEVICE_KIND_VINPUT : LIBXL__DEVICE_KIND_VKBD;
     device->devid           = type->devid;
     device->domid           = domid;
