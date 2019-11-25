@@ -62,7 +62,6 @@ static void virt_timer_expired(void *data)
 
 int domain_vtimer_init(struct domain *d, struct xen_arch_domainconfig *config)
 {
-    d->arch.phys_timer_base.offset = NOW();
     d->arch.virt_timer_base.offset = READ_SYSREG64(CNTPCT_EL0);
     d->time_offset_seconds = ticks_to_ns(d->arch.virt_timer_base.offset - boot_count);
     do_div(d->time_offset_seconds, 1000000000);
@@ -184,8 +183,7 @@ static bool vtimer_cntp_ctl(struct cpu_user_regs *regs, uint32_t *r, bool read)
 
         if ( v->arch.phys_timer.ctl & CNTx_CTL_ENABLE )
         {
-            set_timer(&v->arch.phys_timer.timer,
-                      v->arch.phys_timer.cval + v->domain->arch.phys_timer_base.offset);
+            set_timer(&v->arch.phys_timer.timer, v->arch.phys_timer.cval);
         }
         else
             stop_timer(&v->arch.phys_timer.timer);
@@ -202,7 +200,7 @@ static bool vtimer_cntp_tval(struct cpu_user_regs *regs, uint32_t *r,
     if ( !ACCESS_ALLOWED(regs, EL0PTEN) )
         return false;
 
-    now = NOW() - v->domain->arch.phys_timer_base.offset;
+    now = NOW();
 
     if ( read )
     {
@@ -214,9 +212,7 @@ static bool vtimer_cntp_tval(struct cpu_user_regs *regs, uint32_t *r,
         if ( v->arch.phys_timer.ctl & CNTx_CTL_ENABLE )
         {
             v->arch.phys_timer.ctl &= ~CNTx_CTL_PENDING;
-            set_timer(&v->arch.phys_timer.timer,
-                      v->arch.phys_timer.cval +
-                      v->domain->arch.phys_timer_base.offset);
+            set_timer(&v->arch.phys_timer.timer, v->arch.phys_timer.cval);
         }
     }
     return true;
@@ -232,17 +228,15 @@ static bool vtimer_cntp_cval(struct cpu_user_regs *regs, uint64_t *r,
 
     if ( read )
     {
-        *r = ns_to_ticks(v->arch.phys_timer.cval);
+        *r = ns_to_ticks(v->arch.phys_timer.cval) + boot_count;
     }
     else
     {
-        v->arch.phys_timer.cval = ticks_to_ns(*r);
+        v->arch.phys_timer.cval = ticks_to_ns(*r - boot_count);
         if ( v->arch.phys_timer.ctl & CNTx_CTL_ENABLE )
         {
             v->arch.phys_timer.ctl &= ~CNTx_CTL_PENDING;
-            set_timer(&v->arch.phys_timer.timer,
-                      v->arch.phys_timer.cval +
-                      v->domain->arch.phys_timer_base.offset);
+            set_timer(&v->arch.phys_timer.timer, v->arch.phys_timer.cval);
         }
     }
     return true;
