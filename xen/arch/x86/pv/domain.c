@@ -13,6 +13,7 @@
 #include <asm/invpcid.h>
 #include <asm/spec_ctrl.h>
 #include <asm/pv/domain.h>
+#include <asm/pv/shim.h>
 #include <asm/shadow.h>
 
 static __read_mostly enum {
@@ -130,7 +131,7 @@ unsigned long pv_make_cr4(const struct vcpu *v)
      */
     if ( d->arch.pv.pcid )
         cr4 |= X86_CR4_PCIDE;
-    else if ( !d->arch.pv.xpti )
+    else if ( !d->arch.pv.xpti && !pv_shim )
         cr4 |= X86_CR4_PGE;
 
     /*
