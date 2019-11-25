@@ -626,6 +626,8 @@ int domain_vpl011_init(struct domain *d, struct vpl011_init_info *info)
     if ( vpl011->backend.dom.ring_buf )
         return -EINVAL;
 
+    vpl011->uartfr = TXFE | RXFE;
+
     /*
      * info is NULL when the backend is in Xen.
      * info is != NULL when the backend is in a domain.
