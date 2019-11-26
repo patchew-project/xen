@@ -2060,6 +2060,19 @@ static void vmx_sync_pir_to_irr(struct vcpu *v)
     unsigned int group, i;
     DECLARE_BITMAP(pending_intr, NR_VECTORS);
 
+    if ( v != current && !atomic_read(&v->pause_count) )
+    {
+        /*
+         * Syncing PIR to IRR must not be done behind the back of the CPU,
+         * since the IRR is controlled by the hardware when the vCPU is
+         * executing. Only allow Xen to do such sync if the vCPU is the current
+         * one or if it's paused: that's required in order to sync the lapic
+         * state before saving it.
+         */
+        ASSERT_UNREACHABLE();
+        return;
+    }
+
     if ( !pi_test_and_clear_on(&v->arch.hvm.vmx.pi_desc) )
         return;
 
