@@ -1951,57 +1951,31 @@ static void vmx_process_isr(int isr, struct vcpu *v)
 
 static void __vmx_deliver_posted_interrupt(struct vcpu *v)
 {
-    bool_t running = v->is_running;
-
     vcpu_unblock(v);
-    /*
-     * Just like vcpu_kick(), nothing is needed for the following two cases:
-     * 1. The target vCPU is not running, meaning it is blocked or runnable.
-     * 2. The target vCPU is the current vCPU and we're in non-interrupt
-     * context.
-     */
-    if ( running && (in_irq() || (v != current)) )
-    {
+    if ( v->is_running && v != current )
         /*
-         * Note: Only two cases will reach here:
-         * 1. The target vCPU is running on other pCPU.
-         * 2. The target vCPU is the current vCPU.
+         * If the vCPU is running on another pCPU send an IPI to the pCPU. When
+         * the IPI arrives, the target vCPU may be running in non-root mode,
+         * running in root mode, runnable or blocked. If the target vCPU is
+         * running in non-root mode, the hardware will sync PIR to vIRR for
+         * 'posted_intr_vector' is a special vector handled directly by the
+         * hardware.
          *
-         * Note2: Don't worry the v->processor may change. The vCPU being
-         * moved to another processor is guaranteed to sync PIR to vIRR,
-         * due to the involved scheduling cycle.
+         * If the target vCPU is running in root-mode, the interrupt handler
+         * starts to run. Considering an IPI may arrive in the window between
+         * the call to vmx_intr_assist() and interrupts getting disabled, the
+         * interrupt handler should raise a softirq to ensure events will be
+         * delivered in time.
          */
-        unsigned int cpu = v->processor;
-
+        send_IPI_mask(cpumask_of(v->processor), posted_intr_vector);
+    else if ( v == current && in_irq() && !softirq_pending(smp_processor_id()) )
         /*
-         * For case 1, we send an IPI to the pCPU. When an IPI arrives, the
-         * target vCPU maybe is running in non-root mode, running in root
-         * mode, runnable or blocked. If the target vCPU is running in
-         * non-root mode, the hardware will sync PIR to vIRR for
-         * 'posted_intr_vector' is special to the pCPU. If the target vCPU is
-         * running in root-mode, the interrupt handler starts to run.
-         * Considering an IPI may arrive in the window between the call to
-         * vmx_intr_assist() and interrupts getting disabled, the interrupt
-         * handler should raise a softirq to ensure events will be delivered
-         * in time. If the target vCPU is runnable, it will sync PIR to
-         * vIRR next time it is chose to run. In this case, a IPI and a
-         * softirq is sent to a wrong vCPU which will not have any adverse
-         * effect. If the target vCPU is blocked, since vcpu_block() checks
-         * whether there is an event to be delivered through
-         * local_events_need_delivery() just after blocking, the vCPU must
-         * have synced PIR to vIRR. Similarly, there is a IPI and a softirq
-         * sent to a wrong vCPU.
+         * If on interrupt context raise a softirq so that vmx_intr_assist is
+         * retried in case the interrupt arrives after the call to
+         * vmx_intr_assist and before interrupts are disabled in
+         * vmx_do_vmentry.
          */
-        if ( cpu != smp_processor_id() )
-            send_IPI_mask(cpumask_of(cpu), posted_intr_vector);
-        /*
-         * For case 2, raising a softirq ensures PIR will be synced to vIRR.
-         * As any softirq will do, as an optimization we only raise one if
-         * none is pending already.
-         */
-        else if ( !softirq_pending(cpu) )
-            raise_softirq(VCPU_KICK_SOFTIRQ);
-    }
+        raise_softirq(VCPU_KICK_SOFTIRQ);
 }
 
 static void vmx_deliver_posted_intr(struct vcpu *v, u8 vector)

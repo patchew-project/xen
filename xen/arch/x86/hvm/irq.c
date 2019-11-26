@@ -515,7 +515,11 @@ void hvm_set_callback_via(struct domain *d, uint64_t via)
 struct hvm_intack hvm_vcpu_has_pending_irq(struct vcpu *v)
 {
     struct hvm_domain *plat = &v->domain->arch.hvm;
-    int vector;
+    /*
+     * Always call vlapic_has_pending_irq so that PIR is synced into IRR when
+     * using posted interrupts.
+     */
+    int vector = vlapic_has_pending_irq(v);
 
     if ( unlikely(v->nmi_pending) )
         return hvm_intack_nmi;
@@ -530,7 +534,6 @@ struct hvm_intack hvm_vcpu_has_pending_irq(struct vcpu *v)
     if ( vlapic_accept_pic_intr(v) && plat->vpic[0].int_output )
         return hvm_intack_pic(0);
 
-    vector = vlapic_has_pending_irq(v);
     if ( vector != -1 )
         return hvm_intack_lapic(vector);
 
