@@ -80,6 +80,10 @@ config HAS_CHECKPOLICY
 	string
 	option env="XEN_HAS_CHECKPOLICY"
 
+config BUILD_WITH_CLANG
+	string
+	option env="XEN_BUILD_WITH_CLANG"
+
 menu "Speculative hardening"
 
 config SPECULATIVE_HARDEN_ARRAY
@@ -350,7 +354,7 @@ config CRYPTO
 config LIVEPATCH
 	bool "Live patching support"
 	default X86
-	depends on HAS_BUILD_ID = "y"
+	depends on HAS_BUILD_ID = "y" && BUILD_WITH_CLANG != "y"
 	---help---
 	  Allows a running Xen hypervisor to be dynamically patched using
 	  binary patches without rebooting. This is primarily used to binarily

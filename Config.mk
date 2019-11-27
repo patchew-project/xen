@@ -157,6 +157,8 @@ ifndef XEN_HAS_CHECKPOLICY
     export XEN_HAS_CHECKPOLICY
 endif
 
+export XEN_BUILD_WITH_CLANG = $(clang)
+
 # as-insn: Check whether assembler supports an instruction.
 # Usage: cflags-y += $(call as-insn,CC FLAGS,"insn",option-yes,option-no)
 as-insn = $(if $(shell echo 'void _(void) { asm volatile ( $(2) ); }' \
