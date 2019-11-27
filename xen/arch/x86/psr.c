@@ -316,6 +316,7 @@ static bool cat_init_feature(const struct cpuid_leaf *regs,
         [FEAT_TYPE_L3_CDP] = "L3 CDP",
         [FEAT_TYPE_L2_CAT] = "L2 CAT",
     };
+    unsigned int i = 0;
 
     /* No valid value so do not enable feature. */
     if ( !regs->a || !regs->d )
@@ -332,7 +333,8 @@ static bool cat_init_feature(const struct cpuid_leaf *regs,
             return false;
 
         /* We reserve cos=0 as default cbm (all bits within cbm_len are 1). */
-        feat->cos_reg_val[0] = cat_default_val(feat->cat.cbm_len);
+        for(i = 0; i < MAX_COS_REG_CNT; i++)
+            feat->cos_reg_val[i] = cat_default_val(feat->cat.cbm_len);
 
         wrmsrl((type == FEAT_TYPE_L3_CAT ?
                 MSR_IA32_PSR_L3_MASK(0) :
@@ -352,8 +354,11 @@ static bool cat_init_feature(const struct cpuid_leaf *regs,
         feat->cos_max = (feat->cos_max - 1) >> 1;
 
         /* We reserve cos=0 as default cbm (all bits within cbm_len are 1). */
-        get_cdp_code(feat, 0) = cat_default_val(feat->cat.cbm_len);
-        get_cdp_data(feat, 0) = cat_default_val(feat->cat.cbm_len);
+        for(i = 0; i < MAX_COS_REG_CNT/2; i++)
+        {
+            get_cdp_code(feat, i) = cat_default_val(feat->cat.cbm_len);
+            get_cdp_data(feat, i) = cat_default_val(feat->cat.cbm_len);
+        }
 
         wrmsrl(MSR_IA32_PSR_L3_MASK(0), cat_default_val(feat->cat.cbm_len));
         wrmsrl(MSR_IA32_PSR_L3_MASK(1), cat_default_val(feat->cat.cbm_len));
