@@ -1271,7 +1271,8 @@ static void do_write_psr_msrs(void *data)
 
         for ( j = 0; j < cos_num; j++, index++ )
         {
-            if ( feat->cos_reg_val[cos * cos_num + j] != info->val[index] )
+            if ( cos <= feat->cos_max &&
+                 feat->cos_reg_val[cos * cos_num + j] != info->val[index] )
             {
                 feat->cos_reg_val[cos * cos_num + j] = info->val[index];
                 props->write_msr(cos, info->val[index], props->type[j]);
