@@ -302,8 +302,8 @@ struct vm_event_desc_access {
             uint64_t exit_qualification; /* VMX: VMCS Exit Qualification */
         } vmx;
         struct {
-            uint64_t exitinfo;           /* SVM: VMCB EXITINFO */
-            uint64_t _pad2;
+            uint64_t exitinfo;           /* SVM: Always 0.  This field made */
+            uint64_t _pad2;              /* its way into the API by error.  */
         } svm;
     } arch;
     uint8_t descriptor;                  /* VM_EVENT_DESC_* */
