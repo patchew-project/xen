@@ -54,7 +54,7 @@ static unsigned int forced_caps[NCAPINTS];
 
 DEFINE_PER_CPU(bool, full_gdt_loaded);
 
-void __init setup_clear_cpu_cap(unsigned int cap)
+void setup_clear_cpu_cap(unsigned int cap)
 {
 	const uint32_t *dfs;
 	unsigned int i;
@@ -83,7 +83,7 @@ void __init setup_clear_cpu_cap(unsigned int cap)
 	}
 }
 
-void __init setup_force_cpu_cap(unsigned int cap)
+void setup_force_cpu_cap(unsigned int cap)
 {
 	if (__test_and_set_bit(cap, forced_caps))
 		return;
