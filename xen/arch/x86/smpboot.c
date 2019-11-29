@@ -1317,6 +1317,13 @@ int __cpu_up(unsigned int cpu)
     if ( (apicid = x86_cpu_to_apicid[cpu]) == BAD_APICID )
         return -ENODEV;
 
+    if ( (!x2apic_enabled || !iommu_intremap) && (apicid >> 8) )
+    {
+        printk("Processor with APIC ID %u cannot be onlined in xAPIC mode "
+               "or without interrupt remapping\n", apicid);
+        return -EINVAL;
+    }
+
     if ( (ret = do_boot_cpu(apicid, cpu)) != 0 )
         return ret;
 
