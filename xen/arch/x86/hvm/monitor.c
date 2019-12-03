@@ -136,7 +136,8 @@ static inline unsigned long gfn_of_rip(unsigned long rip)
 }
 
 int hvm_monitor_debug(unsigned long rip, enum hvm_monitor_debug_type type,
-                      unsigned long trap_type, unsigned long insn_length)
+                      unsigned int trap_type, unsigned int insn_length,
+                      unsigned int pending_dbg)
 {
    /*
     * rc < 0 error in monitor/vm_event, crash
@@ -175,6 +176,7 @@ int hvm_monitor_debug(unsigned long rip, enum hvm_monitor_debug_type type,
         req.u.debug_exception.gfn = gfn_of_rip(rip);
         req.u.debug_exception.type = trap_type;
         req.u.debug_exception.insn_length = insn_length;
+        req.u.debug_exception.pending_dbg = pending_dbg;
         sync = !!ad->monitor.debug_exception_sync;
         break;
 

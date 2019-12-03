@@ -281,6 +281,7 @@ struct vm_event_debug {
     uint32_t insn_length;
     uint8_t type;        /* HVMOP_TRAP_* */
     uint8_t _pad[3];
+    uint64_t pending_dbg;
 };
 
 struct vm_event_mov_to_msr {
