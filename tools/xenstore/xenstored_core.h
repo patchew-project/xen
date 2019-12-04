@@ -172,6 +172,7 @@ void dtrace_io(const struct connection *conn, const struct buffered_data *data, 
 void reopen_log(void);
 void close_log(void);
 
+extern bool tracesyslog;
 extern char *tracefile;
 extern int tracefd;
 

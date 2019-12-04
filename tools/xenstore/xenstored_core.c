@@ -79,6 +79,7 @@ static bool recovery = true;
 static int reopen_log_pipe[2];
 static int reopen_log_pipe0_pollfd_idx = -1;
 char *tracefile = NULL;
+bool tracesyslog = false;
 TDB_CONTEXT *tdb_ctx = NULL;
 
 static const char *sockmsg_string(enum xsd_sockmsg_type type);
@@ -1871,7 +1872,8 @@ static void usage(void)
 "  -H, --help              to output this message,\n"
 "  -N, --no-fork           to request that the daemon does not fork,\n"
 "  -P, --output-pid        to request that the pid of the daemon is output,\n"
-"  -T, --trace-file <file> giving the file for logging, and\n"
+"  -T, --trace-file <file> giving the file for logging, and/or\n"
+"  -Y, --trace-syslog writing trace message to syslog,\n"
 "  -E, --entry-nb <nb>     limit the number of entries per domain,\n"
 "  -S, --entry-size <size> limit the size of entry per domain, and\n"
 "  -W, --watch-nb <nb>     limit the number of watches per domain,\n"
@@ -1895,6 +1897,7 @@ static struct option options[] = {
 	{ "output-pid", 0, NULL, 'P' },
 	{ "entry-size", 1, NULL, 'S' },
 	{ "trace-file", 1, NULL, 'T' },
+	{ "trace-syslog", 0, NULL, 'Y' },
 	{ "transaction", 1, NULL, 't' },
 	{ "no-recovery", 0, NULL, 'R' },
 	{ "internal-db", 0, NULL, 'I' },
@@ -1918,7 +1921,7 @@ int main(int argc, char *argv[])
 	int timeout;
 
 
-	while ((opt = getopt_long(argc, argv, "DE:F:HNPS:t:T:RVW:", options,
+	while ((opt = getopt_long(argc, argv, "DE:F:HNPS:t:T:RVW:Y", options,
 				  NULL)) != -1) {
 		switch (opt) {
 		case 'D':
@@ -1959,6 +1962,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'W':
 			quota_nb_watch_per_domain = strtol(optarg, NULL, 10);
+			break;
+		case 'Y':
+			tracesyslog = true;
 			break;
 		case 'e':
 			dom0_event = strtol(optarg, NULL, 10);
