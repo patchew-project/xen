@@ -1705,6 +1705,7 @@ int iommu_do_pci_domctl(
                        seg, bus, PCI_SLOT(devfn), PCI_FUNC(devfn));
                 ret = -EINVAL;
             }
+            pcidevs_unlock();
             break;
         }
         else if ( !ret )
