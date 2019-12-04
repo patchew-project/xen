@@ -118,11 +118,18 @@ unsigned long pv_fixup_guest_cr4(const struct vcpu *v, unsigned long cr4)
             (mmu_cr4_features & PV_CR4_GUEST_VISIBLE_MASK));
 }
 
+static int opt_global_pages = -1;
+boolean_runtime_param("global-pages", opt_global_pages);
+
 unsigned long pv_make_cr4(const struct vcpu *v)
 {
     const struct domain *d = v->domain;
     unsigned long cr4 = mmu_cr4_features &
         ~(X86_CR4_PCIDE | X86_CR4_PGE | X86_CR4_TSD);
+    bool pge = opt_global_pages == -1 ? (!cpu_has_hypervisor ||
+                                         boot_cpu_data.x86_vendor !=
+                                         X86_VENDOR_AMD)
+                                      : !!opt_global_pages;
 
     /*
      * PCIDE or PGE depends on the PCID/XPTI settings, but must not both be
@@ -130,7 +137,7 @@ unsigned long pv_make_cr4(const struct vcpu *v)
      */
     if ( d->arch.pv.pcid )
         cr4 |= X86_CR4_PCIDE;
-    else if ( !d->arch.pv.xpti )
+    else if ( !d->arch.pv.xpti && pge )
         cr4 |= X86_CR4_PGE;
 
     /*
