@@ -89,7 +89,7 @@ static const char *sockmsg_string(enum xsd_sockmsg_type type);
 		char *s = talloc_asprintf(NULL, __VA_ARGS__);		\
 		if (s) {						\
 			trace("%s\n", s);				\
-			syslog(LOG_ERR, "%s",  s);			\
+			syslog(LOG_ERR, "%s\n", s);			\
 			talloc_free(s);					\
 		} else {						\
 			trace("talloc failure during logging\n");	\
@@ -109,6 +109,12 @@ void trace(const char *fmt, ...)
 	char *str;
 	char sbuf[1024];
 	int ret, dummy;
+
+	if (tracesyslog) {
+		va_start(arglist, fmt);
+		vsyslog(LOG_DEBUG, fmt, arglist);
+		va_end(arglist);
+	}
 
 	if (tracefd < 0)
 		return;
@@ -1987,10 +1993,9 @@ int main(int argc, char *argv[])
 	mkdir(xs_daemon_rundir(), 0755);
 	mkdir(xs_daemon_rootdir(), 0755);
 
-	if (dofork) {
-		openlog("xenstored", 0, LOG_DAEMON);
+	openlog("xenstored", 0, LOG_DAEMON);
+	if (dofork)
 		daemonize();
-	}
 	if (pidfile)
 		write_pidfile(pidfile);
 
