@@ -76,6 +76,23 @@ static int do_control_logfile(void *ctx, struct connection *conn,
 	return 0;
 }
 
+static int do_control_logsyslog(void *ctx, struct connection *conn,
+			  char **vec, int num)
+{
+	if (num != 1)
+		return EINVAL;
+
+	if (!strcmp(vec[0], "on"))
+		tracesyslog = true;
+	else if (!strcmp(vec[0], "off"))
+		tracesyslog = false;
+	else
+		return EINVAL;
+
+	send_ack(conn, XS_CONTROL);
+	return 0;
+}
+
 static int do_control_memreport(void *ctx, struct connection *conn,
 				char **vec, int num)
 {
@@ -133,6 +150,7 @@ static struct cmd_s cmds[] = {
 	{ "check", do_control_check, "" },
 	{ "log", do_control_log, "on|off" },
 	{ "logfile", do_control_logfile, "<file>" },
+	{ "syslog", do_control_logsyslog, "on|off" },
 	{ "memreport", do_control_memreport, "[<file>]" },
 	{ "print", do_control_print, "<string>" },
 	{ "help", do_control_help, "" },
