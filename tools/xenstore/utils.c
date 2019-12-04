@@ -8,8 +8,21 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <signal.h>
+#ifdef __MINIOS__
+#include <syslog.h>
+#endif
 #include "utils.h"
 
+#ifdef __MINIOS__
+static void default_xprintf(const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	vsyslog(LOG_ERR, fmt, args);
+	va_end(args);
+}
+#else
 static void default_xprintf(const char *fmt, ...)
 {
 	va_list args;
@@ -19,6 +32,7 @@ static void default_xprintf(const char *fmt, ...)
 	va_end(args);
 	fflush(stderr);
 }
+#endif
 
 void (*xprintf)(const char *fmt, ...) = default_xprintf;
 
