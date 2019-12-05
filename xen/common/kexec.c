@@ -842,7 +842,7 @@ static int kexec_exec(XEN_GUEST_HANDLE_PARAM(void) uarg)
         break;
     }
 
-    return -EINVAL; /* never reached */
+    return ret;
 }
 
 static int kexec_swap_images(int type, struct kexec_image *new,
@@ -1220,7 +1220,7 @@ static int do_kexec_op_internal(unsigned long op,
         return ret;
 
     if ( test_and_set_bit(KEXEC_FLAG_IN_HYPERCALL, &kexec_flags) )
-        return hypercall_create_continuation(__HYPERVISOR_kexec_op, "lh", op, uarg);
+        return -ERESTART;
 
     switch ( op )
     {
@@ -1263,13 +1263,25 @@ static int do_kexec_op_internal(unsigned long op,
 
 long do_kexec_op(unsigned long op, XEN_GUEST_HANDLE_PARAM(void) uarg)
 {
-    return do_kexec_op_internal(op, uarg, 0);
+    int ret = do_kexec_op_internal(op, uarg, 0);
+
+    if ( ret == -ERESTART )
+        ret = hypercall_create_continuation(__HYPERVISOR_kexec_op,
+                                            "lh", op, uarg);
+
+    return ret;
 }
 
 #ifdef CONFIG_COMPAT
 int compat_kexec_op(unsigned long op, XEN_GUEST_HANDLE_PARAM(void) uarg)
 {
-    return do_kexec_op_internal(op, uarg, 1);
+    int ret = do_kexec_op_internal(op, uarg, 1);
+
+    if ( ret == -ERESTART )
+        ret = hypercall_create_continuation(__HYPERVISOR_kexec_op,
+                                            "lh", op, uarg);
+
+    return ret;
 }
 #endif
 

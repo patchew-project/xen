@@ -201,9 +201,12 @@ ret_t do_platform_op(XEN_GUEST_HANDLE_PARAM(xen_platform_op_t) u_xenpf_op)
      * with this vcpu.
      */
     while ( !spin_trylock(&xenpf_lock) )
+    {
+        cpu_relax();
+
         if ( hypercall_preempt_check() )
-            return hypercall_create_continuation(
-                __HYPERVISOR_platform_op, "h", u_xenpf_op);
+            goto create_continuation;
+    }
 
     switch ( op->cmd )
     {
@@ -815,6 +818,13 @@ ret_t do_platform_op(XEN_GUEST_HANDLE_PARAM(xen_platform_op_t) u_xenpf_op)
 
  out:
     spin_unlock(&xenpf_lock);
+
+    if ( ret == -ERESTART )
+    {
+    create_continuation:
+        ret = hypercall_create_continuation(__HYPERVISOR_platform_op,
+                                            "h", u_xenpf_op);
+    }
 
     return ret;
 }

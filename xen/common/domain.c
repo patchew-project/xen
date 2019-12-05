@@ -1422,10 +1422,6 @@ long do_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) arg)
             return -EINVAL;
 
         rc = arch_initialise_vcpu(v, arg);
-        if ( rc == -ERESTART )
-            rc = hypercall_create_continuation(__HYPERVISOR_vcpu_op, "iih",
-                                               cmd, vcpuid, arg);
-
         break;
 
     case VCPUOP_up:
@@ -1597,6 +1593,10 @@ long do_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) arg)
         rc = arch_do_vcpu_op(cmd, v, arg);
         break;
     }
+
+    if ( rc == -ERESTART )
+        rc = hypercall_create_continuation(__HYPERVISOR_vcpu_op, "iih",
+                                           cmd, vcpuid, arg);
 
     return rc;
 }

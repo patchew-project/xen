@@ -51,9 +51,12 @@ long do_sysctl(XEN_GUEST_HANDLE_PARAM(xen_sysctl_t) u_sysctl)
      * with this vcpu.
      */
     while ( !spin_trylock(&sysctl_lock) )
+    {
+        cpu_relax();
+
         if ( hypercall_preempt_check() )
-            return hypercall_create_continuation(
-                __HYPERVISOR_sysctl, "h", u_sysctl);
+            goto create_continuation;
+    }
 
     switch ( op->cmd )
     {
@@ -515,6 +518,12 @@ long do_sysctl(XEN_GUEST_HANDLE_PARAM(xen_sysctl_t) u_sysctl)
     if ( copyback && (!ret || copyback > 0) &&
          __copy_to_guest(u_sysctl, op, 1) )
         ret = -EFAULT;
+
+    if ( ret == -ERESTART )
+    {
+    create_continuation:
+        ret = hypercall_create_continuation(__HYPERVISOR_sysctl, "h", u_sysctl);
+    }
 
     return ret;
 }
