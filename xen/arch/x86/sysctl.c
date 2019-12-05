@@ -85,6 +85,9 @@ long cpu_up_helper(void *data)
         /* On EBUSY, flush RCU work and have one more go. */
         rcu_barrier();
         ret = cpu_up(cpu);
+
+        if ( ret == -EBUSY )
+            ret = -ERESTART;
     }
 
     if ( !ret && !opt_smt &&
@@ -110,6 +113,9 @@ long cpu_down_helper(void *data)
         /* On EBUSY, flush RCU work and have one more go. */
         rcu_barrier();
         ret = cpu_down(cpu);
+
+        if ( ret == -EBUSY )
+            ret = -ERESTART;
     }
     return ret;
 }
@@ -143,8 +149,7 @@ static long smt_up_down_helper(void *data)
          */
         if ( ret != -EEXIST && general_preempt_check() )
         {
-            /* In tasklet context - can't create a contination. */
-            ret = -EBUSY;
+            ret = -ERESTART;
             break;
         }
 
