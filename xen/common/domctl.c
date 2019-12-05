@@ -415,10 +415,8 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
 
     if ( !domctl_lock_acquire() )
     {
-        if ( d && d != dom_io )
-            rcu_unlock_domain(d);
-        return hypercall_create_continuation(
-            __HYPERVISOR_domctl, "h", u_domctl);
+        ret = -ERESTART;
+        goto domctl_out_unlock_domonly;
     }
 
     switch ( op->cmd )
@@ -438,9 +436,6 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
         if ( guest_handle_is_null(op->u.vcpucontext.ctxt) )
         {
             ret = vcpu_reset(v);
-            if ( ret == -ERESTART )
-                ret = hypercall_create_continuation(
-                          __HYPERVISOR_domctl, "h", u_domctl);
             break;
         }
 
@@ -469,10 +464,6 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
             domain_pause(d);
             ret = arch_set_info_guest(v, c);
             domain_unpause(d);
-
-            if ( ret == -ERESTART )
-                ret = hypercall_create_continuation(
-                          __HYPERVISOR_domctl, "h", u_domctl);
         }
 
         free_vcpu_guest_context(c.nat);
@@ -585,9 +576,6 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
         domain_lock(d);
         ret = domain_kill(d);
         domain_unlock(d);
-        if ( ret == -ERESTART )
-            ret = hypercall_create_continuation(
-                __HYPERVISOR_domctl, "h", u_domctl);
         goto domctl_out_unlock_domonly;
 
     case XEN_DOMCTL_setnodeaffinity:
@@ -1080,6 +1068,9 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
     if ( copyback && __copy_to_guest(u_domctl, op, 1) )
         ret = -EFAULT;
 
+    if ( ret == -ERESTART )
+        ret = hypercall_create_continuation(__HYPERVISOR_domctl,
+                                            "h", u_domctl);
     return ret;
 }
 

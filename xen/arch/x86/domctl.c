@@ -326,9 +326,12 @@ long arch_do_domctl(
 
     switch ( domctl->cmd )
     {
-
     case XEN_DOMCTL_shadow_op:
         ret = paging_domctl(d, &domctl->u.shadow_op, u_domctl, 0);
+        /*
+         * Continuations from paging_domctl() switch index to arch_1, and
+         * can't use the common domctl continuation path.
+         */
         if ( ret == -ERESTART )
             return hypercall_create_continuation(__HYPERVISOR_arch_1,
                                                  "h", u_domctl);
