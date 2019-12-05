@@ -96,9 +96,11 @@ void domctl_lock_release(void);
 
 /*
  * Continue the current hypercall via func(data) on specified cpu.
- * If this function returns 0 then the function is guaranteed to run at some
- * point in the future. If this function returns an error code then the
- * function has not been and will not be executed.
+ *
+ * This function returns -ERESTART in the success case, and a higher level
+ * caller is required to set up a hypercall continuation.  func() will be run
+ * at some point in the future.  If this function returns any other error code
+ * then func() has not, and will not be executed.
  */
 int continue_hypercall_on_cpu(
     unsigned int cpu, long (*func)(void *data), void *data);
@@ -106,6 +108,9 @@ int continue_hypercall_on_cpu(
 /*
  * Companion to continue_hypercall_on_cpu(), to feed func()'s result back into
  * vcpu regsiter state.
+ *
+ * Must undo the effects of the hypercall continuation created by
+ * continue_hypercall_on_cpu()'s caller.
  */
 void arch_hypercall_tasklet_result(struct vcpu *v, long res);
 

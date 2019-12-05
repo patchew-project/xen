@@ -1665,7 +1665,7 @@ static void continue_hypercall_tasklet_handler(void *data)
 {
     struct migrate_info *info = data;
     struct vcpu *v = info->vcpu;
-    long res = -EINVAL;
+    long res = -ERESTART;
 
     /* Wait for vcpu to sleep so that we can access its register state. */
     vcpu_sleep_sync(v);
@@ -1675,7 +1675,8 @@ static void continue_hypercall_tasklet_handler(void *data)
     if ( likely(info->cpu == smp_processor_id()) )
         res = info->func(info->data);
 
-    arch_hypercall_tasklet_result(v, res);
+    if ( res != -ERESTART )
+        arch_hypercall_tasklet_result(v, res);
 
     this_cpu(continue_info) = NULL;
 
@@ -1726,8 +1727,8 @@ int continue_hypercall_on_cpu(
 
     tasklet_schedule_on_cpu(&info->vcpu->continue_hypercall_tasklet, cpu);
 
-    /* Dummy return value will be overwritten by tasklet. */
-    return 0;
+    /* Start a continuation.  Value will be overwritten by the tasklet. */
+    return -ERESTART;
 }
 
 /*

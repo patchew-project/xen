@@ -170,6 +170,13 @@ void arch_hypercall_tasklet_result(struct vcpu *v, long res)
 {
     struct cpu_user_regs *regs = &v->arch.user_regs;
 
+    /*
+     * PV hypercalls are all 2-byte instructions (INT $0x82, SYSCALL).  HVM
+     * hypercalls are all 3-byte instructions (VMCALL, VMMCALL).
+     *
+     * Move %rip forwards to complete the continuation.
+     */
+    regs->rip += 2 + is_hvm_vcpu(v);
     regs->rax = res;
 }
 

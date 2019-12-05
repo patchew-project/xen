@@ -1489,6 +1489,7 @@ void arch_hypercall_tasklet_result(struct vcpu *v, long res)
 {
     struct cpu_user_regs *regs = &v->arch.cpu_info->guest_cpu_user_regs;
 
+    regs->pc += 4;  /* Skip over 'hvc #XEN_HYPERCALL_TAG' */
     HYPERCALL_RESULT_REG(regs) = res;
 }
 
