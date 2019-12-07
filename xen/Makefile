@@ -163,6 +163,9 @@ delete-unfresh-files:
 	@mv -f $@.tmp $@
 
 # compile.h contains dynamic build info. Rebuilt on every 'make' invocation.
+#
+# For .banner sed-ary, strip trailing whitespace, escape backslashes, and wrap
+# each line in '"...\n" \' to become a valid C string
 include/xen/compile.h: include/xen/compile.h.in .banner
 	@sed -e 's/@@date@@/$(XEN_BUILD_DATE)/g' \
 	    -e 's/@@time@@/$(XEN_BUILD_TIME)/g' \
@@ -176,7 +179,7 @@ include/xen/compile.h: include/xen/compile.h.in .banner
 	    -e 's!@@changeset@@!$(shell tools/scmversion $(XEN_ROOT) || echo "unavailable")!g' \
 	    < include/xen/compile.h.in > $@.new
 	@cat .banner
-	@$(PYTHON) tools/fig-to-oct.py < .banner >> $@.new
+	@sed -e 's_[ ]*$$__' -e 's_\\_\\\\_g' -e 's_\(.*\)_"\1\\n" \\_' < .banner >> $@.new
 	@mv -f $@.new $@
 
 include/asm-$(TARGET_ARCH)/asm-offsets.h: arch/$(TARGET_ARCH)/asm-offsets.s
