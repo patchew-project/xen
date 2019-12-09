@@ -40,6 +40,9 @@ ENTRY(do_suspend_lowlevel)
         mov     %cr3, GREG(ax)
         mov     GREG(ax), REF(saved_cr3)
 
+        mov     %cr4, GREG(ax)
+        mov     GREG(ax), REF(saved_cr4)
+
         call    save_rest_processor_state
 
         mov     $3, %rdi
@@ -53,8 +56,7 @@ ENTRY(do_suspend_lowlevel)
 ENTRY(__ret_point)
         lgdt    boot_gdtr(%rip)
 
-        /* mmu_cr4_features contains latest cr4 setting */
-        mov     REF(mmu_cr4_features), GREG(ax)
+        mov     REF(saved_cr4), GREG(ax)
         mov     GREG(ax), %cr4
 
         mov     REF(saved_cr3), GREG(ax)
@@ -124,3 +126,4 @@ DECLARE_GREG(15)
 
 saved_cr0:      .quad   0
 saved_cr3:      .quad   0
+saved_cr4:      .quad   0
