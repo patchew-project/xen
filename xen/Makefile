@@ -267,6 +267,7 @@ $(foreach base,arch/x86/mm/guest_walk_% \
                arch/x86/mm/shadow/guest_%, \
     $(foreach ext,o i s,$(call build-intermediate,$(base).$(ext))))
 
+export CC LD
 kconfig := oldconfig config menuconfig defconfig \
 	nconfig xconfig gconfig savedefconfig listnewconfig olddefconfig \
 	randconfig $(notdir $(wildcard arch/$(SRCARCH)/configs/*_defconfig))
