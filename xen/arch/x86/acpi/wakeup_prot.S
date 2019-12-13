@@ -15,8 +15,6 @@ ENTRY(do_suspend_lowlevel)
         mov     %cr0, %rax
         mov     %rax, saved_cr0(%rip)
 
-        call    save_rest_processor_state
-
         /* enter sleep state physically */
         mov     $3, %edi
         call    acpi_enter_sleep_state
