@@ -31,12 +31,13 @@ dir=$(dirname "$0")
 bridge=${bridge:-}
 bridge=$(xenstore_read_default "$XENBUS_PATH/bridge" "$bridge")
 
-if [ -z "$bridge" ]
-then
-  bridge=$(brctl show | awk 'NR==2{print$1}')
-
-  if [ -z "$bridge" ]
-  then
+if [ -z "$bridge" ]; then
+    if [ -x "/usr/sbin/brctl" ]; then
+        bridge=$(brctl show | awk 'NR==2{print$1}')
+    else
+        bridge=$(bridge link | cut -d" " -f7)
+    fi
+  if [ -z "$bridge" ]; then
      fatal "Could not find bridge, and none was specified"
   fi
 else
@@ -82,7 +83,11 @@ case "$command" in
         ;;
 
     offline)
-        do_without_error brctl delif "$bridge" "$dev"
+        if [ -x "/usr/sbin/brctl"]; then
+            do_without_error brctl delif "$bridge" "$dev"
+        else
+            do_without_error ip link set "$dev" nomaster
+        fi
         do_without_error ifconfig "$dev" down
         ;;
 
