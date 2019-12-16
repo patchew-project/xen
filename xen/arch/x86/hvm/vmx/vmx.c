@@ -2499,7 +2499,9 @@ const struct hvm_function_table * __init start_vmx(void)
         {
             /* Default to non-executable superpages on vulnerable hardware. */
             opt_ept_exec_sp = !cpu_has_bug_pschange_mc;
-
+        }
+        if (opt_ept_exec_sp == false)
+        {
             if ( cpu_has_bug_pschange_mc )
                 printk("VMX: Disabling executable EPT superpages due to CVE-2018-12207\n");
         }
