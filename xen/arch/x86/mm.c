@@ -1859,10 +1859,7 @@ static int alloc_l4_table(struct page_info *page)
             }
         }
         if ( rc < 0 )
-        {
-            unmap_domain_page(pl4e);
-            return rc;
-        }
+            break;
 
         pl4e[i] = adjust_guest_l4e(l4e, d);
     }
