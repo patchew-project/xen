@@ -2495,14 +2495,14 @@ const struct hvm_function_table * __init start_vmx(void)
     {
         bool cpu_has_bug_pschange_mc = has_if_pschange_mc();
 
+        /* Default to non-executable superpages on vulnerable hardware. */
         if ( opt_ept_exec_sp == -1 )
-        {
-            /* Default to non-executable superpages on vulnerable hardware. */
             opt_ept_exec_sp = !cpu_has_bug_pschange_mc;
 
-            if ( cpu_has_bug_pschange_mc )
-                printk("VMX: Disabling executable EPT superpages due to CVE-2018-12207\n");
-        }
+        if (opt_ept_exec_sp)
+            printk("VMX: Enable executable EPT superpages.\n");
+        else 
+            printk("VMX: Disabling executable EPT superpages due to CVE-2018-12207\n");
 
         vmx_function_table.hap_supported = 1;
         vmx_function_table.altp2m_supported = 1;
