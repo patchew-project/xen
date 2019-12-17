@@ -123,16 +123,12 @@ struct xc_dom_image {
 
     /* other state info */
     uint32_t f_active[XENFEAT_NR_SUBMAPS];
+
     /*
-     * p2m_host maps guest physical addresses an offset from
-     * rambase_pfn (see below) into gfns.
-     *
-     * For a pure PV guest this means that it maps GPFNs into MFNs for
-     * a hybrid guest this means that it maps GPFNs to GPFNS.
-     *
-     * Note that the input is offset by rambase.
+     * pv_p2m is specific to x86 PV guests, and maps GFNs to MFNs.  It is
+     * eventually copied into guest context.
      */
-    xen_pfn_t *p2m_host;
+    xen_pfn_t *pv_p2m;
 
     /* physical memory
      *
@@ -433,9 +429,12 @@ static inline xen_pfn_t xc_dom_p2m(struct xc_dom_image *dom, xen_pfn_t pfn)
 {
     if ( xc_dom_translated(dom) )
         return pfn;
-    if (pfn < dom->rambase_pfn || pfn >= dom->rambase_pfn + dom->total_pages)
+
+    /* x86 PV only now. */
+    if ( pfn >= dom->total_pages )
         return INVALID_MFN;
-    return dom->p2m_host[pfn - dom->rambase_pfn];
+
+    return dom->pv_p2m[pfn];
 }
 
 #endif /* _XC_DOM_H */
