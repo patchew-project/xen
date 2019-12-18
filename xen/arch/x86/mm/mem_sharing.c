@@ -1175,7 +1175,7 @@ err_out:
  */
 int __mem_sharing_unshare_page(struct domain *d,
                                unsigned long gfn,
-                               uint16_t flags)
+                               bool destroy)
 {
     p2m_type_t p2mt;
     mfn_t mfn;
@@ -1231,7 +1231,7 @@ int __mem_sharing_unshare_page(struct domain *d,
      * If the GFN is getting destroyed drop the references to MFN
      * (possibly freeing the page), and exit early.
      */
-    if ( flags & MEM_SHARING_DESTROY_GFN )
+    if ( destroy )
     {
         if ( !last_gfn )
             mem_sharing_gfn_destroy(page, d, gfn_info);
@@ -1321,8 +1321,7 @@ int relinquish_shared_pages(struct domain *d)
         if ( mfn_valid(mfn) && p2m_is_shared(t) )
         {
             /* Does not fail with ENOMEM given the DESTROY flag */
-            BUG_ON(__mem_sharing_unshare_page(d, gfn,
-                   MEM_SHARING_DESTROY_GFN));
+            BUG_ON(__mem_sharing_unshare_page(d, gfn, true));
             /*
              * Clear out the p2m entry so no one else may try to
              * unshare.  Must succeed: we just read the old entry and
