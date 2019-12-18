@@ -3125,7 +3125,7 @@ void __init sched_setup_dom0_vcpus(struct domain *d)
 #endif
 
 #ifdef CONFIG_COMPAT
-#include "compat/schedule.c"
+#include "compat_schedule.c"
 #endif
 
 #endif /* !COMPAT */
