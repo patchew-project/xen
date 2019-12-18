@@ -41,7 +41,7 @@ int xc_memshr_control(xc_interface *xch,
     return do_domctl(xch, &domctl);
 }
 
-int xc_memshr_ring_enable(xc_interface *xch, 
+int xc_memshr_ring_enable(xc_interface *xch,
                           uint32_t domid,
                           uint32_t *port)
 {
@@ -57,7 +57,7 @@ int xc_memshr_ring_enable(xc_interface *xch,
                                port);
 }
 
-int xc_memshr_ring_disable(xc_interface *xch, 
+int xc_memshr_ring_disable(xc_interface *xch,
                            uint32_t domid)
 {
     return xc_vm_event_control(xch, domid,
@@ -85,11 +85,11 @@ int xc_memshr_nominate_gfn(xc_interface *xch,
     memset(&mso, 0, sizeof(mso));
 
     mso.op = XENMEM_sharing_op_nominate_gfn;
-    mso.u.nominate.u.gfn = gfn; 
+    mso.u.nominate.u.gfn = gfn;
 
     rc = xc_memshr_memop(xch, domid, &mso);
 
-    if (!rc) *handle = mso.u.nominate.handle; 
+    if (!rc) *handle = mso.u.nominate.handle;
 
     return rc;
 }
@@ -105,11 +105,11 @@ int xc_memshr_nominate_gref(xc_interface *xch,
     memset(&mso, 0, sizeof(mso));
 
     mso.op = XENMEM_sharing_op_nominate_gref;
-    mso.u.nominate.u.grant_ref = gref; 
+    mso.u.nominate.u.grant_ref = gref;
 
     rc = xc_memshr_memop(xch, domid, &mso);
 
-    if (!rc) *handle = mso.u.nominate.handle; 
+    if (!rc) *handle = mso.u.nominate.handle;
 
     return rc;
 }
