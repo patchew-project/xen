@@ -13,18 +13,10 @@
 
 #include <asm/apic.h>
 #include <asm/event.h>
+#include <asm/guest/hyperv-tlfs.h>
 #include <asm/hvm/support.h>
 
 #include "private.h"
-
-typedef struct _HV_REFERENCE_TSC_PAGE
-{
-    uint32_t TscSequence;
-    uint32_t Reserved1;
-    uint64_t TscScale;
-    int64_t  TscOffset;
-    uint64_t Reserved2[509];
-} HV_REFERENCE_TSC_PAGE, *PHV_REFERENCE_TSC_PAGE;
 
 static void update_reference_tsc(const struct domain *d, bool initialize)
 {
@@ -41,18 +33,18 @@ static void update_reference_tsc(const struct domain *d, bool initialize)
      * This enlightenment must be disabled is the host TSC is not invariant.
      * However it is also disabled if vtsc is true (which means rdtsc is
      * being emulated). This generally happens when guest TSC freq and host
-     * TSC freq don't match. The TscScale value could be adjusted to cope
+     * TSC freq don't match. The tsc_scale value could be adjusted to cope
      * with this, allowing vtsc to be turned off, but support for this is
      * not yet present in the hypervisor. Thus is it is possible that
      * migrating a Windows VM between hosts of differing TSC frequencies
      * may result in large differences in guest performance. Any jump in
      * TSC due to migration down-time can, however, be compensated for by
-     * setting the TscOffset value (see below).
+     * setting the tsc_offset value (see below).
      */
     if ( !host_tsc_is_safe() || d->arch.vtsc )
     {
         /*
-         * The specification states that valid values of TscSequence range
+         * The specification states that valid values of tsc_sequence range
          * from 0 to 0xFFFFFFFE. The value 0xFFFFFFFF is used to indicate
          * this mechanism is no longer a reliable source of time and that
          * the VM should fall back to a different source.
@@ -61,7 +53,7 @@ static void update_reference_tsc(const struct domain *d, bool initialize)
          * violate the spec. and rely on a value of 0 to indicate that this
          * enlightenment should no longer be used.
          */
-        p->TscSequence = 0;
+        p->tsc_sequence = 0;
 
         printk(XENLOG_G_INFO "d%d: VIRIDIAN REFERENCE_TSC: invalidated\n",
                d->domain_id);
@@ -72,29 +64,29 @@ static void update_reference_tsc(const struct domain *d, bool initialize)
      * The guest will calculate reference time according to the following
      * formula:
      *
-     * ReferenceTime = ((RDTSC() * TscScale) >> 64) + TscOffset
+     * ReferenceTime = ((RDTSC() * tsc_scale) >> 64) + tsc_offset
      *
      * Windows uses a 100ns tick, so we need a scale which is cpu
      * ticks per 100ns shifted left by 64.
      * The offset value is calculated on restore after migration and
      * ensures that Windows will not see a large jump in ReferenceTime.
      */
-    p->TscScale = ((10000ul << 32) / d->arch.tsc_khz) << 32;
-    p->TscOffset = trc->off;
+    p->tsc_scale = ((10000ul << 32) / d->arch.tsc_khz) << 32;
+    p->tsc_offset = trc->off;
     smp_wmb();
 
-    seq = p->TscSequence + 1;
+    seq = p->tsc_sequence + 1;
     if ( seq == 0xFFFFFFFF || seq == 0 ) /* Avoid both 'invalid' values */
         seq = 1;
 
-    p->TscSequence = seq;
+    p->tsc_sequence = seq;
 }
 
 /*
  * The specification says: "The partition reference time is computed
  * by the following formula:
  *
- * ReferenceTime = ((VirtualTsc * TscScale) >> 64) + TscOffset
+ * ReferenceTime = ((VirtualTsc * tsc_scale) >> 64) + tsc_offset
  *
  * The multiplication is a 64 bit multiplication, which results in a
  * 128 bit number which is then shifted 64 times to the right to obtain
