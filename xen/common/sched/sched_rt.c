@@ -490,10 +490,10 @@ rt_update_deadline(s_time_t now, struct rt_unit *svc)
 static inline bool
 deadline_queue_remove(struct list_head *queue, struct list_head *elem)
 {
-    int pos = 0;
+    bool pos = false;
 
     if ( queue->next != elem )
-        pos = 1;
+        pos = true;
 
     list_del_init(elem);
     return !pos;
@@ -505,14 +505,14 @@ deadline_queue_insert(struct rt_unit * (*qelem)(struct list_head *),
                       struct list_head *queue)
 {
     struct list_head *iter;
-    int pos = 0;
+    bool pos = false;
 
     list_for_each ( iter, queue )
     {
         struct rt_unit * iter_svc = (*qelem)(iter);
         if ( compare_unit_priority(svc, iter_svc) > 0 )
             break;
-        pos++;
+        pos = true;
     }
     list_add_tail(elem, iter);
     return !pos;
@@ -605,7 +605,7 @@ replq_reinsert(const struct scheduler *ops, struct rt_unit *svc)
 {
     struct list_head *replq = rt_replq(ops);
     struct rt_unit *rearm_svc = svc;
-    bool_t rearm = 0;
+    bool rearm = false;
 
     ASSERT( unit_on_replq(svc) );
 
@@ -622,7 +622,7 @@ replq_reinsert(const struct scheduler *ops, struct rt_unit *svc)
     {
         deadline_replq_insert(svc, &svc->replq_elem, replq);
         rearm_svc = replq_elem(replq->next);
-        rearm = 1;
+        rearm = true;
     }
     else
         rearm = deadline_replq_insert(svc, &svc->replq_elem, replq);
@@ -1279,7 +1279,7 @@ rt_unit_wake(const struct scheduler *ops, struct sched_unit *unit)
 {
     struct rt_unit * const svc = rt_unit(unit);
     s_time_t now;
-    bool_t missed;
+    bool missed;
 
     BUG_ON( is_idle_unit(unit) );
 
