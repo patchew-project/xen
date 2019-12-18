@@ -1622,6 +1622,87 @@ static int mem_sharing_fork(struct domain *d, struct domain *cd)
     return 0;
 }
 
+struct gfn_free;
+struct gfn_free {
+    struct gfn_free *next;
+    struct page_info *page;
+    gfn_t gfn;
+};
+
+static int mem_sharing_fork_reset(struct domain *d, struct domain *cd)
+{
+    int rc;
+
+    struct p2m_domain* p2m = p2m_get_hostp2m(cd);
+    struct gfn_free *list = NULL;
+    struct page_info *page;
+
+    page_list_for_each(page, &cd->page_list)
+    {
+        mfn_t mfn = page_to_mfn(page);
+        if ( mfn_valid(mfn) )
+        {
+            p2m_type_t p2mt;
+            p2m_access_t p2ma;
+            gfn_t gfn = mfn_to_gfn(cd, mfn);
+            mfn = __get_gfn_type_access(p2m, gfn_x(gfn), &p2mt, &p2ma,
+                                        0, NULL, false);
+            if ( p2m_is_ram(p2mt) )
+            {
+                struct gfn_free *gfn_free;
+                if ( !get_page(page, cd) )
+                    goto err_reset;
+
+                /*
+                 * We can't free the page while iterating over the page_list
+                 * so we build a separate list to loop over.
+                 *
+                 * We want to iterate over the page_list instead of checking
+                 * gfn from 0 to max_gfn because this is ~10x faster.
+                 */
+                gfn_free = xmalloc(struct gfn_free);
+                if ( !gfn_free )
+                    goto err_reset;
+
+                gfn_free->gfn = gfn;
+                gfn_free->page = page;
+                gfn_free->next = list;
+                list = gfn_free;
+            }
+        }
+    }
+
+    while ( list )
+    {
+        struct gfn_free *next = list->next;
+
+        rc = p2m->set_entry(p2m, list->gfn, INVALID_MFN, PAGE_ORDER_4K,
+                            p2m_invalid, p2m_access_rwx, -1);
+        put_page_alloc_ref(list->page);
+        put_page(list->page);
+
+        xfree(list);
+        list = next;
+
+        ASSERT(!rc);
+    }
+
+    if ( (rc = fork_hvm(d, cd)) )
+        return rc;
+
+ err_reset:
+    while ( list )
+    {
+        struct gfn_free *next = list->next;
+
+        put_page(list->page);
+        xfree(list);
+        list = next;
+    }
+
+    return 0;
+}
+
 int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
 {
     int rc;
@@ -1905,6 +1986,30 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
             rcu_unlock_domain(pd);
             break;
         }
+
+        case XENMEM_sharing_op_fork_reset:
+        {
+            struct domain *pd;
+
+            rc = -EINVAL;
+            if ( mso.u.fork._pad[0] || mso.u.fork._pad[1] ||
+                 mso.u.fork._pad[2] )
+                 goto out;
+
+            rc = -ENOSYS;
+            if ( !d->parent )
+                goto out;
+
+            rc = rcu_lock_live_remote_domain_by_id(d->parent->domain_id, &pd);
+            if ( rc )
+                goto out;
+
+            rc = mem_sharing_fork_reset(pd, d);
+
+            rcu_unlock_domain(pd);
+            break;
+        }
+
         default:
             rc = -ENOSYS;
             break;
