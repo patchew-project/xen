@@ -335,6 +335,10 @@ unsigned long hvm_cr4_guest_valid_bits(const struct domain *d, bool restore);
 bool hvm_flush_vcpu_tlb(bool (*flush_vcpu)(void *ctxt, struct vcpu *v),
                         void *ctxt);
 
+/* Caller must hold domain locks */
+int hvm_get_param(struct domain *d, uint32_t index, uint64_t *value);
+int hvm_set_param(struct domain *d, uint32_t index, uint64_t value);
+
 #ifdef CONFIG_HVM
 
 #define hvm_get_guest_tsc(v) hvm_get_guest_tsc_fixed(v, 0)
