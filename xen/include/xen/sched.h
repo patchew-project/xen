@@ -771,7 +771,7 @@ static inline void hypercall_cancel_continuation(struct vcpu *v)
 extern struct domain *domain_list;
 
 /* Caller must hold the domlist_read_lock or domlist_update_lock. */
-static inline struct domain *first_domain_in_cpupool( struct cpupool *c)
+static inline struct domain *first_domain_in_cpupool(const struct cpupool *c)
 {
     struct domain *d;
     for (d = rcu_dereference(domain_list); d && d->cpupool != c;
@@ -779,7 +779,7 @@ static inline struct domain *first_domain_in_cpupool( struct cpupool *c)
     return d;
 }
 static inline struct domain *next_domain_in_cpupool(
-    struct domain *d, struct cpupool *c)
+    struct domain *d, const struct cpupool *c)
 {
     for (d = rcu_dereference(d->next_in_list); d && d->cpupool != c;
          d = rcu_dereference(d->next_in_list));
@@ -923,7 +923,8 @@ void restore_vcpu_affinity(struct domain *d);
 int vcpu_affinity_domctl(struct domain *d, uint32_t cmd,
                          struct xen_domctl_vcpuaffinity *vcpuaff);
 
-void vcpu_runstate_get(struct vcpu *v, struct vcpu_runstate_info *runstate);
+void vcpu_runstate_get(const struct vcpu *v,
+                       struct vcpu_runstate_info *runstate);
 uint64_t get_cpu_idle_time(unsigned int cpu);
 void sched_guest_idle(void (*idle) (void), unsigned int cpu);
 void scheduler_enable(void);
@@ -1042,7 +1043,7 @@ extern enum cpufreq_controller {
 int cpupool_move_domain(struct domain *d, struct cpupool *c);
 int cpupool_do_sysctl(struct xen_sysctl_cpupool_op *op);
 int cpupool_get_id(const struct domain *d);
-cpumask_t *cpupool_valid_cpus(struct cpupool *pool);
+const cpumask_t *cpupool_valid_cpus(const struct cpupool *pool);
 extern void dump_runq(unsigned char key);
 
 void arch_do_physinfo(struct xen_sysctl_physinfo *pi);
