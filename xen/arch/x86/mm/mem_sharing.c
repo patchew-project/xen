@@ -1402,6 +1402,24 @@ static int range_share(struct domain *d, struct domain *cd,
     return rc;
 }
 
+static inline int mem_sharing_control(struct domain *d, bool enable)
+{
+    if ( enable )
+    {
+        if ( unlikely(!is_hvm_domain(d)) )
+            return -ENOSYS;
+
+        if ( unlikely(!hap_enabled(d)) )
+            return -ENODEV;
+
+        if ( unlikely(is_iommu_enabled(d)) )
+            return -EXDEV;
+    }
+
+    d->arch.hvm.mem_sharing.enabled = enable;
+    return 0;
+}
+
 int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
 {
     int rc;
@@ -1423,10 +1441,8 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
     if ( rc )
         goto out;
 
-    /* Only HAP is supported */
-    rc = -ENODEV;
-    if ( !mem_sharing_enabled(d) )
-        goto out;
+    if ( !mem_sharing_enabled(d) && (rc = mem_sharing_control(d, true)) )
+        return rc;
 
     switch ( mso.op )
     {
@@ -1675,24 +1691,15 @@ int mem_sharing_domctl(struct domain *d, struct xen_domctl_mem_sharing_op *mec)
 {
     int rc;
 
-    /* Only HAP is supported */
-    if ( !hap_enabled(d) )
-         return -ENODEV;
-
     switch(mec->op)
     {
         case XEN_DOMCTL_MEM_SHARING_CONTROL:
-        {
-            rc = 0;
-            if ( unlikely(is_iommu_enabled(d) && mec->u.enable) )
-                rc = -EXDEV;
-            else
-                d->arch.hvm.mem_sharing.enabled = mec->u.enable;
-        }
-        break;
+            rc = mem_sharing_control(d, mec->u.enable);
+            break;
 
         default:
             rc = -ENOSYS;
+            break;
     }
 
     return rc;
