@@ -1,6 +1,14 @@
 .build-tmpl: &build
   stage: build
   image: registry.gitlab.com/xen-project/xen/${CONTAINER}
+  cache:
+    key:
+      files:
+        - Config.mk
+    paths:
+      - ci_cache
+  before_script:
+    - ./automation/scripts/prepare-cache.sh
   script:
     - ./automation/scripts/build 2>&1 | tee build.log
   artifacts:
