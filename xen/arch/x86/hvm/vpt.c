@@ -30,7 +30,6 @@ void hvm_init_guest_time(struct domain *d)
 {
     struct pl_time *pl = d->arch.hvm.pl_time;
 
-    spin_lock_init(&pl->pl_time_lock);
     pl->stime_offset = -(u64)get_s_time();
     pl->last_guest_time = 0;
 }
@@ -38,24 +37,22 @@ void hvm_init_guest_time(struct domain *d)
 uint64_t hvm_get_guest_time_fixed(const struct vcpu *v, uint64_t at_tsc)
 {
     struct pl_time *pl = v->domain->arch.hvm.pl_time;
-    u64 now;
+    s_time_t old, new, now = get_s_time_fixed(at_tsc) + pl->stime_offset;
 
     /* Called from device models shared with PV guests. Be careful. */
     ASSERT(is_hvm_vcpu(v));
 
-    spin_lock(&pl->pl_time_lock);
-    now = get_s_time_fixed(at_tsc) + pl->stime_offset;
-
     if ( !at_tsc )
     {
-        if ( (int64_t)(now - pl->last_guest_time) > 0 )
-            pl->last_guest_time = now;
-        else
-            now = ++pl->last_guest_time;
+        do {
+            old = pl->last_guest_time;
+            new = now > pl->last_guest_time ? now : old + 1;
+        } while ( cmpxchg(&pl->last_guest_time, old, new) != old );
     }
-    spin_unlock(&pl->pl_time_lock);
+    else
+        new = now;
 
-    return now + v->arch.hvm.stime_offset;
+    return new + v->arch.hvm.stime_offset;
 }
 
 void hvm_set_guest_time(struct vcpu *v, u64 guest_time)

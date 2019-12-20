@@ -135,10 +135,9 @@ struct pl_time {    /* platform time */
     struct HPETState vhpet;
     struct PMTState  vpmt;
     /* guest_time = Xen sys time + stime_offset */
-    int64_t stime_offset;
+    s_time_t stime_offset;
     /* Ensures monotonicity in appropriate timer modes. */
-    uint64_t last_guest_time;
-    spinlock_t pl_time_lock;
+    s_time_t last_guest_time;
     struct domain *domain;
 };
 
