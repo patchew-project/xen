@@ -1,10 +1,10 @@
 /******************************************************************************
  * arch/x86/time.c
- * 
+ *
  * Per-CPU time calibration and management.
- * 
+ *
  * Copyright (c) 2002-2005, K A Fraser
- * 
+ *
  * Portions from Linux are:
  * Copyright (c) 1991, 1992, 1995  Linus Torvalds
  */
@@ -78,8 +78,8 @@ static struct timer calibration_timer;
  * We simulate a 32-bit platform timer from the 16-bit PIT ch2 counter.
  * Otherwise overflow happens too quickly (~50ms) for us to guarantee that
  * softirq handling will happen in time.
- * 
- * The pit_lock protects the 16- and 32-bit stamp fields as well as the 
+ *
+ * The pit_lock protects the 16- and 32-bit stamp fields as well as the
  */
 static DEFINE_SPINLOCK(pit_lock);
 static u16 pit_stamp16;
@@ -100,7 +100,7 @@ static inline u32 div_frac(u32 dividend, u32 divisor)
 {
     u32 quotient, remainder;
     ASSERT(dividend < divisor);
-    asm ( 
+    asm (
         "divl %4"
         : "=a" (quotient), "=d" (remainder)
         : "0" (0), "1" (dividend), "r" (divisor) );
@@ -913,7 +913,7 @@ static void __get_cmos_time(struct rtc_time *rtc)
     rtc->day  = CMOS_READ(RTC_DAY_OF_MONTH);
     rtc->mon  = CMOS_READ(RTC_MONTH);
     rtc->year = CMOS_READ(RTC_YEAR);
-    
+
     if ( RTC_ALWAYS_BCD || !(CMOS_READ(RTC_CONTROL) & RTC_DM_BINARY) )
     {
         BCD_TO_BIN(rtc->sec);
@@ -1413,8 +1413,8 @@ static void check_tsc_warp(unsigned long tsc_khz, unsigned long *max_warp)
         spin_unlock(&sync_lock);
 
         /*
-         * Be nice every now and then (and also check whether measurement is 
-         * done [we also insert a 10 million loops safety exit, so we dont 
+         * Be nice every now and then (and also check whether measurement is
+         * done [we also insert a 10 million loops safety exit, so we dont
          * lock up in case the TSC readout is totally broken]):
          */
         if ( unlikely(!(i & 7)) )
@@ -1426,7 +1426,7 @@ static void check_tsc_warp(unsigned long tsc_khz, unsigned long *max_warp)
         }
 
         /*
-         * Outside the critical section we can now see whether we saw a 
+         * Outside the critical section we can now see whether we saw a
          * time-warp of the TSC going backwards:
          */
         if ( unlikely(prev > now) )
@@ -1708,11 +1708,11 @@ void init_percpu_time(void)
 }
 
 /*
- * On certain older Intel CPUs writing the TSC MSR clears the upper 32 bits. 
+ * On certain older Intel CPUs writing the TSC MSR clears the upper 32 bits.
  * Obviously we must not use write_tsc() on such CPUs.
  *
- * Additionally, AMD specifies that being able to write the TSC MSR is not an 
- * architectural feature (but, other than their manual says, also cannot be 
+ * Additionally, AMD specifies that being able to write the TSC MSR is not an
+ * architectural feature (but, other than their manual says, also cannot be
  * determined from CPUID bits).
  */
 static void __init tsc_check_writability(void)
@@ -1912,7 +1912,7 @@ void __init early_time_init(void)
 
     do_div(tmp, 1000);
     cpu_khz = (unsigned long)tmp;
-    printk("Detected %lu.%03lu MHz processor.\n", 
+    printk("Detected %lu.%03lu MHz processor.\n",
            cpu_khz / 1000, cpu_khz % 1000);
 
     setup_irq(0, 0, &irq0);
@@ -1927,7 +1927,7 @@ static int _disable_pit_irq(void(*hpet_broadcast_setup)(void))
         return -1;
 
     /*
-     * If we do not rely on PIT CH0 then we can use HPET for one-shot timer 
+     * If we do not rely on PIT CH0 then we can use HPET for one-shot timer
      * emulation when entering deep C states.
      * XXX dom0 may rely on RTC interrupt delivery, so only enable
      * hpet_broadcast if FSB mode available or if force_hpet_broadcast.
