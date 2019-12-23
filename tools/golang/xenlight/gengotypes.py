@@ -502,8 +502,7 @@ def xenlight_golang_define_to_C(ty = None, typename = None, nested = False):
             s += xenlight_golang_define_to_C(f.type, typename=f.name, nested=True)
 
         elif isinstance(f.type, idl.KeyedUnion):
-            # TODO
-            pass
+            s += xenlight_golang_union_to_C(f.type, f.name, ty.typename, ty.dispose_fn)
 
         else:
             raise Exception('type {} not supported'.format(f.type))
@@ -511,6 +510,80 @@ def xenlight_golang_define_to_C(ty = None, typename = None, nested = False):
     if not nested:
         s += 'return xc, nil'
         s += '}\n'
+
+    return s
+
+def xenlight_golang_union_to_C(ty = None, union_name = '',
+                               struct_name = '', dispose_fn = ''):
+    keyname   = ty.keyvar.name
+    gokeyname = xenlight_golang_fmt_name(keyname)
+    keytype   = ty.keyvar.type.typename
+    gokeytype = xenlight_golang_fmt_name(keytype)
+
+    interface_name = '{}_{}_union'.format(struct_name, keyname)
+    interface_name = xenlight_golang_fmt_name(interface_name, exported=False)
+
+    cgo_keyname = keyname
+    if cgo_keyname in go_keywords:
+        cgo_keyname = '_' + cgo_keyname
+
+
+    s = 'xc.{} = C.{}(x.{})\n'.format(cgo_keyname,keytype,gokeyname)
+    s += 'switch x.{}{{\n'.format(gokeyname)
+
+    # Create switch statement to determine how to populate the C union.
+    for f in ty.fields:
+        key_val = '{}_{}'.format(keytype, f.name)
+        key_val = xenlight_golang_fmt_name(key_val)
+        if f.type is None:
+            continue
+
+        s += 'case {}:\n'.format(key_val)
+        cgotype = '{}_{}_union_{}'.format(struct_name,keyname,f.name)
+        gotype  = xenlight_golang_fmt_name(cgotype)
+        goname  = '{}_{}'.format(keyname,f.name)
+        goname  = xenlight_golang_fmt_name(goname,exported=False)
+
+        field_name = xenlight_golang_fmt_name('{}_union'.format(keyname))
+        s += 'tmp, ok := x.{}.({})\n'.format(field_name,gotype)
+        s += 'if !ok {\n'
+        s += 'C.{}(&xc)\n'.format(dispose_fn)
+        s += 'return xc,errors.New("wrong type for union key {}")\n'.format(keyname)
+        s += '}\n'
+
+        s += 'var {} C.{}\n'.format(f.name,cgotype)
+        for uf in f.type.fields:
+            gotypename = xenlight_golang_fmt_name(uf.type.typename)
+            ctypename  = uf.type.typename
+            gofname    = xenlight_golang_fmt_name(uf.name)
+
+            is_castable = (uf.type.json_parse_type == 'JSON_INTEGER' or
+                           isinstance(uf.type, idl.Enumeration) or
+                           gotypename in go_builtin_types)
+
+            if not is_castable:
+                s += '{}.{}, err = tmp.{}.toC()\n'.format(f.name,uf.name,gofname)
+                s += 'if err != nil {\n'
+                s += 'C.{}(&xc)\n'.format(dispose_fn)
+                s += 'return xc,err \n}\n'
+
+            elif gotypename == 'string':
+                s += '{}.{} = C.CString(tmp.{})\n'.format(f.name,uf.name,gofname)
+
+            else:
+                s += '{}.{} = C.{}(tmp.{})\n'.format(f.name,uf.name,ctypename,gofname)
+
+        # The union is still represented as Go []byte.
+        s += '{}Bytes := C.GoBytes(unsafe.Pointer(&{}),C.sizeof_{})\n'.format(f.name,
+                                                                              f.name,
+                                                                              cgotype)
+        s += 'copy(xc.{}[:],{}Bytes)\n'.format(union_name,f.name)
+
+    # End switch statement
+    s += 'default:\n'
+    err_string = '"invalid union key \'%v\'", x.{}'.format(gokeyname)
+    s += 'return xc, fmt.Errorf({})'.format(err_string)
+    s += '}\n'
 
     return s
 
