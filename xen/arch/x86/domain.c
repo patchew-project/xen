@@ -1954,6 +1954,10 @@ static int relinquish_memory(
     unsigned long     x, y;
     int               ret = 0;
 
+    ret = put_old_guest_table(current);
+    if ( ret )
+        return ret;
+
     /* Use a recursive lock, as we may enter 'free_domheap_page'. */
     spin_lock_recursive(&d->page_alloc_lock);
 
@@ -1968,42 +1972,32 @@ static int relinquish_memory(
         }
 
         if ( test_and_clear_bit(_PGT_pinned, &page->u.inuse.type_info) )
-            ret = put_page_and_type_preemptible(page);
+        {
+            /* Always drop the page ref associated with PGT_pinned */
+            put_page(page);
+            ret = put_page_type_preemptible(page);
+        }
         switch ( ret )
         {
         case 0:
             break;
-        case -ERESTART:
         case -EINTR:
-            /*
-             * -EINTR means PGT_validated has been re-set; re-set
-             * PGT_pinned again so that it gets picked up next time
-             * around.
-             *
-             * -ERESTART, OTOH, means PGT_partial is set instead.  Put
-             * it back on the list, but don't set PGT_pinned; the
-             * section below will finish off de-validation.  But we do
-             * need to drop the general ref associated with
-             * PGT_pinned, since put_page_and_type_preemptible()
-             * didn't do it.
-             *
-             * NB we can do an ASSERT for PGT_validated, since we
-             * "own" the type ref; but theoretically, the PGT_partial
-             * could be cleared by someone else.
-             */
-            if ( ret == -EINTR )
-            {
-                ASSERT(page->u.inuse.type_info & PGT_validated);
-                set_bit(_PGT_pinned, &page->u.inuse.type_info);
-            }
-            else
-                put_page(page);
+            ASSERT(page->u.inuse.type_info & PGT_validated);
+            /* Fallthrough */
+        case -ERESTART:
+            current->arch.old_guest_ptpg = NULL;
+            current->arch.old_guest_table = page;
+            current->arch.old_guest_table_partial = (ret == -ERESTART);
 
             ret = -ERESTART;
 
-            /* Put the page back on the list and drop the ref we grabbed above */
-            page_list_add(page, list);
-            put_page(page);
+            /* Make sure we don't lose track of the page */
+            page_list_add_tail(page, &d->arch.relmem_list);
+
+            /*
+             * NB that we've transferred the general ref acquired at
+             * the top of the loop to old_guest_table.
+             */
             goto out;
         default:
             BUG();
