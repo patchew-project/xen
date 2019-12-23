@@ -456,7 +456,7 @@ def xenlight_golang_define_to_C(ty = None, typename = None, nested = False):
     for f in ty.fields:
         if f.type.typename is not None:
             if isinstance(f.type, idl.Array):
-                # TODO
+                s += xenlight_golang_array_to_C(f, ty.dispose_fn)
                 continue
 
             gotypename = xenlight_golang_fmt_name(f.type.typename)
@@ -583,6 +583,48 @@ def xenlight_golang_union_to_C(ty = None, union_name = '',
     s += 'default:\n'
     err_string = '"invalid union key \'%v\'", x.{}'.format(gokeyname)
     s += 'return xc, fmt.Errorf({})'.format(err_string)
+    s += '}\n'
+
+    return s
+
+def xenlight_golang_array_to_C(ty = None, dispose_fn = ''):
+    s = ''
+
+    gotypename = xenlight_golang_fmt_name(ty.type.elem_type.typename)
+    goname     = xenlight_golang_fmt_name(ty.name)
+    ctypename  = ty.type.elem_type.typename
+    cname      = ty.name
+    clenvar    = ty.type.lenvar.name
+    golenvar   = xenlight_golang_fmt_name(clenvar,exported=False)
+
+    is_enum = isinstance(ty.type.elem_type,idl.Enumeration)
+    if gotypename in go_builtin_types or is_enum:
+        s += '{} := len(x.{})\n'.format(golenvar,goname)
+        s += 'xc.{} = (*C.{})(C.malloc(C.size_t({}*{})))\n'.format(cname,ctypename,
+                                                                   golenvar,golenvar)
+        s += 'xc.{} = C.int({})\n'.format(clenvar,golenvar)
+        s += 'c{} := (*[1<<28]C.{})(unsafe.Pointer(xc.{}))[:{}:{}]\n'.format(goname,
+                                                                      ctypename,cname,
+                                                                      golenvar,golenvar)
+        s += 'for i,v := range x.{} {{\n'.format(goname)
+        s += 'c{}[i] = C.{}(v)\n'.format(goname,ctypename)
+        s += '}\n'
+
+        return s
+
+    s += '{} := len(x.{})\n'.format(golenvar,goname)
+    s += 'xc.{} = (*C.{})(C.malloc(C.ulong({})*C.sizeof_{}))\n'.format(cname,ctypename,
+                                                                   golenvar,ctypename)
+    s += 'xc.{} = C.int({})\n'.format(clenvar,golenvar)
+    s += 'c{} := (*[1<<28]C.{})(unsafe.Pointer(xc.{}))[:{}:{}]\n'.format(goname,
+                                                                         ctypename,cname,
+                                                                         golenvar,golenvar)
+    s += 'for i,v := range x.{} {{\n'.format(goname)
+    s += 'tmp, err := v.toC()\n'
+    s += 'if err != nil {\n'
+    s += 'C.{}(&xc)\n'.format(dispose_fn)
+    s += 'return xc,err\n}\n'
+    s += 'c{}[i] = tmp\n'.format(goname)
     s += '}\n'
 
     return s
