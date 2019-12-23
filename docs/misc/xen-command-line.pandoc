@@ -636,12 +636,28 @@ Available alternatives, with their meaning, are:
 Specify the USB controller to use, either by instance number (when going
 over the PCI busses sequentially) or by PCI device (must be on segment 0).
 
-### debug_stack_lines
+### debug\_stack\_lines
 > `= <integer>`
 
 > Default: `20`
 
 Limits the number lines printed in Xen stack traces.
+
+### debug-synthetic-preemption
+> `= <integer>`
+
+> Default: `0`
+
+Artificially increases rate at which `hypercall_preempt_check()`
+returns `true`, for debugging purposes, to a rate of one in `N`. (The
+default, `0`, disables the feature.)
+
+When promoting pagetables, for instance, `hypercall_preempt_check()`
+is called before processing each PTE.  Since there are 512 PTEs per
+page, a value of `1024` should result in pagetable promotion being
+interrupted every other page on average.
+
+Only available in DEBUG builds.
 
 ### debugtrace
 > `= [cpu:]<size>`
@@ -1690,7 +1706,7 @@ The following resources are available:
     CDP, one COS will corespond two CBMs other than one with CAT, due to the
     sum of CBMs is fixed, that means actual `cos_max` in use will automatically
     reduce to half when CDP is enabled.
-	
+
 ### pv-linear-pt (x86)
 > `= <boolean>`
 

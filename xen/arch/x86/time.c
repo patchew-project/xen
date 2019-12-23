@@ -43,6 +43,17 @@
 static char __initdata opt_clocksource[10];
 string_param("clocksource", opt_clocksource);
 
+#ifndef NDEBUG
+int debug_synthetic_preemption = 0;
+integer_param("debug-synthetic-preemption", debug_synthetic_preemption);
+
+bool synthetic_preemption_check(void) {
+    if ( debug_synthetic_preemption == 0 )
+        return false;
+    return !(rdtsc() % debug_synthetic_preemption);
+}
+#endif
+
 unsigned long __read_mostly cpu_khz;  /* CPU clock frequency in kHz. */
 DEFINE_SPINLOCK(rtc_lock);
 unsigned long pit0_ticks;

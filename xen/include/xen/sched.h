@@ -748,6 +748,13 @@ static inline void hypercall_cancel_continuation(struct vcpu *v)
     v->hcall_preempted = false;
 }
 
+#ifndef NDEBUG
+bool synthetic_preemption_check(void);
+#define synthetic_preemption_check synthetic_preemption_check
+#else
+#define synthetic_preempiton_check() false
+#endif
+
 /*
  * For long-running operations that must be in hypercall context, check
  * if there is background work to be done that should interrupt this
@@ -755,7 +762,8 @@ static inline void hypercall_cancel_continuation(struct vcpu *v)
  */
 #define hypercall_preempt_check() (unlikely(    \
         softirq_pending(smp_processor_id()) |   \
-        local_events_need_delivery()            \
+        local_events_need_delivery() |          \
+        synthetic_preemption_check()            \
     ))
 
 /*
