@@ -1951,7 +1951,6 @@ static int relinquish_memory(
     struct domain *d, struct page_list_head *list, unsigned long type)
 {
     struct page_info  *page;
-    unsigned long     x, y;
     int               ret = 0;
 
     ret = put_old_guest_table(current);
@@ -2004,76 +2003,6 @@ static int relinquish_memory(
         }
 
         put_page_alloc_ref(page);
-
-        /*
-         * Forcibly invalidate top-most, still valid page tables at this point
-         * to break circular 'linear page table' references as well as clean up
-         * partially validated pages. This is okay because MMU structures are
-         * not shared across domains and this domain is now dead. Thus top-most
-         * valid tables are not in use so a non-zero count means circular
-         * reference or partially validated.
-         */
-        y = page->u.inuse.type_info;
-        for ( ; ; )
-        {
-            x = y;
-            if ( likely((x & PGT_type_mask) != type) ||
-                 likely(!(x & (PGT_validated|PGT_partial))) )
-                break;
-
-            y = cmpxchg(&page->u.inuse.type_info, x,
-                        x & ~(PGT_validated|PGT_partial));
-            if ( likely(y == x) )
-            {
-                /* No need for atomic update of type_info here: noone else updates it. */
-                switch ( ret = devalidate_page(page, x, 1) )
-                {
-                case 0:
-                    break;
-                case -EINTR:
-                    page_list_add(page, list);
-                    page->u.inuse.type_info |= PGT_validated;
-                    if ( x & PGT_partial )
-                        put_page(page);
-                    put_page(page);
-                    ret = -ERESTART;
-                    goto out;
-                case -ERESTART:
-                    page_list_add(page, list);
-                    /*
-                     * PGT_partial holds a type ref and a general ref.
-                     * If we came in with PGT_partial set, then we 1)
-                     * don't need to grab an extra type count, and 2)
-                     * do need to drop the extra page ref we grabbed
-                     * at the top of the loop.  If we didn't come in
-                     * with PGT_partial set, we 1) do need to drab an
-                     * extra type count, but 2) can transfer the page
-                     * ref we grabbed above to it.
-                     *
-                     * Note that we must increment type_info before
-                     * setting PGT_partial.  Theoretically it should
-                     * be safe to drop the page ref before setting
-                     * PGT_partial, but do it afterwards just to be
-                     * extra safe.
-                     */
-                    if ( !(x & PGT_partial) )
-                        page->u.inuse.type_info++;
-                    smp_wmb();
-                    page->u.inuse.type_info |= PGT_partial;
-                    if ( x & PGT_partial )
-                        put_page(page);
-                    goto out;
-                default:
-                    BUG();
-                }
-                if ( x & PGT_partial )
-                {
-                    page->u.inuse.type_info--;
-                    put_page(page);
-                }
-                break;
-            }
-        }
 
         /* Put the page on the list and /then/ potentially free it. */
         page_list_add_tail(page, &d->arch.relmem_list);
