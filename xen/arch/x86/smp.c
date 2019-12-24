@@ -8,6 +8,7 @@
  *	later.
  */
 
+#include <xen/cpu.h>
 #include <xen/irq.h>
 #include <xen/sched.h>
 #include <xen/delay.h>
@@ -123,6 +124,11 @@ void send_IPI_self_legacy(uint8_t vector)
     __default_send_IPI_shortcut(APIC_DEST_SELF, vector, APIC_DEST_PHYSICAL);
 }
 
+static void send_IPI_allbutself(unsigned int vector)
+{
+    __default_send_IPI_shortcut(APIC_DEST_ALLBUT, vector, APIC_DEST_PHYSICAL);
+}
+
 void send_IPI_mask_flat(const cpumask_t *cpumask, int vector)
 {
     unsigned long mask = cpumask_bits(cpumask)[0];
@@ -227,14 +233,47 @@ void flush_area_mask(const cpumask_t *mask, const void *va, unsigned int flags)
     if ( (flags & ~FLUSH_ORDER_MASK) &&
          !cpumask_subset(mask, cpumask_of(cpu)) )
     {
+        bool cpus_locked = false;
+
         spin_lock(&flush_lock);
         cpumask_and(&flush_cpumask, mask, &cpu_online_map);
         cpumask_clear_cpu(cpu, &flush_cpumask);
         flush_va      = va;
         flush_flags   = flags;
-        send_IPI_mask(&flush_cpumask, INVALIDATE_TLB_VECTOR);
+
+        /*
+         * Prevent any CPU hot{un}plug while sending the IPIs if we are to use
+         * a shorthand, also refuse to use a shorthand if not all CPUs are
+         * online or have been parked.
+         */
+        if ( system_state > SYS_STATE_smp_boot && !cpu_overflow &&
+             (cpus_locked = get_cpu_maps()) &&
+             (park_offline_cpus ||
+              cpumask_equal(&cpu_online_map, &cpu_present_map)) )
+        {
+            cpumask_copy(this_cpu(scratch_cpumask), &cpu_online_map);
+            cpumask_clear_cpu(cpu, this_cpu(scratch_cpumask));
+        }
+        else
+        {
+            if ( cpus_locked )
+            {
+                put_cpu_maps();
+                cpus_locked = false;
+            }
+            cpumask_clear(this_cpu(scratch_cpumask));
+        }
+
+        if ( cpumask_equal(&flush_cpumask, this_cpu(scratch_cpumask)) )
+            send_IPI_allbutself(INVALIDATE_TLB_VECTOR);
+        else
+            send_IPI_mask(&flush_cpumask, INVALIDATE_TLB_VECTOR);
+
         while ( !cpumask_empty(&flush_cpumask) )
             cpu_relax();
+
+        if ( cpus_locked )
+            put_cpu_maps();
         spin_unlock(&flush_lock);
     }
 }

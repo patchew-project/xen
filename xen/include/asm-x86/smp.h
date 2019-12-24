@@ -84,6 +84,8 @@ extern cpumask_t **socket_cpumask;
 #define get_cpu_current(cpu) \
     (get_cpu_info_from_stack((unsigned long)stack_base[cpu])->current_vcpu)
 
+extern bool cpu_overflow;
+
 #endif /* !__ASSEMBLY__ */
 
 #endif

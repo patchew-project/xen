@@ -66,6 +66,9 @@ static unsigned int __initdata disabled_cpus;
 /* Bitmask of physically existing CPUs */
 physid_mask_t phys_cpu_present_map;
 
+/* Record whether CPUs haven't been added due to overflows. */
+bool __read_mostly cpu_overflow;
+
 void __init set_nr_cpu_ids(unsigned int max_cpus)
 {
 	unsigned int tot_cpus = num_processors + disabled_cpus;
@@ -160,6 +163,7 @@ static int MP_processor_info_x(struct mpc_config_processor *m,
 		printk_once(XENLOG_WARNING
 			    "WARNING: NR_CPUS limit of %u reached - ignoring further processors\n",
 			    nr_cpu_ids);
+		cpu_overflow = true;
 		return -ENOSPC;
 	}
 
@@ -167,6 +171,7 @@ static int MP_processor_info_x(struct mpc_config_processor *m,
 	    && genapic.name == apic_default.name) {
 		printk_once(XENLOG_WARNING
 			    "WARNING: CPUs limit of 8 reached - ignoring futher processors\n");
+		cpu_overflow = true;
 		return -ENOSPC;
 	}
 
