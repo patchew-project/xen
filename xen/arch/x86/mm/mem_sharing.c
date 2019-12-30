@@ -1117,11 +1117,19 @@ int add_to_physmap(struct domain *sd, unsigned long sgfn, shr_handle_t sh,
         goto err_unlock;
     }
 
+    /*
+     * Must succeed, we just read the entry and hold the p2m lock
+     * via get_two_gfns.
+     */
     ret = p2m_set_entry(p2m, _gfn(cgfn), smfn, PAGE_ORDER_4K,
                         p2m_ram_shared, a);
+    ASSERT(!ret);
 
-    /* Tempted to turn this into an assert */
-    if ( ret )
+    /*
+     * There is a chance we're plugging a hole where a paged out
+     * page was.
+     */
+    if ( p2m_is_paging(cmfn_type) && (cmfn_type != p2m_ram_paging_out) )
     {
         mem_sharing_gfn_destroy(spage, cd, gfn_info);
         put_page_and_type(spage);
@@ -1129,29 +1137,21 @@ int add_to_physmap(struct domain *sd, unsigned long sgfn, shr_handle_t sh,
     else
     {
         /*
-         * There is a chance we're plugging a hole where a paged out
-         * page was.
+         * Further, there is a chance this was a valid page.
+         * Don't leak it.
          */
-        if ( p2m_is_paging(cmfn_type) && (cmfn_type != p2m_ram_paging_out) )
+        if ( mfn_valid(cmfn) )
         {
-            atomic_dec(&cd->paged_pages);
-            /*
-             * Further, there is a chance this was a valid page.
-             * Don't leak it.
-             */
-            if ( mfn_valid(cmfn) )
-            {
-                struct page_info *cpage = mfn_to_page(cmfn);
+            struct page_info *cpage = mfn_to_page(cmfn);
 
-                if ( !get_page(cpage, cd) )
-                {
-                    domain_crash(cd);
-                    ret = -EOVERFLOW;
-                    goto err_unlock;
-                }
-                put_page_alloc_ref(cpage);
-                put_page(cpage);
+            if ( !get_page(cpage, cd) )
+            {
+                domain_crash(cd);
+                ret = -EOVERFLOW;
+                goto err_unlock;
             }
+            put_page_alloc_ref(cpage);
+            put_page(cpage);
         }
     }
 
