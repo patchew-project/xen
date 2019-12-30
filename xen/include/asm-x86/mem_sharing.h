@@ -26,8 +26,7 @@
 
 #ifdef CONFIG_MEM_SHARING
 
-struct mem_sharing_domain
-{
+struct mem_sharing_domain {
     bool enabled;
 
     /*
@@ -39,6 +38,9 @@ struct mem_sharing_domain
 
 #define mem_sharing_enabled(d) \
     (hap_enabled(d) && (d)->arch.hvm.mem_sharing.enabled)
+
+#define mem_sharing_is_fork(d) \
+    (mem_sharing_enabled(d) && !!((d)->parent))
 
 /* Auditing of memory sharing code? */
 #ifndef NDEBUG
@@ -89,6 +91,9 @@ static inline int mem_sharing_unshare_page(struct domain *d,
     return rc;
 }
 
+int mem_sharing_fork_page(struct domain *d, gfn_t gfn,
+                          bool unsharing);
+
 /*
  * If called by a foreign domain, possible errors are
  *   -EBUSY -> ring full
@@ -118,6 +123,7 @@ int relinquish_shared_pages(struct domain *d);
 #else
 
 #define mem_sharing_enabled(d) false
+#define mem_sharing_is_fork(p2m) false
 
 static inline unsigned int mem_sharing_get_nr_saved_mfns(void)
 {
@@ -139,6 +145,16 @@ static inline int mem_sharing_notify_enomem(struct domain *d, unsigned long gfn,
                                             bool allow_sleep)
 {
     ASSERT_UNREACHABLE();
+    return -EOPNOTSUPP;
+}
+
+static inline int mem_sharing_fork(struct domain *d, struct domain *cd, bool vcpu)
+{
+    return -EOPNOTSUPP;
+}
+
+static inline int mem_sharing_fork_page(struct domain *d, gfn_t gfn, bool lock)
+{
     return -EOPNOTSUPP;
 }
 
