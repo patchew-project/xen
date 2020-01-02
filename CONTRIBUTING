@@ -61,7 +61,11 @@ Developer's Certificate of Origin
 All patches to the Xen Project code base must include the line
 "Signed-off-by: your_name <your_email>" at the end of the change
 description. This is required and indicates that you certify the patch
-under the "Developer's Certificate of Origin" which states:
+under the "Developer's Certificate of Origin".
+
+The declaration you are making with your Signed-off-by can be
+found in xen.git in the file DEVELOPER-CERTIFICATE.  For your
+convenience, here is the operative part:
 
   Developer's Certificate of Origin 1.1
 
