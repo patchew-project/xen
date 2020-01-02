@@ -1402,7 +1402,6 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     efi_exit_boot(ImageHandle, SystemTable);
 
     efi_arch_post_exit_boot();
-    for( ; ; ); /* not reached */
 }
 
 #ifndef CONFIG_ARM /* TODO - runtime service support */
