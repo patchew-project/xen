@@ -27,6 +27,7 @@
 struct ms_hyperv_info __read_mostly ms_hyperv;
 
 extern char hv_hypercall_page[];
+DEFINE_PER_CPU_READ_MOSTLY(void *, hv_pcpu_input_arg);
 
 static const struct hypervisor_ops ops;
 const struct hypervisor_ops *__init hyperv_probe(void)
@@ -83,14 +84,33 @@ static void __init setup_hypercall_page(void)
     wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
 }
 
+static void setup_hypercall_pcpu_arg(void)
+{
+    void *mapping;
+
+    mapping = alloc_xenheap_page();
+    if ( !mapping )
+        panic("Failed to allocate hypercall input page for %u\n",
+              smp_processor_id());
+
+    this_cpu(hv_pcpu_input_arg) = mapping;
+}
+
 static void __init setup(void)
 {
     setup_hypercall_page();
+    setup_hypercall_pcpu_arg();
+}
+
+static void ap_setup(void)
+{
+    setup_hypercall_pcpu_arg();
 }
 
 static const struct hypervisor_ops ops = {
     .name = "Hyper-V",
     .setup = setup,
+    .ap_setup = ap_setup,
 };
 
 /*

@@ -51,6 +51,8 @@ static inline uint64_t hv_scale_tsc(uint64_t tsc, uint64_t scale,
 
 #ifdef CONFIG_HYPERV_GUEST
 
+#include <xen/percpu.h>
+
 #include <asm/guest/hypervisor.h>
 
 struct ms_hyperv_info {
@@ -62,6 +64,8 @@ struct ms_hyperv_info {
     uint32_t max_lp_index;
 };
 extern struct ms_hyperv_info ms_hyperv;
+
+DECLARE_PER_CPU(void *, hv_pcpu_input_arg);
 
 const struct hypervisor_ops *hyperv_probe(void);
 
