@@ -66,6 +66,7 @@ struct ms_hyperv_info {
 extern struct ms_hyperv_info ms_hyperv;
 
 DECLARE_PER_CPU(void *, hv_pcpu_input_arg);
+DECLARE_PER_CPU(unsigned int, hv_vp_index);
 
 const struct hypervisor_ops *hyperv_probe(void);
 

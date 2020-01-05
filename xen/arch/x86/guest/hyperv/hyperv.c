@@ -28,6 +28,7 @@ struct ms_hyperv_info __read_mostly ms_hyperv;
 
 extern char hv_hypercall_page[];
 DEFINE_PER_CPU_READ_MOSTLY(void *, hv_pcpu_input_arg);
+DEFINE_PER_CPU_READ_MOSTLY(unsigned int, hv_vp_index);
 
 static const struct hypervisor_ops ops;
 const struct hypervisor_ops *__init hyperv_probe(void)
@@ -87,6 +88,7 @@ static void __init setup_hypercall_page(void)
 static void setup_hypercall_pcpu_arg(void)
 {
     void *mapping;
+    uint64_t vp_index_msr;
 
     mapping = alloc_xenheap_page();
     if ( !mapping )
@@ -94,6 +96,9 @@ static void setup_hypercall_pcpu_arg(void)
               smp_processor_id());
 
     this_cpu(hv_pcpu_input_arg) = mapping;
+
+    rdmsrl(HV_X64_MSR_VP_INDEX, vp_index_msr);
+    this_cpu(hv_vp_index) = vp_index_msr;
 }
 
 static void __init setup(void)
