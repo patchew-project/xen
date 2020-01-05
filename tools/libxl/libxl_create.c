@@ -736,6 +736,13 @@ retry_transaction:
          */
         libxl__xs_mknod(gc, t, GCSPRINTF("%s/device-model", dom_path), rwperm,
                         ARRAY_SIZE(rwperm));
+
+        /*
+         * Create a local "backend" directory for each guest, writable by that
+         * guest, to allow it properly cleanup removed devices
+         */
+        libxl__xs_mknod(gc, t, GCSPRINTF("%s/backend", dom_path), rwperm,
+                        ARRAY_SIZE(rwperm));
     }
 
     vm_list = libxl_list_vm(ctx, &nb_vm);
