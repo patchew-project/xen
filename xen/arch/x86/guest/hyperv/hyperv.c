@@ -29,6 +29,7 @@ struct ms_hyperv_info __read_mostly ms_hyperv;
 extern char hv_hypercall_page[];
 DEFINE_PER_CPU_READ_MOSTLY(void *, hv_pcpu_input_arg);
 DEFINE_PER_CPU_READ_MOSTLY(unsigned int, hv_vp_index);
+DEFINE_PER_CPU_READ_MOSTLY(void *, hv_vp_assist);
 
 static const struct hypervisor_ops ops;
 const struct hypervisor_ops *__init hyperv_probe(void)
@@ -101,15 +102,35 @@ static void setup_hypercall_pcpu_arg(void)
     this_cpu(hv_vp_index) = vp_index_msr;
 }
 
+static void setup_vp_assist(void)
+{
+    void *mapping;
+    uint64_t val;
+
+    mapping = alloc_xenheap_page();
+    if ( !mapping )
+        panic("Failed to allocate vp_assist page for %u\n",
+              smp_processor_id());
+
+    clear_page(mapping);
+
+    this_cpu(hv_vp_assist) = mapping;
+    val = (virt_to_mfn(mapping) << HV_HYP_PAGE_SHIFT)
+        | HV_X64_MSR_VP_ASSIST_PAGE_ENABLE;
+    wrmsrl(HV_X64_MSR_VP_ASSIST_PAGE, val);
+}
+
 static void __init setup(void)
 {
     setup_hypercall_page();
     setup_hypercall_pcpu_arg();
+    setup_vp_assist();
 }
 
 static void ap_setup(void)
 {
     setup_hypercall_pcpu_arg();
+    setup_vp_assist();
 }
 
 static const struct hypervisor_ops ops = {
