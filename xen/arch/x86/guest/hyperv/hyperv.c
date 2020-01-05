@@ -19,16 +19,16 @@
  * Copyright (c) 2019 Microsoft.
  */
 #include <xen/init.h>
+#include <xen/domain_page.h>
 
 #include <asm/guest.h>
 #include <asm/guest/hyperv-tlfs.h>
 
 struct ms_hyperv_info __read_mostly ms_hyperv;
 
-static const struct hypervisor_ops ops = {
-    .name = "Hyper-V",
-};
+extern char hv_hypercall_page[];
 
+static const struct hypervisor_ops ops;
 const struct hypervisor_ops *__init hyperv_probe(void)
 {
     uint32_t eax, ebx, ecx, edx;
@@ -71,6 +71,27 @@ const struct hypervisor_ops *__init hyperv_probe(void)
 
     return &ops;
 }
+
+static void __init setup_hypercall_page(void)
+{
+    union hv_x64_msr_hypercall_contents hypercall_msr;
+
+    rdmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+    hypercall_msr.enable = 1;
+    hypercall_msr.guest_physical_address =
+        __pa(hv_hypercall_page) >> HV_HYP_PAGE_SHIFT;
+    wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
+}
+
+static void __init setup(void)
+{
+    setup_hypercall_page();
+}
+
+static const struct hypervisor_ops ops = {
+    .name = "Hyper-V",
+    .setup = setup,
+};
 
 /*
  * Local variables:
