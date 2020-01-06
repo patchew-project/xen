@@ -584,21 +584,24 @@ static void __init efi_arch_memory_setup(void)
     if ( !efi_enabled(EFI_LOADER) )
         return;
 
-    /* Initialise L2 identity-map and boot-map page table entries (16MB). */
+    /*
+     * Map Xen into the directmap (NX, needed for early-boot pagetable
+     * handling/walking), and identity map Xen into bootmap (X, needed for the
+     * transition from the EFI pagetables to Xen), using 2M superpages.
+     */
     for ( i = 0; i < 8; ++i )
     {
         unsigned int slot = (xen_phys_start >> L2_PAGETABLE_SHIFT) + i;
         paddr_t addr = slot << L2_PAGETABLE_SHIFT;
 
         l2_identmap[slot] = l2e_from_paddr(addr, PAGE_HYPERVISOR|_PAGE_PSE);
-        slot &= L2_PAGETABLE_ENTRIES - 1;
         l2_bootmap[slot] = l2e_from_paddr(addr, __PAGE_HYPERVISOR|_PAGE_PSE);
     }
-    /* Initialise L3 boot-map page directory entries. */
-    l3_bootmap[l3_table_offset(xen_phys_start)] =
-        l3e_from_paddr((UINTN)l2_bootmap, __PAGE_HYPERVISOR);
-    l3_bootmap[l3_table_offset(xen_phys_start + (8 << L2_PAGETABLE_SHIFT) - 1)] =
-        l3e_from_paddr((UINTN)l2_bootmap, __PAGE_HYPERVISOR);
+
+    /* Initialize L3 boot-map page directory entries. */
+    for ( i = 0; i < 4; ++i )
+        l3_bootmap[i] = l3e_from_paddr((UINTN)l2_bootmap + i * PAGE_SIZE,
+                                       __PAGE_HYPERVISOR);
 }
 
 static void __init efi_arch_handle_module(struct file *file, const CHAR16 *name,
