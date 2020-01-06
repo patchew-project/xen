@@ -147,6 +147,7 @@ typedef enum {
     EfiMemoryMappedIO,
     EfiMemoryMappedIOPortSpace,
     EfiPalCode,
+    EfiPersistentMemory,
     EfiMaxMemoryType
 } EFI_MEMORY_TYPE;
 
