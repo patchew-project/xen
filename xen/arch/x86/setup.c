@@ -1020,8 +1020,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
      *
      * We require superpage alignment because the boot allocator is
      * not yet initialised. Hence we can only map superpages in the
-     * address range BOOTSTRAP_MAP_BASE to 4GB, as this is guaranteed
-     * not to require dynamic allocation of pagetables.
+     * address range 2MB to 4GB, as this is guaranteed not to require
+     * dynamic allocation of pagetables.
      *
      * As well as mapping superpages in that range, in preparation for
      * initialising the boot allocator, we also look for a region to which
@@ -1036,10 +1036,10 @@ void __init noreturn __start_xen(unsigned long mbi_p)
         if ( boot_e820.map[i].type != E820_RAM )
             continue;
 
-        /* Superpage-aligned chunks from BOOTSTRAP_MAP_BASE. */
+        /* Superpage-aligned chunks from 2MB. */
         s = (boot_e820.map[i].addr + mask) & ~mask;
         e = (boot_e820.map[i].addr + boot_e820.map[i].size) & ~mask;
-        s = max_t(uint64_t, s, BOOTSTRAP_MAP_BASE);
+        s = max_t(uint64_t, s, MB(2));
         if ( s >= e )
             continue;
 
@@ -1346,8 +1346,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
 
         set_pdx_range(s >> PAGE_SHIFT, e >> PAGE_SHIFT);
 
-        /* Need to create mappings above BOOTSTRAP_MAP_BASE. */
-        map_s = max_t(uint64_t, s, BOOTSTRAP_MAP_BASE);
+        /* Need to create mappings above 2MB. */
+        map_s = max_t(uint64_t, s, MB(2));
         map_e = min_t(uint64_t, e,
                       ARRAY_SIZE(l2_identmap) << L2_PAGETABLE_SHIFT);
 
