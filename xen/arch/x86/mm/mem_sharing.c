@@ -358,7 +358,7 @@ static bool rmap_has_one_entry(const struct page_info *page)
 }
 
 /* Returns true if the rmap has any entries. O(1) complexity. */
-static bool rmap_has_entries(const struct page_info *page)
+static bool __maybe_unused rmap_has_entries(const struct page_info *page)
 {
     return rmap_count(page) != 0;
 }
