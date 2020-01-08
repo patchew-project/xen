@@ -694,6 +694,42 @@ Leave the domain paused after creating the snapshot.
 
 =back
 
+=item B<fork-vm> [I<OPTIONS>] I<domain-id>
+
+Create a fork of a running VM. The domain will be paused after the operation
+and needs to remain paused while forks of it exist.
+
+B<OPTIONS>
+
+=over 4
+
+=item B<-p>
+
+Leave the fork paused after creating it.
+
+=item B<--launch-dm>
+
+Specify whether the device model (QEMU) should be launched for the fork. Late
+launch allows to start the device model for an already running fork.
+
+=item B<-C>
+
+The config file to use when launching the device model. Currently required when
+launching the device model.
+
+=item B<-Q>
+
+The qemu save file to use when launching the device model.  Currently required
+when launching the device model.
+
+=item B<--fork-reset>
+
+Perform a reset operation of an already running fork. Note that resetting may
+be less performant then creating a new fork depending on how much memory the
+fork has deduplicated during its runtime.
+
+=back
+
 =item B<sharing> [I<domain-id>]
 
 Display the number of shared pages for a specified domain. If no domain is

@@ -229,6 +229,102 @@ int main_restore(int argc, char **argv)
     return EXIT_SUCCESS;
 }
 
+int main_fork_vm(int argc, char **argv)
+{
+    int rc, debug = 0;
+    uint32_t domid_in = INVALID_DOMID, domid_out = INVALID_DOMID;
+    int launch_dm = 1;
+    bool reset = 0;
+    bool pause = 0;
+    const char *config_file = NULL;
+    const char *dm_restore_file = NULL;
+
+    int opt;
+    static struct option opts[] = {
+        {"launch-dm", 1, 0, 'l'},
+        {"fork-reset", 0, 0, 'r'},
+        COMMON_LONG_OPTS
+    };
+
+    SWITCH_FOREACH_OPT(opt, "phdC:Q:l:rN:D:B:V:", opts, "fork-vm", 1) {
+    case 'd':
+        debug = 1;
+        break;
+    case 'p':
+        pause = 1;
+        break;
+    case 'C':
+        config_file = optarg;
+        break;
+    case 'Q':
+        dm_restore_file = optarg;
+        break;
+    case 'l':
+        printf("optarg: %s\n", optarg);
+        if ( !strcmp(optarg, "no") )
+            launch_dm = 0;
+        if ( !strcmp(optarg, "yes") )
+            launch_dm = 1;
+        if ( !strcmp(optarg, "late") )
+            launch_dm = 2;
+        break;
+    case 'r':
+        reset = 1;
+        break;
+    case 'N': /* fall-through */
+    case 'D': /* fall-through */
+    case 'B': /* fall-through */
+    case 'V':
+        fprintf(stderr, "Unimplemented option(s)\n");
+        return EXIT_FAILURE;
+    }
+
+    if (argc-optind == 1) {
+        domid_in = atoi(argv[optind]);
+    } else {
+        help("fork-vm");
+        return EXIT_FAILURE;
+    }
+
+    if (launch_dm && (!config_file || !dm_restore_file)) {
+        fprintf(stderr, "Currently you must provide both -C and -Q options\n");
+        return EXIT_FAILURE;
+    }
+
+    if (reset) {
+        domid_out = domid_in;
+        if (libxl_domain_fork_reset(ctx, domid_in) == EXIT_FAILURE)
+            return EXIT_FAILURE;
+    }
+
+    if (launch_dm == 2 || reset) {
+        domid_out = domid_in;
+        rc = EXIT_SUCCESS;
+    } else
+        rc = libxl_domain_fork_vm(ctx, domid_in, &domid_out);
+
+    if (rc == EXIT_SUCCESS && launch_dm) {
+        struct domain_create dom_info;
+        memset(&dom_info, 0, sizeof(dom_info));
+        dom_info.ddomid = domid_out;
+        dom_info.dm_restore_file = dm_restore_file;
+        dom_info.debug = debug;
+        dom_info.paused = pause;
+        dom_info.config_file = config_file;
+        dom_info.migrate_fd = -1;
+        dom_info.send_back_fd = -1;
+        rc = create_domain(&dom_info) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+    }
+
+    if (rc == EXIT_SUCCESS && !pause)
+        rc = libxl_domain_unpause(ctx, domid_out, NULL);
+
+    if (rc == EXIT_SUCCESS)
+        fprintf(stderr, "fork-vm command successfully returned domid: %u\n", domid_out);
+
+    return rc;
+}
+
 int main_save(int argc, char **argv)
 {
     uint32_t domid;
