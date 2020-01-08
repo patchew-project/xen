@@ -652,19 +652,18 @@ static int page_make_sharable(struct domain *d,
         return -EBUSY;
     }
 
+    /* Check if page is already typed and bail early if it is */
+    if ( (page->u.inuse.type_info & PGT_count_mask) != 1 )
+    {
+        spin_unlock(&d->page_alloc_lock);
+        return -EEXIST;
+    }
+
     /* Change page type and count atomically */
     if ( !get_page_and_type(page, d, PGT_shared_page) )
     {
         spin_unlock(&d->page_alloc_lock);
         return -EINVAL;
-    }
-
-    /* Check it wasn't already sharable and undo if it was */
-    if ( (page->u.inuse.type_info & PGT_count_mask) != 1 )
-    {
-        spin_unlock(&d->page_alloc_lock);
-        put_page_and_type(page);
-        return -EEXIST;
     }
 
     /*
