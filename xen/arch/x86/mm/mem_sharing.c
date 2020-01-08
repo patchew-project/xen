@@ -49,9 +49,6 @@ typedef struct pg_lock_data {
 
 static DEFINE_PER_CPU(pg_lock_data_t, __pld);
 
-#define MEM_SHARING_DEBUG(_f, _a...)                                  \
-    debugtrace_printk("mem_sharing_debug: %s(): " _f, __func__, ##_a)
-
 /* Reverse map defines */
 #define RMAP_HASHTAB_ORDER  0
 #define RMAP_HASHTAB_SIZE   \
@@ -494,19 +491,19 @@ static int audit(void)
         /* If we can't lock it, it's definitely not a shared page */
         if ( !mem_sharing_page_lock(pg) )
         {
-            MEM_SHARING_DEBUG(
-                "mfn %lx in audit list, but cannot be locked (%lx)!\n",
-                mfn_x(mfn), pg->u.inuse.type_info);
-            errors++;
-            continue;
+            gdprintk(XENLOG_ERR,
+                     "mfn %lx in audit list, but cannot be locked (%lx)!\n",
+                     mfn_x(mfn), pg->u.inuse.type_info);
+           errors++;
+           continue;
         }
 
         /* Check if the MFN has correct type, owner and handle. */
         if ( (pg->u.inuse.type_info & PGT_type_mask) != PGT_shared_page )
         {
-            MEM_SHARING_DEBUG(
-                "mfn %lx in audit list, but not PGT_shared_page (%lx)!\n",
-                mfn_x(mfn), pg->u.inuse.type_info & PGT_type_mask);
+            gdprintk(XENLOG_ERR,
+                     "mfn %lx in audit list, but not PGT_shared_page (%lx)!\n",
+                     mfn_x(mfn), pg->u.inuse.type_info & PGT_type_mask);
             errors++;
             continue;
         }
@@ -514,24 +511,24 @@ static int audit(void)
         /* Check the page owner. */
         if ( page_get_owner(pg) != dom_cow )
         {
-            MEM_SHARING_DEBUG("mfn %lx shared, but wrong owner %pd!\n",
-                              mfn_x(mfn), page_get_owner(pg));
-            errors++;
+               gdprintk(XENLOG_ERR, "mfn %lx shared, but wrong owner (%hu)!\n",
+                        mfn_x(mfn), page_get_owner(pg)->domain_id);
+               errors++;
         }
 
         /* Check the m2p entry */
         if ( !SHARED_M2P(get_gpfn_from_mfn(mfn_x(mfn))) )
         {
-            MEM_SHARING_DEBUG("mfn %lx shared, but wrong m2p entry (%lx)!\n",
-                              mfn_x(mfn), get_gpfn_from_mfn(mfn_x(mfn)));
-            errors++;
+               gdprintk(XENLOG_ERR, "mfn %lx shared, but wrong m2p entry (%lx)!\n",
+                        mfn_x(mfn), get_gpfn_from_mfn(mfn_x(mfn)));
+               errors++;
         }
 
         /* Check we have a list */
         if ( (!pg->sharing) || !rmap_has_entries(pg) )
         {
-            MEM_SHARING_DEBUG("mfn %lx shared, but empty gfn list!\n",
-                              mfn_x(mfn));
+            gdprintk(XENLOG_ERR, "mfn %lx shared, but empty gfn list!\n",
+                     mfn_x(mfn));
             errors++;
             continue;
         }
@@ -550,24 +547,26 @@ static int audit(void)
             d = get_domain_by_id(g->domain);
             if ( d == NULL )
             {
-                MEM_SHARING_DEBUG("Unknown dom: %hu, for PFN=%lx, MFN=%lx\n",
-                                  g->domain, g->gfn, mfn_x(mfn));
+                gdprintk(XENLOG_ERR,
+                         "Unknown dom: %hu, for PFN=%lx, MFN=%lx\n",
+                         g->domain, g->gfn, mfn_x(mfn));
                 errors++;
                 continue;
             }
             o_mfn = get_gfn_query_unlocked(d, g->gfn, &t);
             if ( !mfn_eq(o_mfn, mfn) )
             {
-                MEM_SHARING_DEBUG("Incorrect P2M for d=%hu, PFN=%lx."
-                                  "Expecting MFN=%lx, got %lx\n",
-                                  g->domain, g->gfn, mfn_x(mfn), mfn_x(o_mfn));
+                gdprintk(XENLOG_ERR, "Incorrect P2M for d=%hu, PFN=%lx."
+                         "Expecting MFN=%lx, got %lx\n",
+                         g->domain, g->gfn, mfn_x(mfn), mfn_x(o_mfn));
                 errors++;
             }
             if ( t != p2m_ram_shared )
             {
-                MEM_SHARING_DEBUG("Incorrect P2M type for d=%hu, PFN=%lx MFN=%lx."
-                                  "Expecting t=%d, got %d\n",
-                                  g->domain, g->gfn, mfn_x(mfn), p2m_ram_shared, t);
+                gdprintk(XENLOG_ERR,
+                         "Incorrect P2M type for d=%hu, PFN=%lx MFN=%lx."
+                         "Expecting t=%d, got %d\n",
+                         g->domain, g->gfn, mfn_x(mfn), p2m_ram_shared, t);
                 errors++;
             }
             put_domain(d);
@@ -576,10 +575,10 @@ static int audit(void)
         /* The type count has an extra ref because we have locked the page */
         if ( (nr_gfns + 1) != (pg->u.inuse.type_info & PGT_count_mask) )
         {
-            MEM_SHARING_DEBUG("Mismatched counts for MFN=%lx."
-                              "nr_gfns in list %lu, in type_info %lx\n",
-                              mfn_x(mfn), nr_gfns,
-                              (pg->u.inuse.type_info & PGT_count_mask));
+            gdprintk(XENLOG_ERR, "Mismatched counts for MFN=%lx."
+                     "nr_gfns in list %lu, in type_info %lx\n",
+                     mfn_x(mfn), nr_gfns,
+                     (pg->u.inuse.type_info & PGT_count_mask));
             errors++;
         }
 
@@ -590,8 +589,8 @@ static int audit(void)
 
     if ( count_found != count_expected )
     {
-        MEM_SHARING_DEBUG("Expected %ld shared mfns, found %ld.",
-                          count_expected, count_found);
+        gdprintk(XENLOG_ERR, "Expected %ld shared mfns, found %ld.",
+                 count_expected, count_found);
         errors++;
     }
 
@@ -769,10 +768,10 @@ static int debug_mfn(mfn_t mfn)
         return -EINVAL;
     }
 
-    MEM_SHARING_DEBUG(
-        "Debug page: MFN=%lx is ci=%lx, ti=%lx, owner=%pd\n",
-        mfn_x(page_to_mfn(page)), page->count_info,
-        page->u.inuse.type_info, page_get_owner(page));
+    gdprintk(XENLOG_ERR,
+             "Debug page: MFN=%lx is ci=%lx, ti=%lx, owner_id=%d\n",
+             mfn_x(page_to_mfn(page)), page->count_info,
+             page->u.inuse.type_info, page_get_owner(page)->domain_id);
 
     /* -1 because the page is locked and that's an additional type ref */
     num_refs = ((int) (page->u.inuse.type_info & PGT_count_mask)) - 1;
@@ -788,8 +787,9 @@ static int debug_gfn(struct domain *d, gfn_t gfn)
 
     mfn = get_gfn_query(d, gfn_x(gfn), &p2mt);
 
-    MEM_SHARING_DEBUG("Debug for dom%d, gfn=%" PRI_gfn "\n",
-                      d->domain_id, gfn_x(gfn));
+    gdprintk(XENLOG_ERR, "Debug for dom%d, gfn=%" PRI_gfn "\n",
+             d->domain_id, gfn_x(gfn));
+
     num_refs = debug_mfn(mfn);
     put_gfn(d, gfn_x(gfn));
 
@@ -805,13 +805,13 @@ static int debug_gref(struct domain *d, grant_ref_t ref)
     rc = mem_sharing_gref_to_gfn(d->grant_table, ref, &gfn, &status);
     if ( rc )
     {
-        MEM_SHARING_DEBUG("Asked to debug [dom=%d,gref=%u]: error %d.\n",
-                          d->domain_id, ref, rc);
+        gdprintk(XENLOG_ERR, "Asked to debug [dom=%d,gref=%u]: error %d.\n",
+                 d->domain_id, ref, rc);
         return rc;
     }
 
-    MEM_SHARING_DEBUG("==> Grant [dom=%d,ref=%d], status=%x. ",
-                      d->domain_id, ref, status);
+    gdprintk(XENLOG_ERR, "==> Grant [dom=%d,ref=%d], status=%x. ",
+             d->domain_id, ref, status);
 
     return debug_gfn(d, gfn);
 }
