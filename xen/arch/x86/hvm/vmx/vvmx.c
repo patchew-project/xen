@@ -1316,35 +1316,6 @@ static void sync_exception_state(struct vcpu *v)
     }
 }
 
-static void nvmx_update_apicv(struct vcpu *v)
-{
-    struct nestedvmx *nvmx = &vcpu_2_nvmx(v);
-    unsigned long reason = get_vvmcs(v, VM_EXIT_REASON);
-    uint32_t intr_info = get_vvmcs(v, VM_EXIT_INTR_INFO);
-
-    if ( reason == EXIT_REASON_EXTERNAL_INTERRUPT &&
-         nvmx->intr.source == hvm_intsrc_lapic &&
-         (intr_info & INTR_INFO_VALID_MASK) )
-    {
-        uint16_t status;
-        uint32_t rvi, ppr;
-        uint32_t vector = intr_info & 0xff;
-        struct vlapic *vlapic = vcpu_vlapic(v);
-
-        vlapic_ack_pending_irq(v, vector, 1);
-
-        ppr = vlapic_set_ppr(vlapic);
-        WARN_ON((ppr & 0xf0) != (vector & 0xf0));
-
-        status = vector << VMX_GUEST_INTR_STATUS_SVI_OFFSET;
-        rvi = vlapic_has_pending_irq(v);
-        if ( rvi != -1 )
-            status |= rvi & VMX_GUEST_INTR_STATUS_SUBFIELD_BITMASK;
-
-        __vmwrite(GUEST_INTR_STATUS, status);
-    }
-}
-
 static void virtual_vmexit(struct cpu_user_regs *regs)
 {
     struct vcpu *v = current;
@@ -1392,9 +1363,6 @@ static void virtual_vmexit(struct cpu_user_regs *regs)
 
     /* updating host cr0 to sync TS bit */
     __vmwrite(HOST_CR0, v->arch.hvm.vmx.host_cr0);
-
-    if ( cpu_has_vmx_virtual_intr_delivery )
-        nvmx_update_apicv(v);
 
     nvcpu->nv_vmswitch_in_progress = 0;
 }
