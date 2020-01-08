@@ -945,6 +945,8 @@ static void cpu_smpboot_free(unsigned int cpu, bool remove)
                              (per_cpu(stubs.addr, cpu) | ~PAGE_MASK) + 1);
         if ( i == STUBS_PER_PAGE )
             free_domheap_page(mfn_to_page(mfn));
+        per_cpu(stubs.addr, cpu) = 0;
+        per_cpu(stubs.mfn, cpu) = 0;
     }
 
     FREE_XENHEAP_PAGE(per_cpu(compat_gdt, cpu));
