@@ -881,7 +881,7 @@ int cpupool_get_id(const struct domain *d)
     return d->cpupool ? d->cpupool->cpupool_id : CPUPOOLID_NONE;
 }
 
-cpumask_t *cpupool_valid_cpus(struct cpupool *pool)
+const cpumask_t *cpupool_valid_cpus(const struct cpupool *pool)
 {
     return pool->cpu_valid;
 }
