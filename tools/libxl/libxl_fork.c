@@ -78,7 +78,7 @@ static void atfork_unlock(void)
 int libxl__atfork_init(libxl_ctx *ctx)
 {
     int r, rc;
-    
+
     atfork_lock();
     if (atfork_registered) { rc = 0; goto out; }
 
@@ -227,12 +227,9 @@ static pid_t checked_waitpid(libxl__egc *egc, pid_t want, int *status)
 static void sigchld_selfpipe_handler(libxl__egc *egc, libxl__ev_fd *ev,
                                      int fd, short events, short revents);
 
-static void sigchld_handler(int signo)
+static void sigchld_notify(void)
 {
-    /* This function has to be reentrant!  Luckily it is. */
-
     libxl_ctx *notify;
-    int esave = errno;
 
     int r = pthread_mutex_lock(&sigchld_defer_mutex);
     assert(!r);
@@ -244,8 +241,26 @@ static void sigchld_handler(int signo)
 
     r = pthread_mutex_unlock(&sigchld_defer_mutex);
     assert(!r);
+}
+
+static void sigchld_handler(int signo)
+{
+    /* This function has to be reentrant!  Luckily it is. */
+
+    int esave = errno;
+
+    sigchld_notify();
 
     errno = esave;
+}
+
+void libxl_childproc_sigchld_notify(void)
+{
+    /*
+     * XXX: We don't need a ctx here for functionality sake; should we
+     * take one just so we can make sure we're in the right mode?
+     */
+    sigchld_notify();
 }
 
 static void sigchld_sethandler_raw(void (*handler)(int), struct sigaction *old)
@@ -288,9 +303,8 @@ static void sigchld_handler_when_deferred(int signo)
 
 static void defer_sigchld(void)
 {
-    assert(sigchld_installed);
-
-    sigchld_sethandler_raw(sigchld_handler_when_deferred, 0);
+    if ( sigchld_installed )
+        sigchld_sethandler_raw(sigchld_handler_when_deferred, 0);
 
     /* Now _this thread_ cannot any longer be interrupted by the
      * signal, so we can take the mutex without risk of deadlock.  If
@@ -303,12 +317,12 @@ static void defer_sigchld(void)
 
 static void release_sigchld(void)
 {
-    assert(sigchld_installed);
-
     int r = pthread_mutex_unlock(&sigchld_defer_mutex);
     assert(!r);
 
-    sigchld_sethandler_raw(sigchld_handler, 0);
+    if ( sigchld_installed )
+        sigchld_sethandler_raw(sigchld_handler, 0);
+
     if (sigchld_occurred_while_deferred) {
         sigchld_occurred_while_deferred = 0;
         /* We might get another SIGCHLD here, in which case
@@ -326,7 +340,7 @@ static void sigchld_removehandler_core(void) /* idempotent */
 {
     struct sigaction was;
     int r;
-    
+
     if (!sigchld_installed)
         return;
 
@@ -375,6 +389,11 @@ static void sigchld_user_remove(libxl_ctx *ctx) /* idempotent */
 
 void libxl__sigchld_notneeded(libxl__gc *gc) /* non-reentrant, idempotent */
 {
+    /*
+     * NB that we don't need to special-case
+     * libxl_sigchld_owner_mainloop_notify; sigchld_removehandler_core
+     * will DTRT if no signal handler has been set up.
+     */
     sigchld_user_remove(CTX);
     libxl__ev_fd_deregister(gc, &CTX->sigchld_selfpipe_efd);
 }
@@ -399,7 +418,9 @@ int libxl__sigchld_needed(libxl__gc *gc) /* non-reentrant, idempotent */
     if (!CTX->sigchld_user_registered) {
         atfork_lock();
 
-        sigchld_installhandler_core();
+        if (CTX->childproc_hooks->chldowner != libxl_sigchld_owner_mainloop_notify) {
+            sigchld_installhandler_core();
+        }
 
         defer_sigchld();
 
@@ -416,13 +437,15 @@ int libxl__sigchld_needed(libxl__gc *gc) /* non-reentrant, idempotent */
     return rc;
 }
 
-static bool chldmode_ours(libxl_ctx *ctx, bool creating)
+/* Do we need the sigchld notification machinery? */
+static bool chldmode_notify(libxl_ctx *ctx, bool creating)
 {
     switch (ctx->childproc_hooks->chldowner) {
     case libxl_sigchld_owner_libxl:
         return creating || !LIBXL_LIST_EMPTY(&ctx->children);
     case libxl_sigchld_owner_mainloop:
         return 0;
+    case libxl_sigchld_owner_mainloop_notify:
     case libxl_sigchld_owner_libxl_always:
     case libxl_sigchld_owner_libxl_always_selective_reap:
         return 1;
@@ -432,7 +455,7 @@ static bool chldmode_ours(libxl_ctx *ctx, bool creating)
 
 static void perhaps_sigchld_notneeded(libxl__gc *gc)
 {
-    if (!chldmode_ours(CTX, 0))
+    if (!chldmode_notify(CTX, 0))
         libxl__sigchld_notneeded(gc);
 }
 
@@ -440,7 +463,7 @@ static int perhaps_sigchld_needed(libxl__gc *gc, bool creating)
 {
     int rc;
 
-    if (chldmode_ours(CTX, creating)) {
+    if (chldmode_notify(CTX, creating)) {
         rc = libxl__sigchld_needed(gc);
         if (rc) return rc;
     }
@@ -556,13 +579,16 @@ static void sigchld_selfpipe_handler(libxl__egc *egc, libxl__ev_fd *ev,
     int e = libxl__self_pipe_eatall(selfpipe);
     if (e) LIBXL__EVENT_DISASTER(egc, "read sigchld pipe", e, 0);
 
-    if (CTX->childproc_hooks->chldowner
-        == libxl_sigchld_owner_libxl_always_selective_reap) {
+    switch (CTX->childproc_hooks->chldowner) {
+    case libxl_sigchld_owner_libxl_always_selective_reap:
+    case libxl_sigchld_owner_mainloop_notify:
         childproc_checkall(egc);
         return;
+    default:
+        ;
     }
 
-    while (chldmode_ours(CTX, 0) /* in case the app changes the mode */) {
+    while (chldmode_notify(CTX, 0) /* in case the app changes the mode */) {
         int status;
         pid_t pid = checked_waitpid(egc, -1, &status);
 

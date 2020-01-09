@@ -441,7 +441,7 @@ void libxl_osevent_occurred_timeout(libxl_ctx *ctx, void *for_libxl)
  *
  *     A program which does this must call libxl_childproc_setmode.
  *     There are three options:
- * 
+ *
  *     libxl_sigchld_owner_libxl:
  *
  *       While any libxl operation which might use child processes
@@ -465,6 +465,14 @@ void libxl_osevent_occurred_timeout(libxl_ctx *ctx, void *for_libxl)
  *       libxl by calling libxl_childproc_exited.  (If the application
  *       has multiple libxl ctx's, it must call libxl_childproc_exited
  *       on each ctx.)
+ *
+ *     libxl_sigchld_owner_mainloop_notify:
+ *
+ *       The application must install a SIGCHLD handler, but will
+ *       notify libxl when a sigchld happened by calling
+ *       libxl_childproc_sigchld_notify.  libxl will arrange to reap
+ *       only its own children.  This needs to be called only once,
+ *       even for applications which have multiple libxl ctx's.
  *
  *     libxl_sigchld_owner_libxl_always:
  *
@@ -493,6 +501,12 @@ typedef enum {
      * NOT from within a signal handler).  libxl will not itself
      * arrange to (un)block or catch SIGCHLD. */
     libxl_sigchld_owner_mainloop,
+
+    /* Application promises to discover when SIGCHLD occurs and call
+     * libxl_childproc_sigchld_notify (perhaps from within a signal
+     * handler).  libxl will not itself arrange to (un)block or catch
+     * SIGCHLD. */
+    libxl_sigchld_owner_mainloop_notify,
 
     /* libxl owns SIGCHLD all the time, and the application is
      * relying on libxl's event loop for reaping its children too. */
@@ -588,6 +602,22 @@ int libxl_childproc_reaped(libxl_ctx *ctx, pid_t, int status)
  * interrupt any libxl operation (just like libxl_childproc_reaped).
  */
 void libxl_childproc_sigchld_occurred(libxl_ctx *ctx)
+                           LIBXL_EXTERNAL_CALLERS_ONLY;
+
+/*
+ * This function is for an application which owns SIGCHLD but still
+ * expects libxl to handle its own event loops.
+ *
+ * Such an the application must notify libxl, by calling this
+ * function, that a SIGCHLD occurred.  libxl will then notify all
+ * appropriate event loops to check for reaped children..
+ *
+ * May be called only by an application which has called setmode with
+ * chldowner == libxl_sigchld_owner_mainloop_notify.
+ *
+ * MAY be called from within a signal handler.
+ */
+void libxl_childproc_sigchld_notify(void)
                            LIBXL_EXTERNAL_CALLERS_ONLY;
 
 
