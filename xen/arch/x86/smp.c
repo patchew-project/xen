@@ -8,6 +8,7 @@
  *	later.
  */
 
+#include <xen/cpu.h>
 #include <xen/irq.h>
 #include <xen/sched.h>
 #include <xen/delay.h>
@@ -23,6 +24,31 @@
 #include <irq_vectors.h>
 #include <mach_apic.h>
 
+static inline int __prepare_ICR(unsigned int shortcut, int vector)
+{
+    return APIC_DM_FIXED | shortcut | vector;
+}
+
+static void __default_send_IPI_shortcut(unsigned int shortcut, int vector,
+                                        unsigned int dest)
+{
+    unsigned int cfg;
+
+    /*
+     * Wait for idle.
+     */
+    apic_wait_icr_idle();
+
+    /*
+     * prepare target chip field
+     */
+    cfg = __prepare_ICR(shortcut, vector) | dest;
+    /*
+     * Send the IPI. The write to APIC_ICR fires this off.
+     */
+    apic_write(APIC_ICR, cfg);
+}
+
 /*
  * send_IPI_mask(cpumask, vector): sends @vector IPI to CPUs in @cpumask,
  * excluding the local CPU. @cpumask may be empty.
@@ -30,7 +56,40 @@
 
 void send_IPI_mask(const cpumask_t *mask, int vector)
 {
-    alternative_vcall(genapic.send_IPI_mask, mask, vector);
+    bool cpus_locked = false;
+
+    /*
+     * Prevent any CPU hot{un}plug while sending the IPIs if we are to use
+     * a shorthand, also refuse to use a shorthand if not all CPUs are
+     * online or have been parked.
+     */
+    if ( system_state > SYS_STATE_smp_boot && !cpu_overflow &&
+         /* NB: get_cpu_maps lock requires enabled interrupts. */
+         local_irq_is_enabled() && (cpus_locked = get_cpu_maps()) &&
+         (park_offline_cpus ||
+          cpumask_equal(&cpu_online_map, &cpu_present_map)) )
+    {
+        cpumask_copy(this_cpu(scratch_cpumask), &cpu_online_map);
+        cpumask_clear_cpu(smp_processor_id(), this_cpu(scratch_cpumask));
+    }
+    else
+    {
+        if ( cpus_locked )
+        {
+            put_cpu_maps();
+            cpus_locked = false;
+        }
+        cpumask_clear(this_cpu(scratch_cpumask));
+    }
+
+    if ( cpumask_equal(mask, this_cpu(scratch_cpumask)) )
+        __default_send_IPI_shortcut(APIC_DEST_ALLBUT, vector,
+                                    APIC_DEST_PHYSICAL);
+    else
+        alternative_vcall(genapic.send_IPI_mask, mask, vector);
+
+    if ( cpus_locked )
+        put_cpu_maps();
 }
 
 void send_IPI_self(int vector)
@@ -80,11 +139,6 @@ void send_IPI_self(int vector)
  * The following functions deal with sending IPIs between CPUs.
  */
 
-static inline int __prepare_ICR (unsigned int shortcut, int vector)
-{
-    return APIC_DM_FIXED | shortcut | vector;
-}
-
 static inline int __prepare_ICR2 (unsigned int mask)
 {
     return SET_xAPIC_DEST_FIELD(mask);
@@ -97,26 +151,6 @@ void apic_wait_icr_idle(void)
 
     while ( apic_read( APIC_ICR ) & APIC_ICR_BUSY )
         cpu_relax();
-}
-
-static void __default_send_IPI_shortcut(unsigned int shortcut, int vector,
-                                    unsigned int dest)
-{
-    unsigned int cfg;
-
-    /*
-     * Wait for idle.
-     */
-    apic_wait_icr_idle();
-
-    /*
-     * prepare target chip field
-     */
-    cfg = __prepare_ICR(shortcut, vector) | dest;
-    /*
-     * Send the IPI. The write to APIC_ICR fires this off.
-     */
-    apic_write(APIC_ICR, cfg);
 }
 
 void send_IPI_self_legacy(uint8_t vector)
