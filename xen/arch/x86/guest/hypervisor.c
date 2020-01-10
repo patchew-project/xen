@@ -18,6 +18,7 @@
  *
  * Copyright (c) 2019 Microsoft.
  */
+#include <xen/cpumask.h>
 #include <xen/init.h>
 #include <xen/types.h>
 
@@ -62,6 +63,14 @@ void hypervisor_resume(void)
 {
     if ( ops && ops->resume )
         ops->resume();
+}
+
+int hypervisor_flush_tlb(const cpumask_t *mask, const void *va)
+{
+    if ( ops && ops->flush_tlb )
+        return ops->flush_tlb(mask, va);
+
+    return -ENOSYS;
 }
 
 /*
