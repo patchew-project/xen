@@ -604,12 +604,7 @@ int viridian_hypercall(struct cpu_user_regs *regs)
         if ( input_params.flags & HV_FLUSH_ALL_PROCESSORS )
             input_params.vcpu_mask = ~0ul;
 
-        /*
-         * A false return means that another vcpu is currently trying
-         * a similar operation, so back off.
-         */
-        if ( !hvm_flush_vcpu_tlb(need_flush, &input_params.vcpu_mask) )
-            return HVM_HCALL_preempted;
+        hvm_flush_vcpu_tlb(need_flush, &input_params.vcpu_mask);
 
         output.rep_complete = input.rep_count;
 

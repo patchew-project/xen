@@ -3973,7 +3973,21 @@ static void hvm_s3_resume(struct domain *d)
     }
 }
 
-bool hvm_flush_vcpu_tlb(bool (*flush_vcpu)(void *ctxt, struct vcpu *v),
+static void do_flush(void *data)
+{
+    cpumask_t *mask = data;
+    unsigned int cpu = smp_processor_id();
+
+    ASSERT(cpumask_test_cpu(cpu, mask));
+    /*
+     * A vmexit/vmenter (caused by the IPI issued to execute this function) is
+     * enough to force a TLB flush since we have already ticked the vCPU ASID
+     * prior to issuing the IPI.
+     */
+    cpumask_clear_cpu(cpu, mask);
+}
+
+void hvm_flush_vcpu_tlb(bool (*flush_vcpu)(void *ctxt, struct vcpu *v),
                         void *ctxt)
 {
     static DEFINE_PER_CPU(cpumask_t, flush_cpumask);
@@ -3981,27 +3995,8 @@ bool hvm_flush_vcpu_tlb(bool (*flush_vcpu)(void *ctxt, struct vcpu *v),
     struct domain *d = current->domain;
     struct vcpu *v;
 
-    /* Avoid deadlock if more than one vcpu tries this at the same time. */
-    if ( !spin_trylock(&d->hypercall_deadlock_mutex) )
-        return false;
-
-    /* Pause all other vcpus. */
-    for_each_vcpu ( d, v )
-        if ( v != current && flush_vcpu(ctxt, v) )
-            vcpu_pause_nosync(v);
-
-    /* Now that all VCPUs are signalled to deschedule, we wait... */
-    for_each_vcpu ( d, v )
-        if ( v != current && flush_vcpu(ctxt, v) )
-            while ( !vcpu_runnable(v) && v->is_running )
-                cpu_relax();
-
-    /* All other vcpus are paused, safe to unlock now. */
-    spin_unlock(&d->hypercall_deadlock_mutex);
-
     cpumask_clear(mask);
 
-    /* Flush paging-mode soft state (e.g., va->gfn cache; PAE PDPE cache). */
     for_each_vcpu ( d, v )
     {
         unsigned int cpu;
@@ -4009,22 +4004,17 @@ bool hvm_flush_vcpu_tlb(bool (*flush_vcpu)(void *ctxt, struct vcpu *v),
         if ( !flush_vcpu(ctxt, v) )
             continue;
 
-        paging_update_cr3(v, false);
+        hvm_asid_flush_vcpu(v);
 
         cpu = read_atomic(&v->dirty_cpu);
-        if ( is_vcpu_dirty_cpu(cpu) )
+        if ( cpu != smp_processor_id() && is_vcpu_dirty_cpu(cpu) )
             __cpumask_set_cpu(cpu, mask);
     }
 
-    /* Flush TLBs on all CPUs with dirty vcpu state. */
-    flush_tlb_mask(mask);
+    on_selected_cpus(mask, do_flush, mask, 0);
 
-    /* Done. */
-    for_each_vcpu ( d, v )
-        if ( v != current && flush_vcpu(ctxt, v) )
-            vcpu_unpause(v);
-
-    return true;
+    while ( !cpumask_empty(mask) )
+        cpu_relax();
 }
 
 static bool always_flush(void *ctxt, struct vcpu *v)
@@ -4037,7 +4027,9 @@ static int hvmop_flush_tlb_all(void)
     if ( !is_hvm_domain(current->domain) )
         return -EINVAL;
 
-    return hvm_flush_vcpu_tlb(always_flush, NULL) ? 0 : -ERESTART;
+    hvm_flush_vcpu_tlb(always_flush, NULL);
+
+    return 0;
 }
 
 static int hvmop_set_evtchn_upcall_vector(
