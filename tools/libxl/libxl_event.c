@@ -59,6 +59,9 @@ void libxl__egc_cleanup_1_baton(libxl__egc *egc)
     EGC_GC;
     libxl__poller *search, *wake=0;
 
+    if (CTX->poller_app->osevents_added)
+        baton_wake(egc, CTX->poller_app);
+
     LIBXL_LIST_FOREACH(search, &CTX->pollers_active, active_entry) {
         if (search == CTX->poller_app)
             /* This one is special.  We can't give it the baton. */
