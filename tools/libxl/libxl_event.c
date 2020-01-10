@@ -1319,6 +1319,7 @@ static void afterpoll_internal(libxl__egc *egc, libxl__poller *poller,
     }
 
     if (afterpoll_check_fd(poller,fds,nfds, poller->wakeup_pipe[0],POLLIN)) {
+        poller->pipe_nonempty = 0;
         int e = libxl__self_pipe_eatall(poller->wakeup_pipe[0]);
         if (e) LIBXL__EVENT_DISASTER(egc, "read wakeup", e, 0);
     }
@@ -1713,6 +1714,7 @@ void libxl__poller_put(libxl_ctx *ctx, libxl__poller *p)
 
 void libxl__poller_wakeup(libxl__egc *egc, libxl__poller *p)
 {
+    if (p->pipe_nonempty++) return;
     int e = libxl__self_pipe_wakeup(p->wakeup_pipe[1]);
     if (e) LIBXL__EVENT_DISASTER(egc, "cannot poke watch pipe", e, 0);
 }
