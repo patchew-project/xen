@@ -251,6 +251,8 @@ struct iommu_group
 	atomic_t ref;
 };
 
+static const struct arm_smmu_device *find_smmu(const struct device *dev);
+
 static struct iommu_group *iommu_group_alloc(void)
 {
 	struct iommu_group *group = xzalloc(struct iommu_group);
@@ -775,62 +777,112 @@ static int insert_smmu_master(struct arm_smmu_device *smmu,
 	return 0;
 }
 
-static int register_smmu_master(struct arm_smmu_device *smmu,
-				struct device *dev,
-				struct of_phandle_args *masterspec)
+/*
+ * Since smmu isn't done initializing before this is run in the legacy
+ * case, create a function where that's passed and then have the generic
+ * function just be a simple wrapper.
+ */
+static int arm_smmu_dt_xlate_legacy(struct device *dev,
+				    const struct of_phandle_args *spec,
+				    struct iommu_fwspec *fwspec)
 {
-	int i, ret = 0;
-	struct arm_smmu_master *master;
+	if ((spec->args_count + fwspec->num_ids) > MAX_MASTER_STREAMIDS) {
+		dev_err(dev,
+			"reached maximum number (%d) of stream IDs for master device %s\n",
+			MAX_MASTER_STREAMIDS, spec->np->name);
+		return -ENOSPC;
+	}
 
-	master = find_smmu_master(smmu, masterspec->np);
+	/* adding the ids here */
+	return iommu_fwspec_add_ids(dev,
+				    spec->args,
+				    spec->args_count);
+}
+
+static int arm_smmu_dt_xlate(struct device *dev,
+			     const struct dt_phandle_args *spec)
+{
+	return arm_smmu_dt_xlate_legacy(dev,
+					spec,
+					dev_iommu_fwspec_get(dev));
+}
+
+static int arm_smmu_dt_add_device_legacy(struct arm_smmu_device *smmu,
+					 struct device *dev,
+					 struct iommu_fwspec *fwspec)
+{
+	int i;
+	struct arm_smmu_master *master;
+	struct device_node *dev_node = dev_get_dev_node(dev);
+
+	BUG_ON(dev == NULL);
+	BUG_ON(dev_node == NULL);
+
+	master = find_smmu_master(smmu, dev_node);
 	if (master) {
 		dev_err(dev,
 			"rejecting multiple registrations for master device %s\n",
-			masterspec->np->name);
+			dev_node->name);
 		return -EBUSY;
-	}
-
-	if (masterspec->args_count > MAX_MASTER_STREAMIDS) {
-		dev_err(dev,
-			"reached maximum number (%d) of stream IDs for master device %s\n",
-			MAX_MASTER_STREAMIDS, masterspec->np->name);
-		return -ENOSPC;
 	}
 
 	master = devm_kzalloc(dev, sizeof(*master), GFP_KERNEL);
 	if (!master) {
 		return -ENOMEM;
 	}
-	master->of_node = masterspec->np;
+	master->of_node = dev_node;
 
-	ret = iommu_fwspec_init(&master->of_node->dev, smmu->dev);
-	if (ret) {
-		kfree(master);
-		return ret;
-	}
-	master->cfg.fwspec = dev_iommu_fwspec_get(&master->of_node->dev);
-
-	/* adding the ids here */
-	ret = iommu_fwspec_add_ids(&masterspec->np->dev,
-				   masterspec->args,
-				   masterspec->args_count);
-	if (ret)
-		return ret;
+	master->cfg.fwspec = fwspec;
 
 	/* Xen: Let Xen know that the device is protected by an SMMU */
-	dt_device_set_protected(masterspec->np);
+	dt_device_set_protected(dev_node);
 
 	if (!(smmu->features & ARM_SMMU_FEAT_STREAM_MATCH)) {
-		for (i = 0; i < master->cfg.fwspec->num_ids; ++i) {
-			if (masterspec->args[i] >= smmu->num_mapping_groups) {
+		for (i = 0; i < fwspec->num_ids; ++i) {
+			if (fwspec->ids[i] >= smmu->num_mapping_groups) {
 				dev_err(dev,
 					"stream ID for master device %s greater than maximum allowed (%d)\n",
-					masterspec->np->name, smmu->num_mapping_groups);
+					dev_node->name, smmu->num_mapping_groups);
 				return -ERANGE;
 			}
 		}
 	}
+
 	return insert_smmu_master(smmu, master);
+}
+
+static int arm_smmu_dt_add_device(u8 devfn, struct device *dev)
+{
+	struct arm_smmu_device *smmu;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+
+	smmu = (struct arm_smmu_device *) find_smmu(fwspec->iommu_dev);
+
+	return arm_smmu_dt_add_device_legacy(smmu, dev, fwspec);
+}
+
+static int register_smmu_master(struct arm_smmu_device *smmu,
+				struct device *dev,
+				struct of_phandle_args *masterspec)
+{
+	int ret = 0;
+	struct iommu_fwspec *fwspec;
+
+	ret = iommu_fwspec_init(&masterspec->np->dev, smmu->dev);
+	if (ret)
+		return ret;
+
+	fwspec = dev_iommu_fwspec_get(&masterspec->np->dev);
+
+	ret = arm_smmu_dt_xlate_legacy(&masterspec->np->dev,
+				       masterspec,
+				       fwspec);
+	if (ret)
+		return ret;
+
+	return arm_smmu_dt_add_device_legacy(smmu,
+					     &masterspec->np->dev,
+					     fwspec);
 }
 
 static struct arm_smmu_device *find_smmu_for_device(struct device *dev)
@@ -2754,6 +2806,7 @@ static void arm_smmu_iommu_domain_teardown(struct domain *d)
 static const struct iommu_ops arm_smmu_iommu_ops = {
     .init = arm_smmu_iommu_domain_init,
     .hwdom_init = arm_smmu_iommu_hwdom_init,
+    .add_device = arm_smmu_dt_add_device,
     .teardown = arm_smmu_iommu_domain_teardown,
     .iotlb_flush = arm_smmu_iotlb_flush,
     .iotlb_flush_all = arm_smmu_iotlb_flush_all,
@@ -2761,9 +2814,10 @@ static const struct iommu_ops arm_smmu_iommu_ops = {
     .reassign_device = arm_smmu_reassign_dev,
     .map_page = arm_iommu_map_page,
     .unmap_page = arm_iommu_unmap_page,
+    .dt_xlate = arm_smmu_dt_xlate,
 };
 
-static __init const struct arm_smmu_device *find_smmu(const struct device *dev)
+static const struct arm_smmu_device *find_smmu(const struct device *dev)
 {
 	struct arm_smmu_device *smmu;
 	bool found = false;
