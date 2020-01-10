@@ -36,6 +36,42 @@ static libxl__ao *ao_nested_root(libxl__ao *ao);
 static void ao__check_destroy(libxl_ctx *ctx, libxl__ao *ao);
 
 
+static void pollers_note_osevent_added(libxl_ctx *ctx) {
+    libxl__poller *poller;
+    LIBXL_LIST_FOREACH(poller, &ctx->pollers_active, active_entry)
+        poller->osevents_added = 1;
+}
+
+void libxl__egc_cleanup_1_baton(libxl__egc *egc)
+{
+    EGC_GC;
+    libxl__poller *search, *wake=0;
+
+    LIBXL_LIST_FOREACH(search, &CTX->pollers_active, active_entry) {
+        if (search == CTX->poller_app)
+            /* This one is special.  We can't give it the baton. */
+            continue;
+        if (!search->osevents_added)
+            /* This poller is up to date and will wake up as needed. */
+            return;
+        if (!wake)
+            wake = search;
+    }
+
+    if (!wake)
+        /* no-one in libxl waiting for any events */
+        return;
+
+    libxl__poller_wakeup(egc, wake);
+
+    wake->osevents_added = 0;
+    /* This serves to make _1_baton idempotent.  It is OK even though
+     * that poller may currently be sleeping on only old osevents,
+     * because it is going to wake up because we've just prodded it,
+     * and it pick up new osevents on its next iteration (or pass
+     * on the baton). */
+}
+
 /*
  * The counter osevent_in_hook is used to ensure that the application
  * honours the reentrancy restriction documented in libxl_event.h.
@@ -194,6 +230,7 @@ int libxl__ev_fd_register(libxl__gc *gc, libxl__ev_fd *ev,
     ev->func = func;
 
     LIBXL_LIST_INSERT_HEAD(&CTX->efds, ev, entry);
+    pollers_note_osevent_added(CTX);
 
     rc = 0;
 
@@ -214,6 +251,8 @@ int libxl__ev_fd_modify(libxl__gc *gc, libxl__ev_fd *ev, short events)
     rc = OSEVENT_HOOK(fd,modify, noop, ev->fd, &ev->nexus->for_app_reg, events);
     if (rc) goto out;
 
+    if ((events & ~ev->events))
+        pollers_note_osevent_added(CTX);
     ev->events = events;
 
     rc = 0;
@@ -315,6 +354,7 @@ static int time_register_finite(libxl__gc *gc, libxl__ev_time *ev,
     LIBXL_TAILQ_INSERT_SORTED(&CTX->etimes, entry, ev, evsearch, /*empty*/,
                               timercmp(&ev->abs, &evsearch->abs, >));
 
+    pollers_note_osevent_added(CTX);
     return 0;
 }
 
@@ -1121,6 +1161,7 @@ static int beforepoll_internal(libxl__gc *gc, libxl__poller *poller,
     *nfds_io = used;
 
     poller->fds_deregistered = 0;
+    poller->osevents_added = 0;
 
     libxl__ev_time *etime = LIBXL_TAILQ_FIRST(&CTX->etimes);
     if (etime) {
@@ -1444,7 +1485,7 @@ static void egc_run_callbacks(libxl__egc *egc)
     }
 }
 
-void libxl__egc_cleanup(libxl__egc *egc)
+void libxl__egc_cleanup_2_ul_cb_gc(libxl__egc *egc)
 {
     EGC_GC;
     egc_run_callbacks(egc);
@@ -1754,13 +1795,15 @@ int libxl_event_wait(libxl_ctx *ctx, libxl_event **event_r,
         rc = eventloop_iteration(egc, poller);
         if (rc) goto out;
 
-        /* we unlock and cleanup the egc each time we go through this loop,
-         * so that (a) we don't accumulate garbage and (b) any events
-         * which are to be dispatched by callback are actually delivered
-         * in a timely fashion.
+        /* we unlock and cleanup the egc each time we go through this
+         * loop, so that (a) we don't accumulate garbage and (b) any
+         * events which are to be dispatched by callback are actually
+         * delivered in a timely fashion.  _1_baton will be
+         * called to pass the baton iff we actually leave; otherwise
+         * we are still carrying it.
          */
         CTX_UNLOCK;
-        libxl__egc_cleanup(egc);
+        libxl__egc_cleanup_2_ul_cb_gc(egc);
         CTX_LOCK;
     }
 
@@ -2033,10 +2076,12 @@ int libxl__ao_inprogress(libxl__ao *ao,
                  * synchronous cancellation ability. */
             }
 
+            /* The call to egc..1_baton is below, only if we are leaving. */
             CTX_UNLOCK;
-            libxl__egc_cleanup(&egc);
+            libxl__egc_cleanup_2_ul_cb_gc(&egc);
             CTX_LOCK;
         }
+        libxl__egc_cleanup_1_baton(&egc);
     } else {
         rc = 0;
     }
@@ -2053,6 +2098,9 @@ int libxl__ao_inprogress(libxl__ao *ao,
 static int ao__abort(libxl_ctx *ctx, libxl__ao *parent)
 /* Temporarily unlocks ctx, which must be locked exactly once on entry. */
 {
+    libxl__egc egc;
+    LIBXL_INIT_EGC(egc,ctx);
+
     int rc;
     ao__manip_enter(parent);
 
@@ -2073,9 +2121,6 @@ static int ao__abort(libxl_ctx *ctx, libxl__ao *parent)
 
     /* We keep calling abort hooks until there are none left */
     while (!LIBXL_LIST_EMPTY(&parent->abortables)) {
-        libxl__egc egc;
-        LIBXL_INIT_EGC(egc,ctx);
-
         assert(!parent->complete);
 
         libxl__ao_abortable *abrt = LIBXL_LIST_FIRST(&parent->abortables);
@@ -2088,8 +2133,9 @@ static int ao__abort(libxl_ctx *ctx, libxl__ao *parent)
                    "ao %p: abrt=%p: aborting", parent, abrt->ao);
         abrt->callback(&egc, abrt, ERROR_ABORTED);
 
+        /* The call to egc..1_baton is in the out block below. */
         libxl__ctx_unlock(ctx);
-        libxl__egc_cleanup(&egc);
+        libxl__egc_cleanup_2_ul_cb_gc(&egc);
         libxl__ctx_lock(ctx);
     }
 
@@ -2097,6 +2143,10 @@ static int ao__abort(libxl_ctx *ctx, libxl__ao *parent)
 
  out:
     ao__manip_leave(ctx, parent);
+    /* The call to egc..2_ul_cb_gc is above.  This is sufficient
+     * because only code inside the loop adds anything to the egc, and
+     * we ensures that the egc is clean when we leave the loop. */
+    libxl__egc_cleanup_1_baton(&egc);
     return rc;
 }
 
