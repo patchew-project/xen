@@ -42,6 +42,9 @@ void free_vcpu_struct(struct vcpu *v);
 
 /* Allocate/free a PIRQ structure. */
 struct pirq *alloc_pirq_struct(struct domain *);
+
+/* Per-arch callback used by the RCU */
+void arch_free_pirq_struct(struct rcu_head *head);
 void free_pirq_struct(void *);
 
 /*

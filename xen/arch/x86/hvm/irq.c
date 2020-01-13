@@ -29,7 +29,8 @@
 
 bool hvm_domain_use_pirq(const struct domain *d, const struct pirq *pirq)
 {
-    return is_hvm_domain(d) && pirq && pirq->arch.hvm.emuirq != IRQ_UNBOUND;
+    return is_hvm_domain(d) && pirq &&
+        const_pirq_dpci(pirq)->emuirq != IRQ_UNBOUND;
 }
 
 /* Must be called with hvm_domain->irq_lock hold */
@@ -396,7 +397,7 @@ int hvm_inject_msi(struct domain *d, uint64_t addr, uint32_t data)
             struct pirq *info = pirq_info(d, pirq);
 
             /* if it is the first time, allocate the pirq */
-            if ( !info || info->arch.hvm.emuirq == IRQ_UNBOUND )
+            if ( !info || pirq_dpci(info)->emuirq == IRQ_UNBOUND )
             {
                 int rc;
 
@@ -409,7 +410,7 @@ int hvm_inject_msi(struct domain *d, uint64_t addr, uint32_t data)
                 if ( !info )
                     return -EBUSY;
             }
-            else if ( info->arch.hvm.emuirq != IRQ_MSI_EMU )
+            else if ( pirq_dpci(info)->emuirq != IRQ_MSI_EMU )
                 return -EINVAL;
             send_guest_pirq(d, info);
             return 0;

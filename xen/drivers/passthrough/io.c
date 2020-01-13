@@ -769,6 +769,7 @@ int pt_irq_destroy_bind(
 
 void pt_pirq_init(struct domain *d, struct hvm_pirq_dpci *dpci)
 {
+    dpci->emuirq = IRQ_UNBOUND;
     INIT_LIST_HEAD(&dpci->digl_list);
     dpci->gmsi.dest_vcpu_id = -1;
 }

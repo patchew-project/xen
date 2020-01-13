@@ -8,7 +8,6 @@
 #include <xen/cpumask.h>
 #include <xen/percpu.h>
 #include <xen/smp.h>
-#include <asm/hvm/irq.h>
 
 extern unsigned int nr_irqs_gsi;
 extern unsigned int nr_irqs;
@@ -133,16 +132,9 @@ DECLARE_PER_CPU(unsigned int, irq_count);
 
 struct arch_pirq {
     int irq;
-    union {
-        struct hvm_pirq {
-            int emuirq;
-            struct hvm_pirq_dpci dpci;
-        } hvm;
-    };
+    /* Is the PIRQ associated to an HVM domain? */
+    bool hvm;
 };
-
-#define pirq_dpci(pirq) ((pirq) ? &(pirq)->arch.hvm.dpci : NULL)
-#define dpci_pirq(pd) container_of(pd, struct pirq, arch.hvm.dpci)
 
 int pirq_shared(struct domain *d , int irq);
 
@@ -198,12 +190,7 @@ void cleanup_domain_irq_mapping(struct domain *);
     __ret ? radix_tree_ptr_to_int(__ret) : 0;                   \
 })
 #define PIRQ_ALLOCATED -1
-#define domain_pirq_to_emuirq(d, pirq) pirq_field(d, pirq,              \
-    arch.hvm.emuirq, IRQ_UNBOUND)
-#define domain_emuirq_to_pirq(d, emuirq) ({                             \
-    void *__ret = radix_tree_lookup(&(d)->arch.hvm.emuirq_pirq, emuirq);\
-    __ret ? radix_tree_ptr_to_int(__ret) : IRQ_UNBOUND;                 \
-})
+
 #define IRQ_UNBOUND -1
 #define IRQ_PT -2
 #define IRQ_MSI_EMU -3

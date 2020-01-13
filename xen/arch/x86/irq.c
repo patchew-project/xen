@@ -1286,20 +1286,35 @@ void cleanup_domain_irq_mapping(struct domain *d)
 
 struct pirq *alloc_pirq_struct(struct domain *d)
 {
-    size_t sz = is_hvm_domain(d) ? sizeof(struct pirq) :
-                                   offsetof(struct pirq, arch.hvm);
-    struct pirq *pirq = xzalloc_bytes(sz);
+    struct pirq *pirq;
 
-    if ( pirq )
+    if ( is_hvm_domain(d) )
     {
-        if ( is_hvm_domain(d) )
+        struct hvm_pirq_dpci *dpci = xzalloc(struct hvm_pirq_dpci);
+
+        if ( dpci )
         {
-            pirq->arch.hvm.emuirq = IRQ_UNBOUND;
-            pt_pirq_init(d, &pirq->arch.hvm.dpci);
+            pt_pirq_init(d, dpci);
+            pirq = dpci_pirq(dpci);
+            pirq->arch.hvm = true;
         }
+        else
+            pirq = NULL;
     }
+    else
+        pirq = xzalloc(struct pirq);
 
     return pirq;
+}
+
+void arch_free_pirq_struct(struct rcu_head *head)
+{
+    struct pirq *pirq = container_of(head, struct pirq, rcu_head);
+
+    if ( pirq->arch.hvm )
+        xfree(pirq_dpci(pirq));
+    else
+        xfree(pirq);
 }
 
 void (pirq_cleanup_check)(struct pirq *pirq, struct domain *d)
@@ -1315,9 +1330,9 @@ void (pirq_cleanup_check)(struct pirq *pirq, struct domain *d)
 
     if ( is_hvm_domain(d) )
     {
-        if ( pirq->arch.hvm.emuirq != IRQ_UNBOUND )
+        if ( pirq_dpci(pirq)->emuirq != IRQ_UNBOUND )
             return;
-        if ( !pt_pirq_cleanup_check(&pirq->arch.hvm.dpci) )
+        if ( !pt_pirq_cleanup_check(pirq_dpci(pirq)) )
             return;
     }
 
@@ -2029,7 +2044,7 @@ static inline bool is_free_pirq(const struct domain *d,
                                 const struct pirq *pirq)
 {
     return !pirq || (!pirq->arch.irq && (!is_hvm_domain(d) ||
-        pirq->arch.hvm.emuirq == IRQ_UNBOUND));
+        const_pirq_dpci(pirq)->emuirq == IRQ_UNBOUND));
 }
 
 int get_free_pirq(struct domain *d, int type)
@@ -2724,7 +2739,7 @@ int map_domain_emuirq_pirq(struct domain *d, int pirq, int emuirq)
             return err;
         }
     }
-    info->arch.hvm.emuirq = emuirq;
+    pirq_dpci(info)->emuirq = emuirq;
 
     return 0;
 }
@@ -2754,7 +2769,7 @@ int unmap_domain_pirq_emuirq(struct domain *d, int pirq)
     info = pirq_info(d, pirq);
     if ( info )
     {
-        info->arch.hvm.emuirq = IRQ_UNBOUND;
+        pirq_dpci(info)->emuirq = IRQ_UNBOUND;
         pirq_cleanup_check(info, d);
     }
     if ( emuirq != IRQ_PT )

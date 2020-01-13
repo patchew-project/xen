@@ -582,6 +582,11 @@ struct pirq *alloc_pirq_struct(struct domain *d)
     return NULL;
 }
 
+void arch_free_pirq_struct(struct rcu_head *head)
+{
+    ASSERT_UNREACHABLE();
+}
+
 /*
  * These are all unreachable given an alloc_pirq_struct
  * which returns NULL, all callers try to lookup struct pirq first

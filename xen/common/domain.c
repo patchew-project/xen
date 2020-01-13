@@ -1625,16 +1625,11 @@ struct pirq *pirq_get_info(struct domain *d, int pirq)
     return info;
 }
 
-static void _free_pirq_struct(struct rcu_head *head)
-{
-    xfree(container_of(head, struct pirq, rcu_head));
-}
-
 void free_pirq_struct(void *ptr)
 {
     struct pirq *pirq = ptr;
 
-    call_rcu(&pirq->rcu_head, _free_pirq_struct);
+    call_rcu(&pirq->rcu_head, arch_free_pirq_struct);
 }
 
 struct migrate_info {

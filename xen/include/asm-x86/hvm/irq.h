@@ -21,6 +21,7 @@
 #ifndef __ASM_X86_HVM_IRQ_H__
 #define __ASM_X86_HVM_IRQ_H__
 
+#include <xen/irq.h>
 #include <xen/timer.h>
 
 #include <asm/hvm/hvm.h>
@@ -171,7 +172,25 @@ struct hvm_pirq_dpci {
     struct hvm_gmsi_info gmsi;
     struct timer timer;
     struct list_head softirq_list;
+    int emuirq;
+    struct pirq pirq;
 };
+
+#define pirq_dpci(p)                                                    \
+    ((p) ? container_of(p, struct hvm_pirq_dpci, pirq) : NULL)
+#define const_pirq_dpci(p)                                              \
+    ((p) ? container_of(p, const struct hvm_pirq_dpci, pirq) : NULL)
+
+#define dpci_pirq(pd) (&(pd)->pirq)
+
+#define domain_pirq_to_emuirq(d, p) ({                                  \
+    struct pirq *__pi = pirq_info(d, p);                                \
+    __pi ? pirq_dpci(__pi)->emuirq : IRQ_UNBOUND;                       \
+})
+#define domain_emuirq_to_pirq(d, emuirq) ({                             \
+    void *__ret = radix_tree_lookup(&(d)->arch.hvm.emuirq_pirq, emuirq);\
+    __ret ? radix_tree_ptr_to_int(__ret) : IRQ_UNBOUND;                 \
+})
 
 void pt_pirq_init(struct domain *, struct hvm_pirq_dpci *);
 bool pt_pirq_cleanup_check(struct hvm_pirq_dpci *);
