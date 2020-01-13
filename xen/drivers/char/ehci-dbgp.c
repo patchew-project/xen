@@ -10,6 +10,7 @@
 #include <xen/errno.h>
 #include <xen/pci.h>
 #include <xen/serial.h>
+#include <xen/timer.h>
 #include <asm/byteorder.h>
 #include <asm/io.h>
 #include <asm/fixmap.h>
