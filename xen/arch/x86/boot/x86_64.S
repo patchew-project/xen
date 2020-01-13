@@ -43,6 +43,14 @@ multiboot_ptr:
 GLOBAL(stack_start)
         .quad   cpu0_stack + STACK_SIZE - CPUINFO_sizeof
 
+        .section .bss.page_aligned, "aw", @nobits
+        .align PAGE_SIZE, 0
+
+/* L2 mapping the Xen text/data/bss region.  Uses 1x 4k page. */
+GLOBAL(l2_xenmap)
+        .fill L2_PAGETABLE_ENTRIES, 8, 0
+        .size l2_xenmap, . - l2_xenmap
+
         .section .data.page_aligned, "aw", @progbits
         .align PAGE_SIZE, 0
 /*
@@ -79,21 +87,6 @@ GLOBAL(l2_directmap)
         .quad sym_offs(l1_directmap) + __PAGE_HYPERVISOR
         .fill 4 * L2_PAGETABLE_ENTRIES - 1, 8, 0
         .size l2_directmap, . - l2_directmap
-
-/*
- * L2 mapping the 1GB Xen text/data/bss region.  At boot it maps 16MB from
- * __image_base__, and is modified when Xen relocates itself.  Uses 1x 4k
- * page.
- */
-GLOBAL(l2_xenmap)
-        .quad 0
-        idx = 1
-        .rept 7
-        .quad sym_offs(__image_base__) + (idx << L2_PAGETABLE_SHIFT) + (PAGE_HYPERVISOR_RWX | _PAGE_PSE)
-        idx = idx + 1
-        .endr
-        .fill L2_PAGETABLE_ENTRIES - 8, 8, 0
-        .size l2_xenmap, . - l2_xenmap
 
 /* L2 mapping the fixmap.  Uses 1x 4k page. */
 l2_fixmap:
