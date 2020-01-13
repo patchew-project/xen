@@ -131,7 +131,6 @@ extern unsigned int io_apic_irqs;
 
 DECLARE_PER_CPU(unsigned int, irq_count);
 
-struct pirq;
 struct arch_pirq {
     int irq;
     union {
