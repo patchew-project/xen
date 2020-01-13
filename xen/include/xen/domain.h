@@ -41,9 +41,7 @@ struct vcpu *alloc_vcpu_struct(const struct domain *d);
 void free_vcpu_struct(struct vcpu *v);
 
 /* Allocate/free a PIRQ structure. */
-#ifndef alloc_pirq_struct
 struct pirq *alloc_pirq_struct(struct domain *);
-#endif
 void free_pirq_struct(void *);
 
 /*
