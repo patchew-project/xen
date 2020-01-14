@@ -51,6 +51,8 @@ void __bug(char *file, int line) __attribute__((noreturn));
 #define MB(mb) (mb##ULL << 20)
 #define GB(gb) (gb##ULL << 30)
 
+#define ROUNDUP(x, a) (((x) + (a) - 1) & ~((a) - 1))
+
 static inline int test_bit(unsigned int b, const void *p)
 {
     return !!(((const uint8_t *)p)[b>>3] & (1u<<(b&7)));

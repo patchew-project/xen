@@ -489,6 +489,10 @@ void pci_setup(void)
 
         resource->base = base;
 
+        if ( (bar_data & PCI_BASE_ADDRESS_SPACE) ==
+             PCI_BASE_ADDRESS_SPACE_MEMORY )
+            resource->base = ROUNDUP(resource->base, PAGE_SIZE);
+
         pci_writel(devfn, bar_reg, bar_data);
         if (using_64bar)
             pci_writel(devfn, bar_reg + 4, bar_data_upper);
