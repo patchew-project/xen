@@ -2049,6 +2049,40 @@ static int libxl__vfb_and_vkb_from_hvm_guest_config(libxl__gc *gc,
     return 0;
 }
 
+static int libxl__write_stub_linux_dmargs(libxl__gc *gc,
+                                    int dm_domid, int guest_domid,
+                                    char **args)
+{
+    libxl_ctx *ctx = libxl__gc_owner(gc);
+    int i;
+    char *vm_path;
+    char *path;
+    struct xs_permissions roperm[2];
+    xs_transaction_t t;
+
+    roperm[0].id = 0;
+    roperm[0].perms = XS_PERM_NONE;
+    roperm[1].id = dm_domid;
+    roperm[1].perms = XS_PERM_READ;
+
+    vm_path = libxl__xs_read(gc, XBT_NULL, GCSPRINTF("/local/domain/%d/vm", guest_domid));
+    path = GCSPRINTF("%s/image/dmargs", vm_path);
+
+retry_transaction:
+    t = xs_transaction_start(ctx->xsh);
+    xs_write(ctx->xsh, t, path, "", 0);
+    xs_set_permissions(ctx->xsh, t, path, roperm, ARRAY_SIZE(roperm));
+    i = 1;
+    for (i=1; args[i] != NULL; i++)
+        xs_write(ctx->xsh, t, GCSPRINTF("%s/%03d", path, i), args[i], strlen(args[i]));
+
+    xs_set_permissions(ctx->xsh, t, GCSPRINTF("%s/rtc/timeoffset", vm_path), roperm, ARRAY_SIZE(roperm));
+    if (!xs_transaction_end(ctx->xsh, t, 0))
+        if (errno == EAGAIN)
+            goto retry_transaction;
+    return 0;
+}
+
 static int libxl__write_stub_dmargs(libxl__gc *gc,
                                     int dm_domid, int guest_domid,
                                     char **args)
@@ -2258,7 +2292,10 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
 
     libxl__store_libxl_entry(gc, guest_domid, "dm-version",
         libxl_device_model_version_to_string(dm_config->b_info.device_model_version));
-    libxl__write_stub_dmargs(gc, dm_domid, guest_domid, args);
+    if (libxl__stubdomain_is_linux(&guest_config->b_info))
+        libxl__write_stub_linux_dmargs(gc, dm_domid, guest_domid, args);
+    else
+        libxl__write_stub_dmargs(gc, dm_domid, guest_domid, args);
     libxl__xs_printf(gc, XBT_NULL,
                      GCSPRINTF("%s/image/device-model-domid",
                                libxl__xs_get_dompath(gc, guest_domid)),
