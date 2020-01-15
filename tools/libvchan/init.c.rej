@@ -1,0 +1,60 @@
+--- tools/libvchan/init.c
++++ tools/libvchan/init.c
+@@ -266,31 +266,33 @@ static int init_xs_srv(struct libxenvchan *ctrl, int domain, const char* xs_base
+ 	perms[1].id = domain;
+ 	perms[1].perms = XS_PERM_READ;
+ 
+-retry_transaction:
+-	xs_trans = xs_transaction_start(xs);
+-	if (!xs_trans)
+-		goto fail;
+-
+-	snprintf(ref, sizeof ref, "%d", ring_ref);
+-	snprintf(buf, sizeof buf, "%s/ring-ref", xs_base);
+-	if (!xs_write(xs, xs_trans, buf, ref, strlen(ref)))
+-		goto fail;
+-	if (!xs_set_permissions(xs, xs_trans, buf, perms, 2))
+-		goto fail;
+-
+-	snprintf(ref, sizeof ref, "%d", ctrl->event_port);
+-	snprintf(buf, sizeof buf, "%s/event-channel", xs_base);
+-	if (!xs_write(xs, xs_trans, buf, ref, strlen(ref)))
+-		goto fail;
+-	if (!xs_set_permissions(xs, xs_trans, buf, perms, 2))
+-		goto fail;
+-
+-	if (!xs_transaction_end(xs, xs_trans, 0)) {
+-		if (errno == EAGAIN)
+-			goto retry_transaction;
+-	} else {
+-		ret = 0;
++	for (;;) {
++		xs_trans = xs_transaction_start(xs);
++		if (!xs_trans)
++			goto fail;
++
++		snprintf(ref, sizeof ref, "%d", ring_ref);
++		snprintf(buf, sizeof buf, "%s/ring-ref", xs_base);
++		if (!xs_write(xs, xs_trans, buf, ref, strlen(ref)))
++			goto fail;
++		if (!xs_set_permissions(xs, xs_trans, buf, perms, 2))
++			goto fail;
++
++		snprintf(ref, sizeof ref, "%d", ctrl->event_port);
++		snprintf(buf, sizeof buf, "%s/event-channel", xs_base);
++		if (!xs_write(xs, xs_trans, buf, ref, strlen(ref)))
++			goto fail;
++		if (!xs_set_permissions(xs, xs_trans, buf, perms, 2))
++			goto fail;
++
++		if (xs_transaction_end(xs, xs_trans, 0))
++			break;
++		else if (errno != EAGAIN)
++			goto fail;
++		/* EAGAIN, retry */
+ 	}
++	ret = 0;
++
+  fail:
+ 	free(domid_str);
+ 	xs_close(xs);
