@@ -253,6 +253,15 @@ void pci_setup(void)
             if ( bar_sz == 0 )
                 continue;
 
+            if ( ((bar_data & PCI_BASE_ADDRESS_SPACE) ==
+                  PCI_BASE_ADDRESS_SPACE_MEMORY) ||
+                 (bar_reg == PCI_ROM_ADDRESS) )
+                /*
+                 * Always roundup memory BAR sizes to the size of a page in
+                 * order to prevent BARs being placed in the same page.
+                 */
+                bar_sz = ROUNDUP(bar_sz, PAGE_SIZE);
+
             for ( i = 0; i < nr_bars; i++ )
                 if ( bars[i].bar_sz < bar_sz )
                     break;
@@ -294,6 +303,8 @@ void pci_setup(void)
         cmd |= PCI_COMMAND_MASTER;
         pci_writew(devfn, PCI_COMMAND, cmd);
     }
+
+    ASSERT(IS_ALIGNED(mmio_total, PAGE_SIZE));
 
     if ( mmio_hole_size )
     {
@@ -448,6 +459,7 @@ void pci_setup(void)
                 resource = &mem_resource;
                 bar_data &= ~PCI_BASE_ADDRESS_MEM_MASK;
             }
+            ASSERT(bar_sz <= mmio_total);
             mmio_total -= bar_sz;
         }
         else
