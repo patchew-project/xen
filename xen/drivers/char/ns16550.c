@@ -1620,6 +1620,61 @@ DT_DEVICE_START(ns16550, "NS16550 UART", DEVICE_SERIAL)
 DT_DEVICE_END
 
 #endif /* HAS_DEVICE_TREE */
+
+#ifdef CONFIG_ACPI
+#include <xen/acpi.h>
+
+static int __init ns16550_acpi_uart_init(const void *data)
+{
+    struct acpi_table_spcr *spcr = NULL;
+    acpi_status status;
+    struct ns16550 *uart;
+
+    status = acpi_get_table(ACPI_SIG_SPCR, 0,
+                            (struct acpi_table_header **)&spcr);
+
+    if ( ACPI_FAILURE(status) )
+    {
+        printk("ns16550: Failed to get SPCR table\n");
+        return -EINVAL;
+    }
+
+    uart = &ns16550_com[0];
+
+    ns16550_init_common(uart);
+
+    uart->baud      = BAUD_AUTO;
+    uart->data_bits = 8;
+    uart->parity    = spcr->parity;
+    uart->stop_bits = spcr->stop_bits;
+    uart->io_base = spcr->serial_port.address;
+    uart->io_size = 8;
+    uart->reg_shift = spcr->serial_port.bit_offset;
+    uart->reg_width = 1;
+
+    /* trigger/polarity information is not available in spcr */
+    irq_set_type(spcr->interrupt, IRQ_TYPE_LEVEL_HIGH);
+    uart->irq = spcr->interrupt;
+
+    uart->vuart.base_addr = uart->io_base;
+    uart->vuart.size = uart->io_size;
+    uart->vuart.data_off = UART_THR << uart->reg_shift;
+    uart->vuart.status_off = UART_LSR << uart->reg_shift;
+    uart->vuart.status = UART_LSR_THRE | UART_LSR_TEMT;
+
+    /*  Register with generic serial driver. */
+    serial_register_uart(uart - ns16550_com, &ns16550_driver, uart);
+
+    return 0;
+}
+
+ACPI_DEVICE_START(ans16550, "NS16550 UART", DEVICE_SERIAL)
+    .class_type = ACPI_DBG2_16550_COMPATIBLE,
+    .init = ns16550_acpi_uart_init,
+ACPI_DEVICE_END
+
+#endif /* CONFIG_ACPI */
+
 /*
  * Local variables:
  * mode: C
