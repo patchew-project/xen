@@ -281,7 +281,8 @@ void disconnect_bsp_APIC(int virt_wire_setup)
         }
         else {
             /* Disable LVT0 */
-            apic_write(APIC_LVT0, APIC_LVT_MASKED);
+            value = apic_read(APIC_LVT0);
+            apic_write(APIC_LVT0, value | APIC_LVT_MASKED);
         }
 
         /* For LVT1 make it edge triggered, active high, nmi and enabled */
