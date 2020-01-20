@@ -344,7 +344,7 @@ struct domain *alloc_domain_struct(void)
 
 void free_domain_struct(struct domain *d)
 {
-    free_xenheap_page(d);
+    free_xenheap_pages(d, get_order_from_bytes(sizeof(*d)));
 }
 
 struct vcpu *alloc_vcpu_struct(const struct domain *d)
