@@ -8,7 +8,11 @@
 #include <xen/string.h>
 #include <asm/bug.h>
 
+#ifdef CONFIG_DEBUG_BUGVERBOSE
+#define BUG_ON(p)  do { if (unlikely(p)) BUG_VERBOSE(#p);  } while (0)
+#else
 #define BUG_ON(p)  do { if (unlikely(p)) BUG();  } while (0)
+#endif
 #define WARN_ON(p) do { if (unlikely(p)) WARN(); } while (0)
 
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)

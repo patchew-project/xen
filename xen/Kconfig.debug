@@ -11,6 +11,13 @@ config DEBUG
 
 	  You probably want to say 'N' here.
 
+config DEBUG_BUGVERBOSE
+	bool "Verbose BUG_ON messages"
+	default DEBUG
+	---help---
+	  In case a BUG_ON triggers additionally print the triggering
+	  condition on the console.
+
 if DEBUG || EXPERT = "y"
 
 config CRASH_DEBUG
@@ -80,7 +87,6 @@ config PERF_ARRAYS
 	depends on PERF_COUNTERS
 	---help---
 	  Enables software performance counter array histograms.
-
 
 config VERBOSE_DEBUG
 	bool "Verbose debug messages"

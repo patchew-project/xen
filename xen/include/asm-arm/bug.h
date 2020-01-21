@@ -60,10 +60,12 @@ struct bug_frame {
 
 #define WARN() BUG_FRAME(BUGFRAME_warn, __LINE__, __FILE__, 0, "")
 
-#define BUG() do {                                              \
-    BUG_FRAME(BUGFRAME_bug,  __LINE__, __FILE__, 0, "");        \
+#define BUG_VERBOSE(msg) do {                                   \
+    BUG_FRAME(BUGFRAME_bug,  __LINE__, __FILE__, 0, msg);       \
     unreachable();                                              \
 } while (0)
+
+#define BUG() BUG_VERBOSE("")
 
 #define assert_failed(msg) do {                                 \
     BUG_FRAME(BUGFRAME_assert, __LINE__, __FILE__, 1, msg);     \
