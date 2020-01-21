@@ -1,0 +1,29 @@
+#!/bin/sh
+# usage: binfile [-i] <target-src.S> <binary-file> <varname>
+# -i     add to .init.rodata (default: .rodata) section
+
+[ "$1" = "-i" ] && {
+    shift
+    section=".init"
+}
+
+target=$1
+binsource=$2
+varname=$3
+
+cat <<EOF >$target
+#include <asm/asm_defns.h>
+
+        .section $section.rodata, "a", %progbits
+
+        .global $varname
+$varname:
+        .incbin "$binsource"
+.Lend:
+
+        .type $varname, %object
+        .size $varname, . - $varname
+
+        .global ${varname}_size
+        ASM_INT(${varname}_size, .Lend - $varname)
+EOF
