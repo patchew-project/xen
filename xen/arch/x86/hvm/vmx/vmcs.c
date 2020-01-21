@@ -70,6 +70,17 @@ integer_param("ple_window", ple_window);
 static bool __read_mostly opt_ept_pml = true;
 static s8 __read_mostly opt_ept_ad = -1;
 int8_t __read_mostly opt_ept_exec_sp = -1;
+static char opt_ept_setting[16] = "pml=1";
+
+
+static void update_ept_param(void)
+{
+    snprintf(opt_ept_setting, sizeof(opt_ept_setting), "pml=%d", opt_ept_pml);
+    if ( opt_ept_ad >= 0 )
+        param_append_str(opt_ept_setting, ",ad=%d", opt_ept_ad);
+    if ( opt_ept_exec_sp >= 0 )
+        param_append_str(opt_ept_setting, ",exec-sp=%d", opt_ept_exec_sp);
+}
 
 static int __init parse_ept_param(const char *s)
 {
@@ -93,6 +104,8 @@ static int __init parse_ept_param(const char *s)
         s = ss + 1;
     } while ( *ss );
 
+    update_ept_param();
+
     return rc;
 }
 custom_param("ept", parse_ept_param);
@@ -114,6 +127,8 @@ static int parse_ept_param_runtime(const char *s)
         return -EINVAL;
 
     opt_ept_exec_sp = val;
+
+    update_ept_param();
 
     rcu_read_lock(&domlist_read_lock);
     for_each_domain ( d )
@@ -144,7 +159,7 @@ static int parse_ept_param_runtime(const char *s)
 
     return 0;
 }
-custom_runtime_only_param("ept", parse_ept_param_runtime);
+custom_runtime_only_param("ept", parse_ept_param_runtime, opt_ept_setting);
 
 /* Dynamic (run-time adjusted) execution control flags. */
 u32 vmx_pin_based_exec_control __read_mostly;
