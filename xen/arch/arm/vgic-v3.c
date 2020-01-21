@@ -1193,6 +1193,10 @@ static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
          */
         return __vgic_v3_distr_common_mmio_read("vGICD", v, info, gicd_reg, r);
 
+    case VRANGE32(GICD_IGRPMODR, GICD_IGRPMODRN):
+        /* We do not implement security extensions for guests, read zero */
+        goto read_as_zero_32;
+
     case VRANGE32(GICD_NSACR, GICD_NSACRN):
         /* We do not implement security extensions for guests, read zero */
         goto read_as_zero_32;
@@ -1378,6 +1382,10 @@ static int vgic_v3_distr_mmio_write(struct vcpu *v, mmio_info_t *info,
          * Manage in common */
         return __vgic_v3_distr_common_mmio_write("vGICD", v, info,
                                                  gicd_reg, r);
+
+    case VRANGE32(GICD_IGRPMODR, GICD_IGRPMODRN):
+        /* We do not implement security extensions for guests, write ignore */
+        goto write_ignore_32;
 
     case VRANGE32(GICD_NSACR, GICD_NSACRN):
         /* We do not implement security extensions for guests, write ignore */
