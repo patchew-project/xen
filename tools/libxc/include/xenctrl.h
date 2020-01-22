@@ -83,6 +83,13 @@
 #define xen_mb()   asm volatile ("dmb sy" : : : "memory")
 #define xen_rmb()  asm volatile ("dmb sy" : : : "memory")
 #define xen_wmb()  asm volatile ("dmb sy" : : : "memory")
+#elif defined(__riscv)
+#define RISCV_FENCE(p, s) \
+  __asm__ __volatile__ ("fence " #p "," #s : : : "memory")
+
+#define xen_mb()  RISCV_FENCE(rw,rw)
+#define xen_rmb() RISCV_FENCE(r,r)
+#define xen_wmb() RISCV_FENCE(w,w)
 #else
 #error "Define barriers"
 #endif
