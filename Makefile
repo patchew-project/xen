@@ -7,7 +7,7 @@
 all: dist
 
 -include config/Toplevel.mk
-SUBSYSTEMS?=xen tools stubdom docs
+SUBSYSTEMS=xen stubdom docs
 TARGS_DIST=$(patsubst %, dist-%, $(SUBSYSTEMS))
 TARGS_INSTALL=$(patsubst %, install-%, $(SUBSYSTEMS))
 TARGS_UNINSTALL=$(patsubst %, uninstall-%, $(SUBSYSTEMS))
@@ -20,12 +20,6 @@ include Config.mk
 
 .PHONY: mini-os-dir
 mini-os-dir:
-	if [ ! -d $(XEN_ROOT)/extras/mini-os ]; then \
-		GIT=$(GIT) $(XEN_ROOT)/scripts/git-checkout.sh \
-			$(MINIOS_UPSTREAM_URL) \
-			$(MINIOS_UPSTREAM_REVISION) \
-			$(XEN_ROOT)/extras/mini-os ; \
-	fi
 
 .PHONY: mini-os-dir-force-update
 mini-os-dir-force-update: mini-os-dir
@@ -131,14 +125,9 @@ install-xen:
 
 .PHONY: install-tools
 install-tools: install-tools-public-headers
-	$(MAKE) -C tools install
 
 .PHONY: install-stubdom
 install-stubdom: mini-os-dir install-tools
-	$(MAKE) -C stubdom install
-ifeq (x86_64,$(XEN_TARGET_ARCH))
-	XEN_TARGET_ARCH=x86_32 $(MAKE) -C stubdom install-grub
-endif
 
 .PHONY: tools/firmware/seabios-dir-force-update
 tools/firmware/seabios-dir-force-update:
