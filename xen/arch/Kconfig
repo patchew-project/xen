@@ -7,5 +7,6 @@ config NR_CPUS
 	default "4" if ARM && QEMU
 	default "4" if ARM && MPSOC
 	default "128" if ARM
+	default "4" if RISCV
 	---help---
 	  Specifies the maximum number of physical CPUs which Xen will support.

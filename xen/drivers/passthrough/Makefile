@@ -2,6 +2,7 @@ subdir-$(CONFIG_X86) += vtd
 subdir-$(CONFIG_X86) += amd
 subdir-$(CONFIG_X86) += x86
 subdir-$(CONFIG_ARM) += arm
+subdir-$(CONFIG_RISCV) += riscv
 
 obj-y += iommu.o
 obj-$(CONFIG_HAS_PCI) += pci.o

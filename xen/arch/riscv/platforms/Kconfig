@@ -1,0 +1,31 @@
+choice
+	prompt "Platform Support"
+	default ALL_PLAT
+	---help---
+	Choose which hardware platform to enable in Xen.
+
+	If unsure, choose ALL_PLAT.
+
+config ALL_PLAT
+	bool "All Platforms"
+	---help---
+	Enable support for all available hardware platforms. It doesn't
+	automatically select any of the related drivers.
+
+config QEMU
+	bool "QEMU RISC-V virt machine support"
+	depends on RISCV
+	select HAS_NS16550
+	---help---
+	Enable all the required drivers for QEMU RISC-V virt emulated
+	machine.
+
+endchoice
+
+config ALL64_PLAT
+	bool
+	default (ALL_PLAT && RISCV_64)
+
+config ALL32_PLAT
+	bool
+	default (ALL_PLAT && RISCV_32)
