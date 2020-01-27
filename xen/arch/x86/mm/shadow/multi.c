@@ -4157,7 +4157,6 @@ sh_update_cr3(struct vcpu *v, int do_locking, bool noflush)
     if ( do_locking ) paging_unlock(v->domain);
 }
 
-
 /**************************************************************************/
 /* Functions to revoke guest rights */
 

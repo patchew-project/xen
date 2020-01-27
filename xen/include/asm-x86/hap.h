@@ -46,6 +46,9 @@ int   hap_track_dirty_vram(struct domain *d,
 extern const struct paging_mode *hap_paging_get_mode(struct vcpu *);
 int hap_set_allocation(struct domain *d, unsigned int pages, bool *preempted);
 
+bool hap_flush_tlb(bool (*flush_vcpu)(void *ctxt, struct vcpu *v),
+                   void *ctxt);
+
 #endif /* XEN_HAP_H */
 
 /*

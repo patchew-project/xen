@@ -95,6 +95,10 @@ void shadow_blow_tables_per_domain(struct domain *d);
 int shadow_set_allocation(struct domain *d, unsigned int pages,
                           bool *preempted);
 
+/* Flush the TLB of the selected vCPUs. */
+bool shadow_flush_tlb(bool (*flush_vcpu)(void *ctxt, struct vcpu *v),
+                      void *ctxt);
+
 #else /* !CONFIG_SHADOW_PAGING */
 
 #define shadow_teardown(d, p) ASSERT(is_pv_domain(d))
@@ -105,6 +109,14 @@ int shadow_set_allocation(struct domain *d, unsigned int pages,
     ({ ASSERT_UNREACHABLE(); -EOPNOTSUPP; })
 #define shadow_set_allocation(d, pages, preempted) \
     ({ ASSERT_UNREACHABLE(); -EOPNOTSUPP; })
+
+static inline bool shadow_flush_tlb(bool (*flush_vcpu)(void *ctxt,
+                                                       struct vcpu *v),
+                                    void *ctxt)
+{
+    ASSERT_UNREACHABLE();
+    return -EOPNOTSUPP;
+}
 
 static inline void sh_remove_shadows(struct domain *d, mfn_t gmfn,
                                      int fast, int all) {}
