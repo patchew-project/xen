@@ -1298,7 +1298,8 @@ static void libxl__colo_restore_setup_done(libxl__egc *egc,
     libxl__stream_read_start(egc, &dcs->srs);
 }
 
-int libxl__srm_callout_callback_static_data_done(void *user)
+int libxl__srm_callout_callback_static_data_done(unsigned int missing,
+                                                 void *user)
 {
     libxl__save_helper_state *shs = user;
     libxl__domain_create_state *dcs = shs->caller_state;
@@ -1308,9 +1309,18 @@ int libxl__srm_callout_callback_static_data_done(void *user)
     const libxl_domain_config *d_config = dcs->guest_config;
     const libxl_domain_build_info *info = &d_config->b_info;
 
-    libxl__cpuid_apply_policy(ctx, dcs->guest_domid);
-    if (info->cpuid != NULL)
-        libxl__cpuid_set(ctx, dcs->guest_domid, info->cpuid);
+    /*
+     * CPUID/MSR information is not present in pre Xen-4.14 streams.
+     *
+     * Libxl used to always regenerate the CPUID policy from first principles
+     * on migrate.  Continue to do so for backwards compatibility when the
+     * stream doesn't contain any CPUID data.
+     */
+    if (missing & XGR_SDD_MISSING_CPUID) {
+        libxl__cpuid_apply_policy(ctx, dcs->guest_domid);
+        if (info->cpuid != NULL)
+            libxl__cpuid_set(ctx, dcs->guest_domid, info->cpuid);
+    }
 
     return 0;
 }
