@@ -389,6 +389,18 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
 
     rc = libxl__arch_domain_create(gc, d_config, domid);
 
+    /* Construct a CPUID policy, but only for brand new domains.  Domains
+     * being migrated-in/restored have CPUID handled during the
+     * static_data_done() callback. */
+    if (!restore) {
+        /* For x86 at least, libxl_cpuid_apply_policy() takes an implicit
+         * parameter, HVM_PARAM_PAE_ENABLED, which is only set up in
+         * libxl__arch_domain_create(). */
+        libxl_cpuid_apply_policy(ctx, domid);
+        if (info->cpuid != NULL)
+            libxl_cpuid_set(ctx, domid, info->cpuid);
+    }
+
     return rc;
 }
 
@@ -455,10 +467,6 @@ int libxl__build_post(libxl__gc *gc, uint32_t domid,
     rc = libxl_domain_sched_params_set(CTX, domid, &info->sched_params);
     if (rc)
         return rc;
-
-    libxl__cpuid_apply_policy(ctx, domid);
-    if (info->cpuid != NULL)
-        libxl__cpuid_set(ctx, domid, info->cpuid);
 
     if (info->type == LIBXL_DOMAIN_TYPE_HVM
         && !libxl_ms_vm_genid_is_zero(&info->u.hvm.ms_vm_genid)) {

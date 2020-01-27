@@ -1303,8 +1303,14 @@ int libxl__srm_callout_callback_static_data_done(void *user)
     libxl__save_helper_state *shs = user;
     libxl__domain_create_state *dcs = shs->caller_state;
     STATE_AO_GC(dcs->ao);
+    libxl_ctx *ctx = libxl__gc_owner(gc);
 
-    /* Nothing to do (yet). */
+    const libxl_domain_config *d_config = dcs->guest_config;
+    const libxl_domain_build_info *info = &d_config->b_info;
+
+    libxl__cpuid_apply_policy(ctx, dcs->guest_domid);
+    if (info->cpuid != NULL)
+        libxl__cpuid_set(ctx, dcs->guest_domid, info->cpuid);
 
     return 0;
 }
