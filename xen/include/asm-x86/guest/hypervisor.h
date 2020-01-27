@@ -19,6 +19,8 @@
 #ifndef __X86_HYPERVISOR_H__
 #define __X86_HYPERVISOR_H__
 
+#include <xen/cpumask.h>
+
 struct hypervisor_ops {
     /* Name of the hypervisor */
     const char *name;
@@ -28,6 +30,8 @@ struct hypervisor_ops {
     void (*ap_setup)(void);
     /* Resume from suspension */
     void (*resume)(void);
+    /* L0 assisted TLB flush */
+    int (*flush_tlb)(const cpumask_t *mask, const void *va, unsigned int order);
 };
 
 #ifdef CONFIG_GUEST
@@ -36,6 +40,14 @@ const char *hypervisor_probe(void);
 void hypervisor_setup(void);
 void hypervisor_ap_setup(void);
 void hypervisor_resume(void);
+/*
+ * L0 assisted TLB flush.
+ * mask: cpumask of the dirty vCPUs that should be flushed.
+ * va: linear address to flush, or NULL for global flushes.
+ * order: order of the linear address pointed by va.
+ */
+int hypervisor_flush_tlb(const cpumask_t *mask, const void *va,
+                         unsigned int order);
 
 #else
 
@@ -46,6 +58,11 @@ static inline const char *hypervisor_probe(void) { return NULL; }
 static inline void hypervisor_setup(void) { ASSERT_UNREACHABLE(); }
 static inline void hypervisor_ap_setup(void) { ASSERT_UNREACHABLE(); }
 static inline void hypervisor_resume(void) { ASSERT_UNREACHABLE(); }
+static inline int hypervisor_flush_tlb(const cpumask_t *mask, const void *va,
+                                       unsigned int order)
+{
+    return -ENOSYS;
+}
 
 #endif  /* CONFIG_GUEST */
 

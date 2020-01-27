@@ -310,11 +310,17 @@ static void resume(void)
         pv_console_init();
 }
 
+static int flush_tlb(const cpumask_t *mask, const void *va, unsigned int order)
+{
+    return xen_hypercall_hvm_op(HVMOP_flush_tlbs, NULL);
+}
+
 static const struct hypervisor_ops ops = {
     .name = "Xen",
     .setup = setup,
     .ap_setup = ap_setup,
     .resume = resume,
+    .flush_tlb = flush_tlb,
 };
 
 const struct hypervisor_ops *__init xg_probe(void)
