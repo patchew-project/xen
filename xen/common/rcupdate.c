@@ -145,6 +145,9 @@ struct rcu_barrier_data {
     atomic_t *cpu_count;
 };
 
+static DEFINE_PER_CPU(struct tasklet, rcu_barrier_tasklet);
+static atomic_t rcu_barrier_cpu_count, rcu_barrier_cpu_done;
+
 static void rcu_barrier_callback(struct rcu_head *head)
 {
     struct rcu_barrier_data *data = container_of(
@@ -152,12 +155,9 @@ static void rcu_barrier_callback(struct rcu_head *head)
     atomic_inc(data->cpu_count);
 }
 
-static int rcu_barrier_action(void *_cpu_count)
+static void rcu_barrier_action(void *unused)
 {
-    struct rcu_barrier_data data = { .cpu_count = _cpu_count };
-
-    ASSERT(!local_irq_is_enabled());
-    local_irq_enable();
+    struct rcu_barrier_data data = { .cpu_count = &rcu_barrier_cpu_count };
 
     /*
      * When callback is executed, all previously-queued RCU work on this CPU
@@ -172,15 +172,30 @@ static int rcu_barrier_action(void *_cpu_count)
         cpu_relax();
     }
 
-    local_irq_disable();
-
-    return 0;
+    atomic_inc(&rcu_barrier_cpu_done);
 }
 
 int rcu_barrier(void)
 {
-    atomic_t cpu_count = ATOMIC_INIT(0);
-    return stop_machine_run(rcu_barrier_action, &cpu_count, NR_CPUS);
+    unsigned int i;
+
+    if ( !get_cpu_maps() )
+        return -EBUSY;
+
+    atomic_set(&rcu_barrier_cpu_count, 0);
+    atomic_set(&rcu_barrier_cpu_done, 0);
+
+    for_each_online_cpu ( i )
+        if ( i != smp_processor_id() )
+            tasklet_schedule_on_cpu(&per_cpu(rcu_barrier_tasklet, i), i);
+
+    rcu_barrier_action(NULL);
+
+    while ( atomic_read(&rcu_barrier_cpu_done) != num_online_cpus() )
+        cpu_relax();
+
+    put_cpu_maps();
+    return 0;
 }
 
 /* Is batch a before batch b ? */
@@ -564,6 +579,7 @@ static void rcu_init_percpu_data(int cpu, struct rcu_ctrlblk *rcp,
     rdp->cpu = cpu;
     rdp->blimit = blimit;
     init_timer(&rdp->idle_timer, rcu_idle_timer_handler, rdp, cpu);
+    tasklet_init(&per_cpu(rcu_barrier_tasklet, cpu), rcu_barrier_action, NULL);
 }
 
 static int cpu_callback(
