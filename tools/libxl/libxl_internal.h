@@ -1390,7 +1390,8 @@ _hidden void libxl__domain_build_state_dispose(libxl__domain_build_state *s);
 
 _hidden int libxl__build_pre(libxl__gc *gc, uint32_t domid,
               libxl_domain_config * const d_config,
-              libxl__domain_build_state *state);
+              libxl__domain_build_state *state,
+              bool restore);
 _hidden int libxl__build_post(libxl__gc *gc, uint32_t domid,
                libxl_domain_build_info *info, libxl__domain_build_state *state,
                char **vms_ents, char **local_ents);
@@ -1963,7 +1964,8 @@ _hidden int libxl__domain_make(libxl__gc *gc,
 _hidden int libxl__domain_build(libxl__gc *gc,
                                 libxl_domain_config *d_config,
                                 uint32_t domid,
-                                libxl__domain_build_state *state);
+                                libxl__domain_build_state *state,
+                                bool restore);
 
 /* for device model creation */
 _hidden const char *libxl__domain_device_model(libxl__gc *gc,

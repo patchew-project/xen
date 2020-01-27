@@ -434,14 +434,15 @@ static void init_console_info(libxl__gc *gc,
 int libxl__domain_build(libxl__gc *gc,
                         libxl_domain_config *d_config,
                         uint32_t domid,
-                        libxl__domain_build_state *state)
+                        libxl__domain_build_state *state,
+                        bool restore)
 {
     libxl_domain_build_info *const info = &d_config->b_info;
     char **vments = NULL, **localents = NULL;
     struct timeval start_time;
     int i, ret;
 
-    ret = libxl__build_pre(gc, domid, d_config, state);
+    ret = libxl__build_pre(gc, domid, d_config, state, restore);
     if (ret)
         goto out;
 
@@ -1218,7 +1219,7 @@ static void domcreate_bootloader_done(libxl__egc *egc,
     dcs->sdss.callback = domcreate_devmodel_started;
 
     if (restore_fd < 0 && dcs->domid_soft_reset == INVALID_DOMID) {
-        rc = libxl__domain_build(gc, d_config, domid, state);
+        rc = libxl__domain_build(gc, d_config, domid, state, false);
         domcreate_rebuild_done(egc, dcs, rc);
         return;
     }
@@ -1245,7 +1246,7 @@ static void domcreate_bootloader_done(libxl__egc *egc,
         goto out;
     }
 
-    rc = libxl__build_pre(gc, domid, d_config, state);
+    rc = libxl__build_pre(gc, domid, d_config, state, restore_fd >= 0);
     if (rc)
         goto out;
 

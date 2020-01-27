@@ -244,7 +244,9 @@ static int numa_place_domain(libxl__gc *gc, uint32_t domid,
 }
 
 int libxl__build_pre(libxl__gc *gc, uint32_t domid,
-              libxl_domain_config *d_config, libxl__domain_build_state *state)
+                     libxl_domain_config *d_config,
+                     libxl__domain_build_state *state,
+                     bool restore)
 {
     libxl_domain_build_info *const info = &d_config->b_info;
     libxl_ctx *ctx = libxl__gc_owner(gc);
