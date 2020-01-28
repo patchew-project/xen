@@ -1534,18 +1534,14 @@ void __init record_boot_APIC_mode(void)
 /* Look at the bits in MSR_APIC_BASE and work out which APIC mode we are in */
 enum apic_mode current_local_apic_mode(void)
 {
-    u64 msr_contents;
+    uint32_t high, low;
 
-    rdmsrl(MSR_APIC_BASE, msr_contents);
+    rdmsr(MSR_APIC_BASE, low, high);
 
-    /* Reading EXTD bit from the MSR is only valid if CPUID
-     * says so, else reserved */
-    if ( boot_cpu_has(X86_FEATURE_X2APIC) && (msr_contents & APIC_BASE_EXTD) )
+    if ( low & APIC_BASE_EXTD )
         return APIC_MODE_X2APIC;
 
-    /* EN bit should always be valid as long as we can read the MSR
-     */
-    if ( msr_contents & APIC_BASE_ENABLE )
+    if ( low & APIC_BASE_ENABLE )
         return APIC_MODE_XAPIC;
 
     return APIC_MODE_DISABLED;
