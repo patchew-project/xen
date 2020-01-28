@@ -24,6 +24,8 @@ static char *param;
 static char *name = "Xenstore";
 static int memory;
 static int maxmem;
+static xen_pfn_t console_mfn;
+static unsigned int console_evtchn;
 
 static struct option options[] = {
     { "kernel", 1, NULL, 'k' },
@@ -113,6 +115,7 @@ static int build(xc_interface *xch)
         fprintf(stderr, "xc_domain_setmaxmem failed\n");
         goto err;
     }
+    console_evtchn = xc_evtchn_alloc_unbound(xch, domid, 0);
     rv = xc_domain_set_memmap_limit(xch, domid, limit_kb);
     if ( rv )
     {
@@ -133,6 +136,9 @@ static int build(xc_interface *xch)
         snprintf(cmdline, 512, "--event %d --internal-db", rv);
 
     dom = xc_dom_allocate(xch, cmdline, NULL);
+    dom->container_type = XC_DOM_PV_CONTAINER;
+    dom->xenstore_domid = domid;
+    dom->console_evtchn = console_evtchn;
     rv = xc_dom_kernel_file(dom, kernel);
     if ( rv )
     {
@@ -186,6 +192,12 @@ static int build(xc_interface *xch)
         fprintf(stderr, "xc_dom_boot_image failed\n");
         goto err;
     }
+    rv = xc_dom_gnttab_init(dom);
+    if ( rv )
+    {
+        fprintf(stderr, "xc_dom_gnttab_init failed\n");
+        goto err;
+    }
 
     rv = xc_domain_set_virq_handler(xch, domid, VIRQ_DOM_EXC);
     if ( rv )
@@ -201,6 +213,7 @@ static int build(xc_interface *xch)
     }
 
     rv = 0;
+    console_mfn = xc_dom_p2m(dom, dom->console_pfn);
 
 err:
     if ( dom )
