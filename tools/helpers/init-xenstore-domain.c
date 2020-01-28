@@ -12,6 +12,7 @@
 #include <xenstore.h>
 #include <xen/sys/xenbus_dev.h>
 #include <xen-xsm/flask/flask.h>
+#include <xen/io/xenbus.h>
 
 #include "init-dom-json.h"
 #include "_paths.h"
@@ -312,6 +313,15 @@ static void do_xs_write(struct xs_handle *xsh, char *path, char *val)
         fprintf(stderr, "writing %s to xenstore failed.\n", path);
 }
 
+static void do_xs_write_dir_node(struct xs_handle *xsh, char *dir, char *node,
+                                 char *val)
+{
+    char full_path[100];
+
+    snprintf(full_path, 100, "%s/%s", dir, node);
+    do_xs_write(xsh, full_path, val);
+}
+
 static void do_xs_write_dom(struct xs_handle *xsh, char *path, char *val)
 {
     char full_path[64];
@@ -325,7 +335,7 @@ int main(int argc, char** argv)
     int opt;
     xc_interface *xch;
     struct xs_handle *xsh;
-    char buf[16];
+    char buf[16], be_path[64], fe_path[64];
     int rv, fd;
     char *maxmem_str = NULL;
 
@@ -414,6 +424,25 @@ int main(int argc, char** argv)
     if (maxmem)
         snprintf(buf, 16, "%d", maxmem * 1024);
     do_xs_write_dom(xsh, "memory/static-max", buf);
+    snprintf(be_path, 64, "/local/domain/0/backend/console/%d/0", domid);
+    snprintf(fe_path, 64, "/local/domain/%d/console", domid);
+    snprintf(buf, 16, "%d", domid);
+    do_xs_write_dir_node(xsh, be_path, "frontend-id", buf);
+    do_xs_write_dir_node(xsh, be_path, "frontend", fe_path);
+    do_xs_write_dir_node(xsh, be_path, "online", "1");
+    snprintf(buf, 16, "%d", XenbusStateInitialising);
+    do_xs_write_dir_node(xsh, be_path, "state", buf);
+    do_xs_write_dir_node(xsh, be_path, "protocol", "vt100");
+    do_xs_write_dir_node(xsh, fe_path, "backend", be_path);
+    do_xs_write_dir_node(xsh, fe_path, "backend-id", "0");
+    do_xs_write_dir_node(xsh, fe_path, "limit", "1048576");
+    do_xs_write_dir_node(xsh, fe_path, "type", "xenconsoled");
+    do_xs_write_dir_node(xsh, fe_path, "output", "pty");
+    do_xs_write_dir_node(xsh, fe_path, "tty", "");
+    snprintf(buf, 16, "%d", console_evtchn);
+    do_xs_write_dir_node(xsh, fe_path, "port", buf);
+    snprintf(buf, 16, "%ld", console_mfn);
+    do_xs_write_dir_node(xsh, fe_path, "ring-ref", buf);
     xs_close(xsh);
 
     fd = creat(XEN_RUN_DIR "/xenstored.pid", 0666);
