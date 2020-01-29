@@ -343,6 +343,7 @@ static unsigned long __init find_max_pfn(void)
 {
     unsigned int i;
     unsigned long max_pfn = 0;
+    unsigned long top_pfn = ((1ull << paddr_bits) - 1) >> PAGE_SHIFT;
 
     for (i = 0; i < e820.nr_map; i++) {
         unsigned long start, end;
@@ -356,6 +357,10 @@ static unsigned long __init find_max_pfn(void)
         if (end > max_pfn)
             max_pfn = end;
     }
+
+    top_pfn -= hypervisor_reserve_top_pages();
+    if ( max_pfn >= top_pfn )
+        max_pfn = top_pfn;
 
     return max_pfn;
 }
