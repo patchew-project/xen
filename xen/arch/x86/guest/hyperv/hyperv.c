@@ -123,6 +123,12 @@ static const struct hypervisor_ops ops = {
     .setup = setup,
 };
 
+static void __maybe_unused build_assertions(void)
+{
+    /* We use 1 in linker script */
+    BUILD_BUG_ON(FIX_X_HYPERV_HCALL != 1);
+}
+
 /*
  * Local variables:
  * mode: C

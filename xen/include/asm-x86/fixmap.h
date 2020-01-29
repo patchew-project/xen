@@ -16,6 +16,7 @@
 
 #define FIXADDR_TOP (VMAP_VIRT_END - PAGE_SIZE)
 #define FIXADDR_X_TOP (XEN_VIRT_END - PAGE_SIZE)
+#define __fix_x_to_virt(x) (FIXADDR_X_TOP - ((x) << PAGE_SHIFT))
 
 #ifndef __ASSEMBLY__
 
@@ -109,8 +110,6 @@ extern void __set_fixmap_x(
     __set_fixmap_x(idx, (phys)>>PAGE_SHIFT, PAGE_HYPERVISOR_RX | MAP_SMALL_PAGES)
 
 #define clear_fixmap_x(idx) __set_fixmap_x(idx, 0, 0)
-
-#define __fix_x_to_virt(x) (FIXADDR_X_TOP - ((x) << PAGE_SHIFT))
 
 #define fix_x_to_virt(x)   ((void *)__fix_x_to_virt(x))
 
