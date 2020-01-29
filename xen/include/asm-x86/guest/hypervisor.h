@@ -28,6 +28,8 @@ struct hypervisor_ops {
     int (*ap_setup)(void);
     /* Resume from suspension */
     void (*resume)(void);
+    /* How many top pages to be reserved in machine address space? */
+    unsigned int (*reserve_top_pages)(void);
 };
 
 #ifdef CONFIG_GUEST
@@ -36,6 +38,7 @@ const char *hypervisor_probe(void);
 void hypervisor_setup(void);
 int hypervisor_ap_setup(void);
 void hypervisor_resume(void);
+unsigned int hypervisor_reserve_top_pages(void);
 
 #else
 
@@ -46,6 +49,7 @@ static inline const char *hypervisor_probe(void) { return NULL; }
 static inline void hypervisor_setup(void) { ASSERT_UNREACHABLE(); }
 static inline int hypervisor_ap_setup(void) { ASSERT_UNREACHABLE(); return 0; }
 static inline void hypervisor_resume(void) { ASSERT_UNREACHABLE(); }
+static inline unsigned int hypervisor_reserve_top_pages(void) { return 0; }
 
 #endif  /* CONFIG_GUEST */
 

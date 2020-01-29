@@ -66,6 +66,14 @@ void hypervisor_resume(void)
         ops->resume();
 }
 
+unsigned int hypervisor_reserve_top_pages(void)
+{
+    if ( ops && ops->reserve_top_pages )
+        return ops->reserve_top_pages();
+
+    return 0;
+}
+
 /*
  * Local variables:
  * mode: C
