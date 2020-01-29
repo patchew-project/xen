@@ -31,6 +31,7 @@
 
 struct ms_hyperv_info __read_mostly ms_hyperv;
 DEFINE_PER_CPU_READ_MOSTLY(void *, hv_pcpu_input_page);
+DEFINE_PER_CPU_READ_MOSTLY(unsigned int, hv_vp_index);
 
 static uint64_t generate_guest_id(void)
 {
@@ -133,6 +134,7 @@ static void __init setup_hypercall_page(void)
 static int setup_hypercall_pcpu_arg(void)
 {
     void *mapping;
+    uint64_t vp_index_msr;
 
     if ( this_cpu(hv_pcpu_input_page) )
         return 0;
@@ -146,6 +148,9 @@ static int setup_hypercall_pcpu_arg(void)
     }
 
     this_cpu(hv_pcpu_input_page) = mapping;
+
+    rdmsrl(HV_X64_MSR_VP_INDEX, vp_index_msr);
+    this_cpu(hv_vp_index) = vp_index_msr;
 
     return 0;
 }
