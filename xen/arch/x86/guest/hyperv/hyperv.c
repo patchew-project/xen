@@ -23,6 +23,7 @@
 
 #include <asm/fixmap.h>
 #include <asm/guest.h>
+#include <asm/guest/hyperv-hcall.h>
 #include <asm/guest/hyperv-tlfs.h>
 #include <asm/processor.h>
 
@@ -111,6 +112,19 @@ static void __init setup_hypercall_page(void)
     BUG_ON(!hypercall_msr.enable);
 
     set_fixmap_x(FIX_X_HYPERV_HCALL, mfn << PAGE_SHIFT);
+
+    /* XXX Wei: Issue an hypercall here to make sure things are set up
+     * correctly.  When there is actual use of the hypercall facility,
+     * this can be removed.
+     */
+    {
+        uint16_t r = hv_do_hypercall(0xffff, 0, 0);
+        BUG_ON(r != HV_STATUS_INVALID_HYPERCALL_CODE);
+        r = hv_do_fast_hypercall(0xffff, 0, 0);
+        BUG_ON(r != HV_STATUS_INVALID_HYPERCALL_CODE);
+
+        printk("Successfully issued Hyper-V hypercalls\n");
+    }
 }
 
 static void __init setup(void)
