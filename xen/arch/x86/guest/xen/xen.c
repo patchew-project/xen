@@ -257,11 +257,18 @@ static void __init setup(void)
     init_evtchn();
 }
 
-static void ap_setup(void)
+static int ap_setup(void)
 {
+    int rc;
+
     set_vcpu_id();
-    map_vcpuinfo();
+    rc = map_vcpuinfo();
+    if ( rc )
+        return rc;
+
     init_evtchn();
+
+    return 0;
 }
 
 int xg_alloc_unused_page(mfn_t *mfn)
