@@ -31,6 +31,7 @@
 
 struct ms_hyperv_info __read_mostly ms_hyperv;
 DEFINE_PER_CPU_READ_MOSTLY(void *, hv_pcpu_input_page);
+DEFINE_PER_CPU_READ_MOSTLY(void *, hv_vp_assist);
 DEFINE_PER_CPU_READ_MOSTLY(unsigned int, hv_vp_index);
 
 static uint64_t generate_guest_id(void)
@@ -155,16 +156,57 @@ static int setup_hypercall_pcpu_arg(void)
     return 0;
 }
 
+static int setup_vp_assist(void)
+{
+    void *mapping;
+    uint64_t val;
+
+    mapping = this_cpu(hv_vp_assist);
+
+    if ( !mapping )
+    {
+        mapping = alloc_xenheap_page();
+        if ( !mapping )
+        {
+            printk("Failed to allocate vp_assist page for CPU%u\n",
+                   smp_processor_id());
+            return -ENOMEM;
+        }
+
+        clear_page(mapping);
+        this_cpu(hv_vp_assist) = mapping;
+    }
+
+    val = (virt_to_mfn(mapping) << HV_HYP_PAGE_SHIFT)
+        | HV_X64_MSR_VP_ASSIST_PAGE_ENABLE;
+    wrmsrl(HV_X64_MSR_VP_ASSIST_PAGE, val);
+
+    return 0;
+}
+
 static void __init setup(void)
 {
     setup_hypercall_page();
+
     if ( setup_hypercall_pcpu_arg() )
         panic("Hypercall percpu arg setup failed\n");
+
+    if ( setup_vp_assist() )
+        panic("VP assist page setup failed\n");
 }
 
 static int ap_setup(void)
 {
-    return setup_hypercall_pcpu_arg();
+    int rc;
+
+    rc = setup_hypercall_pcpu_arg();
+    if ( rc )
+        goto out;
+
+    rc = setup_vp_assist();
+
+ out:
+    return rc;
 }
 
 static const struct hypervisor_ops ops = {
