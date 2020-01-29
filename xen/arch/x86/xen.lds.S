@@ -3,6 +3,8 @@
 
 #include <xen/cache.h>
 #include <xen/lib.h>
+
+#include <asm/fixmap.h>
 #include <asm/page.h>
 #undef ENTRY
 #undef ALIGN
@@ -353,6 +355,7 @@ SECTIONS
 }
 
 ASSERT(__2M_rwdata_end <= XEN_VIRT_END - XEN_VIRT_START + __XEN_VIRT_START -
+                          FIXADDR_X_SIZE -
                           DIV_ROUND_UP(NR_CPUS, STUBS_PER_PAGE) * PAGE_SIZE,
        "Xen image overlaps stubs area")
 

@@ -157,6 +157,8 @@
 /* Mapping of the fixmap space needed early. */
 l1_pgentry_t __section(".bss.page_aligned") __aligned(PAGE_SIZE)
     l1_fixmap[L1_PAGETABLE_ENTRIES];
+l1_pgentry_t __section(".bss.page_aligned") __aligned(PAGE_SIZE)
+    l1_fixmap_x[L1_PAGETABLE_ENTRIES];
 
 paddr_t __read_mostly mem_hotplug;
 
@@ -5718,8 +5720,19 @@ int destroy_xen_mappings(unsigned long s, unsigned long e)
 void __set_fixmap(
     enum fixed_addresses idx, unsigned long mfn, unsigned long flags)
 {
-    BUG_ON(idx >= __end_of_fixed_addresses);
+    BUG_ON(idx >= __end_of_fixed_addresses || idx <= FIX_RESERVED);
     map_pages_to_xen(__fix_to_virt(idx), _mfn(mfn), 1, flags);
+}
+
+void __set_fixmap_x(
+    enum fixed_addresses_x idx, unsigned long mfn, unsigned long flags)
+{
+    BUG_ON(idx >= __end_of_fixed_addresses_x || idx <= FIX_X_RESERVED);
+    map_pages_to_xen(__fix_x_to_virt(idx), _mfn(mfn), 1, flags);
+
+    /* Generate a symbol to be used in linker script */
+    asm ( ".equ FIXADDR_X_SIZE, %c0; .global FIXADDR_X_SIZE"
+          :: "i" (__end_of_fixed_addresses_x << PAGE_SHIFT) );
 }
 
 void *__init arch_vmap_virt_end(void)
