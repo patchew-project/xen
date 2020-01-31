@@ -1250,9 +1250,9 @@ static int vgic_v3_distr_mmio_read(struct vcpu *v, mmio_info_t *info,
          goto read_impl_defined;
 
     default:
-        printk(XENLOG_G_ERR "%pv: vGICD: unhandled read r%d offset %#08x\n",
-               v, dabt.reg, gicd_reg);
-        return 0;
+        /* Since reserved registers should be read-as-zero, make this the
+         * default case */
+        goto read_as_zero;
     }
 
 bad_width:
@@ -1435,10 +1435,9 @@ static int vgic_v3_distr_mmio_write(struct vcpu *v, mmio_info_t *info,
          goto write_impl_defined;
 
     default:
-        printk(XENLOG_G_ERR
-               "%pv: vGICD: unhandled write r%d=%"PRIregister" offset %#08x\n",
-               v, dabt.reg, r, gicd_reg);
-        return 0;
+        /* Since reserved registers should be write-ignore, make this the
+         * default case */
+        goto write_ignore;
     }
 
 bad_width:
