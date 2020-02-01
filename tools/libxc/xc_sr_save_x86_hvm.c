@@ -80,8 +80,8 @@ static int write_hvm_params(struct xc_sr_context *ctx)
     };
 
     xc_interface *xch = ctx->xch;
-    struct xc_sr_rec_hvm_params_entry entries[ARRAY_SIZE(params)];
-    struct xc_sr_rec_hvm_params hdr = {
+    struct mr_hvm_params_entry entries[ARRAY_SIZE(params)];
+    struct mr_hvm_params hdr = {
         .count = 0,
     };
     struct xc_sr_record rec = {

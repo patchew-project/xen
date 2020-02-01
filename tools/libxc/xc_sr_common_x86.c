@@ -3,7 +3,7 @@
 int write_x86_tsc_info(struct xc_sr_context *ctx)
 {
     xc_interface *xch = ctx->xch;
-    struct xc_sr_rec_x86_tsc_info tsc = {};
+    struct mr_x86_tsc_info tsc = {};
     struct xc_sr_record rec = {
         .type = REC_TYPE_X86_TSC_INFO,
         .length = sizeof(tsc),
@@ -23,7 +23,7 @@ int write_x86_tsc_info(struct xc_sr_context *ctx)
 int handle_x86_tsc_info(struct xc_sr_context *ctx, struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
-    struct xc_sr_rec_x86_tsc_info *tsc = rec->data;
+    struct mr_x86_tsc_info *tsc = rec->data;
 
     if ( rec->length != sizeof(*tsc) )
     {

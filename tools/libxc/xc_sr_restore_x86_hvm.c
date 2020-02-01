@@ -25,8 +25,8 @@ static int handle_hvm_params(struct xc_sr_context *ctx,
                              struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
-    struct xc_sr_rec_hvm_params *hdr = rec->data;
-    struct xc_sr_rec_hvm_params_entry *entry = hdr->param;
+    struct mr_hvm_params *hdr = rec->data;
+    struct mr_hvm_params_entry *entry = hdr->param;
     unsigned int i;
     int rc;
 

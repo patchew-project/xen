@@ -485,7 +485,7 @@ static int write_one_vcpu_basic(struct xc_sr_context *ctx, uint32_t id)
     unsigned int i, gdt_count;
     int rc = -1;
     vcpu_guest_context_any_t vcpu;
-    struct xc_sr_rec_x86_pv_vcpu_hdr vhdr = {
+    struct mr_x86_pv_vcpu_hdr vhdr = {
         .vcpu_id = id,
     };
     struct xc_sr_record rec = {
@@ -583,7 +583,7 @@ static int write_one_vcpu_basic(struct xc_sr_context *ctx, uint32_t id)
 static int write_one_vcpu_extended(struct xc_sr_context *ctx, uint32_t id)
 {
     xc_interface *xch = ctx->xch;
-    struct xc_sr_rec_x86_pv_vcpu_hdr vhdr = {
+    struct mr_x86_pv_vcpu_hdr vhdr = {
         .vcpu_id = id,
     };
     struct xc_sr_record rec = {
@@ -620,7 +620,7 @@ static int write_one_vcpu_xsave(struct xc_sr_context *ctx, uint32_t id)
     xc_interface *xch = ctx->xch;
     int rc = -1;
     DECLARE_HYPERCALL_BUFFER(void, buffer);
-    struct xc_sr_rec_x86_pv_vcpu_hdr vhdr = {
+    struct mr_x86_pv_vcpu_hdr vhdr = {
         .vcpu_id = id,
     };
     struct xc_sr_record rec = {
@@ -686,7 +686,7 @@ static int write_one_vcpu_msrs(struct xc_sr_context *ctx, uint32_t id)
     int rc = -1;
     size_t buffersz;
     DECLARE_HYPERCALL_BUFFER(void, buffer);
-    struct xc_sr_rec_x86_pv_vcpu_hdr vhdr = {
+    struct mr_x86_pv_vcpu_hdr vhdr = {
         .vcpu_id = id,
     };
     struct xc_sr_record rec = {
@@ -793,7 +793,7 @@ static int write_all_vcpu_information(struct xc_sr_context *ctx)
  */
 static int write_x86_pv_info(struct xc_sr_context *ctx)
 {
-    struct xc_sr_rec_x86_pv_info info = {
+    struct mr_x86_pv_info info = {
         .guest_width = ctx->x86.pv.width,
         .pt_levels = ctx->x86.pv.levels,
     };
@@ -816,7 +816,7 @@ static int write_x86_pv_p2m_frames(struct xc_sr_context *ctx)
     int rc; unsigned int i;
     size_t datasz = ctx->x86.pv.p2m_frames * sizeof(uint64_t);
     uint64_t *data = NULL;
-    struct xc_sr_rec_x86_pv_p2m_frames hdr = {
+    struct mr_x86_pv_p2m_frames hdr = {
         .end_pfn = ctx->x86.pv.max_pfn,
     };
     struct xc_sr_record rec = {

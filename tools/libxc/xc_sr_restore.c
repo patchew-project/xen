@@ -335,7 +335,7 @@ static int process_page_data(struct xc_sr_context *ctx, unsigned int count,
 static int handle_page_data(struct xc_sr_context *ctx, struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
-    struct xc_sr_rec_page_data_header *pages = rec->data;
+    struct mr_page_data_header *pages = rec->data;
     unsigned int i, pages_of_data = 0;
     int rc = -1;
 

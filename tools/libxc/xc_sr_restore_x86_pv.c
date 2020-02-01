@@ -585,7 +585,7 @@ static int update_guest_p2m(struct xc_sr_context *ctx)
  * Cross-check the legitimate combinations.
  */
 static bool valid_x86_pv_info_combination(
-    const struct xc_sr_rec_x86_pv_info *info)
+    const struct mr_x86_pv_info *info)
 {
     switch ( info->guest_width )
     {
@@ -602,7 +602,7 @@ static int handle_x86_pv_info(struct xc_sr_context *ctx,
                               struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
-    struct xc_sr_rec_x86_pv_info *info = rec->data;
+    struct mr_x86_pv_info *info = rec->data;
 
     if ( ctx->x86.pv.restore.seen_pv_info )
     {
@@ -675,7 +675,7 @@ static int handle_x86_pv_p2m_frames(struct xc_sr_context *ctx,
                                     struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
-    struct xc_sr_rec_x86_pv_p2m_frames *data = rec->data;
+    struct mr_x86_pv_p2m_frames *data = rec->data;
     unsigned int start, end, x, fpp = PAGE_SIZE / ctx->x86.pv.width;
     int rc;
 
@@ -734,7 +734,7 @@ static int handle_x86_pv_vcpu_blob(struct xc_sr_context *ctx,
                                    struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
-    struct xc_sr_rec_x86_pv_vcpu_hdr *vhdr = rec->data;
+    struct mr_x86_pv_vcpu_hdr *vhdr = rec->data;
     struct xc_sr_x86_pv_restore_vcpu *vcpu;
     const char *rec_name;
     size_t blobsz;

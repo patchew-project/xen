@@ -91,7 +91,7 @@ int write_split_record(struct xc_sr_context *ctx, struct xc_sr_record *rec,
 int read_record(struct xc_sr_context *ctx, int fd, struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
-    struct xc_sr_rhdr rhdr;
+    struct mr_rhdr rhdr;
     size_t datasz;
 
     if ( read_exact(fd, &rhdr, sizeof(rhdr)) )
@@ -142,15 +142,15 @@ static void __attribute__((unused)) build_assertions(void)
 {
     BUILD_BUG_ON(sizeof(struct xc_sr_ihdr) != 24);
     BUILD_BUG_ON(sizeof(struct xc_sr_dhdr) != 16);
-    BUILD_BUG_ON(sizeof(struct xc_sr_rhdr) != 8);
+    BUILD_BUG_ON(sizeof(struct mr_rhdr) != 8);
 
-    BUILD_BUG_ON(sizeof(struct xc_sr_rec_page_data_header)  != 8);
-    BUILD_BUG_ON(sizeof(struct xc_sr_rec_x86_pv_info)       != 8);
-    BUILD_BUG_ON(sizeof(struct xc_sr_rec_x86_pv_p2m_frames) != 8);
-    BUILD_BUG_ON(sizeof(struct xc_sr_rec_x86_pv_vcpu_hdr)   != 8);
-    BUILD_BUG_ON(sizeof(struct xc_sr_rec_x86_tsc_info)      != 24);
-    BUILD_BUG_ON(sizeof(struct xc_sr_rec_hvm_params_entry)  != 16);
-    BUILD_BUG_ON(sizeof(struct xc_sr_rec_hvm_params)        != 8);
+    BUILD_BUG_ON(sizeof(struct mr_page_data_header)  != 8);
+    BUILD_BUG_ON(sizeof(struct mr_x86_pv_info)       != 8);
+    BUILD_BUG_ON(sizeof(struct mr_x86_pv_p2m_frames) != 8);
+    BUILD_BUG_ON(sizeof(struct mr_x86_pv_vcpu_hdr)   != 8);
+    BUILD_BUG_ON(sizeof(struct mr_x86_tsc_info)      != 24);
+    BUILD_BUG_ON(sizeof(struct mr_hvm_params_entry)  != 16);
+    BUILD_BUG_ON(sizeof(struct mr_hvm_params)        != 8);
 }
 
 /*
