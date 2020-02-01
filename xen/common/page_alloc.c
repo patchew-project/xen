@@ -1759,6 +1759,18 @@ int query_page_offline(mfn_t mfn, uint32_t *status)
     return 0;
 }
 
+static unsigned long contig_avail_pages(struct page_info *pg, unsigned long max_pages)
+{
+    unsigned long i;
+
+    for ( i = 0 ; i < max_pages; i++)
+    {
+        if ( pg[i].count_info & PGC_broken )
+            break;
+    }
+    return i;
+}
+
 /*
  * Hand the specified arbitrary page range to the specified heap zone
  * checking the node_id of the previous page.  If they differ and the
@@ -1800,18 +1812,23 @@ static void init_heap_pages(
     {
         unsigned int nid = phys_to_nid(page_to_maddr(pg+i));
 
+        /* If the (first) page is already marked broken, don't add it. */
+        if ( pg[i].count_info & PGC_broken )
+            continue;
+
         if ( unlikely(!avail[nid]) )
         {
+            unsigned long contig_nr_pages = contig_avail_pages(pg + i, nr_pages);
             unsigned long s = mfn_x(page_to_mfn(pg + i));
-            unsigned long e = mfn_x(mfn_add(page_to_mfn(pg + nr_pages - 1), 1));
+            unsigned long e = mfn_x(mfn_add(page_to_mfn(pg + i + contig_nr_pages - 1), 1));
             bool use_tail = (nid == phys_to_nid(pfn_to_paddr(e - 1))) &&
                             !(s & ((1UL << MAX_ORDER) - 1)) &&
                             (find_first_set_bit(e) <= find_first_set_bit(s));
             unsigned long n;
 
-            n = init_node_heap(nid, mfn_x(page_to_mfn(pg + i)), nr_pages - i,
+            n = init_node_heap(nid, mfn_x(page_to_mfn(pg + i)), contig_nr_pages,
                                &use_tail);
-            BUG_ON(i + n > nr_pages);
+            BUG_ON(n > contig_nr_pages);
             if ( n && !use_tail )
             {
                 i += n - 1;
@@ -1847,6 +1864,63 @@ static unsigned long avail_heap_pages(
     return free_pages;
 }
 
+static void mark_bad_pages(void)
+{
+    unsigned long bad_spfn, bad_epfn;
+    const char *p;
+    struct page_info *pg;
+#ifdef CONFIG_X86
+    const struct platform_bad_page *badpage;
+    unsigned int i, j, array_size;
+
+    badpage = get_platform_badpages(&array_size);
+    if ( badpage )
+    {
+        for ( i = 0; i < array_size; i++ )
+        {
+            for ( j = 0; j < 1UL << badpage->order; j++ )
+            {
+                if ( mfn_valid(_mfn(badpage->mfn + j)) )
+                {
+                    pg = mfn_to_page(_mfn(badpage->mfn + j));
+                    pg->count_info |= PGC_broken;
+                    page_list_add_tail(pg, &page_broken_list);
+                }
+            }
+        }
+    }
+#endif
+
+    /* Check new pages against the bad-page list. */
+    p = opt_badpage;
+    while ( *p != '\0' )
+    {
+        bad_spfn = simple_strtoul(p, &p, 0);
+        bad_epfn = bad_spfn;
+
+        if ( *p == '-' )
+        {
+            p++;
+            bad_epfn = simple_strtoul(p, &p, 0);
+            if ( bad_epfn < bad_spfn )
+                bad_epfn = bad_spfn;
+        }
+
+        if ( *p == ',' )
+            p++;
+        else if ( *p != '\0' )
+            break;
+
+        while ( mfn_valid(_mfn(bad_spfn)) && bad_spfn < bad_epfn )
+        {
+            pg = mfn_to_page(_mfn(bad_spfn));
+            pg->count_info |= PGC_broken;
+            page_list_add_tail(pg, &page_broken_list);
+            bad_spfn++;
+        }
+    }
+}
+
 void __init end_boot_allocator(void)
 {
     unsigned int i;
@@ -1870,6 +1944,8 @@ void __init end_boot_allocator(void)
             init_heap_pages(mfn_to_page(_mfn(r->s)), r->e - r->s);
     }
     nr_bootmem_regions = 0;
+
+    mark_bad_pages();
 
     if ( !dma_bitsize && (num_online_nodes() > 1) )
         dma_bitsize = arch_get_dma_bitsize();
