@@ -34,9 +34,15 @@ void __init vm_init_type(enum vmap_region type, void *start, void *end)
 
     for ( i = 0, va = (unsigned long)vm_bitmap(type); i < nr; ++i, va += PAGE_SIZE )
     {
-        struct page_info *pg = alloc_domheap_page(NULL, 0);
+        mfn_t mfn;
+        int rc;
 
-        map_pages_to_xen(va, page_to_mfn(pg), 1, PAGE_HYPERVISOR);
+        if ( system_state == SYS_STATE_early_boot )
+            mfn = alloc_boot_pages(1, 1);
+        else
+            mfn = page_to_mfn(alloc_domheap_page(NULL, 0));
+        rc = map_pages_to_xen(va, mfn, 1, PAGE_HYPERVISOR);
+        BUG_ON(rc);
         clear_page((void *)va);
     }
     bitmap_fill(vm_bitmap(type), vm_low[type]);
@@ -330,3 +336,13 @@ void vfree(void *va)
         free_domheap_page(pg);
 }
 #endif
+
+/*
+ * Local variables:
+ * mode: C
+ * c-file-style: "BSD"
+ * c-basic-offset: 4
+ * tab-width: 4
+ * indent-tabs-mode: nil
+ * End:
+ */
