@@ -567,27 +567,12 @@ static struct platform_timesource __initdata plt_tsc =
  */
 static uint64_t xen_timer_last;
 
-static uint64_t xen_timer_cpu_frequency(void)
-{
-    struct vcpu_time_info *info = &this_cpu(vcpu_info)->time;
-    uint64_t freq;
-
-    freq = 1000000000ULL << 32;
-    do_div(freq, info->tsc_to_system_mul);
-    if ( info->tsc_shift < 0 )
-        freq <<= -info->tsc_shift;
-    else
-        freq >>= info->tsc_shift;
-
-    return freq;
-}
-
 static int64_t __init init_xen_timer(struct platform_timesource *pts)
 {
     if ( !xen_guest )
         return 0;
 
-    pts->frequency = xen_timer_cpu_frequency();
+    pts->frequency = 1000000000ULL;
 
     return pts->frequency;
 }
