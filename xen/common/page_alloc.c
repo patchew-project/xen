@@ -1461,6 +1461,7 @@ static void free_heap_pages(
             if ( !mfn_valid(page_to_mfn(predecessor)) ||
                  !page_state_is(predecessor, free) ||
                  (PFN_ORDER(predecessor) != order) ||
+                 (page_to_zone(pg-mask) != zone) ||
                  (phys_to_nid(page_to_maddr(predecessor)) != node) )
                 break;
 
@@ -1484,6 +1485,7 @@ static void free_heap_pages(
             if ( !mfn_valid(page_to_mfn(successor)) ||
                  !page_state_is(successor, free) ||
                  (PFN_ORDER(successor) != order) ||
+                 (page_to_zone(pg+mask) != zone) ||
                  (phys_to_nid(page_to_maddr(successor)) != node) )
                 break;
 
