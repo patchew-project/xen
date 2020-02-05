@@ -455,7 +455,8 @@ int xc_cpuid_set(
 }
 
 int xc_cpuid_apply_policy(xc_interface *xch, uint32_t domid,
-                          const uint32_t *featureset, unsigned int nr_features)
+                          const uint32_t *featureset, unsigned int nr_features,
+                          bool pae)
 {
     int rc;
     xc_dominfo_t di;
@@ -579,8 +580,6 @@ int xc_cpuid_apply_policy(xc_interface *xch, uint32_t domid,
     }
     else
     {
-        uint64_t val;
-
         /*
          * Topology for HVM guests is entirely controlled by Xen.  For now, we
          * hardcode APIC_ID = vcpu_id * 2 to give the illusion of no SMT.
@@ -635,14 +634,10 @@ int xc_cpuid_apply_policy(xc_interface *xch, uint32_t domid,
         }
 
         /*
-         * HVM_PARAM_PAE_ENABLED is a parameter to this function, stashed in
-         * Xen.  Nothing else has ever taken notice of the value.
+         * PAE used to be a parameter passed to this function by
+         * HVM_PARAM_PAE_ENABLED.  It is now passed normally.
          */
-        rc = xc_hvm_param_get(xch, domid, HVM_PARAM_PAE_ENABLED, &val);
-        if ( rc )
-            goto out;
-
-        p->basic.pae = val;
+        p->basic.pae = pae;
 
         /*
          * These settings are necessary to cause earlier HVM_PARAM_NESTEDHVM /
