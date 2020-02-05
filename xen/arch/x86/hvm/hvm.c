@@ -4104,6 +4104,7 @@ static int hvm_allow_set_param(struct domain *d,
     case HVM_PARAM_X87_FIP_WIDTH:
         break;
     /* The following parameters are deprecated. */
+    case HVM_PARAM_PAE_ENABLED:
     case HVM_PARAM_DM_DOMAIN:
     case HVM_PARAM_BUFIOREQ_EVTCHN:
         rc = -EPERM;
@@ -4410,6 +4411,7 @@ static int hvm_allow_get_param(struct domain *d,
     case HVM_PARAM_X87_FIP_WIDTH:
         break;
     /* The following parameters are deprecated. */
+    case HVM_PARAM_PAE_ENABLED:
     case HVM_PARAM_DM_DOMAIN:
     case HVM_PARAM_BUFIOREQ_EVTCHN:
         rc = -ENODATA;

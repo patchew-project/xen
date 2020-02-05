@@ -46,7 +46,8 @@ long do_hvm_op(unsigned long op, XEN_GUEST_HANDLE_PARAM(void) arg)
         if ( copy_from_guest(&a, arg, 1) )
             return -EFAULT;
 
-        if ( a.index >= HVM_NR_PARAMS )
+        if ( a.index >= HVM_NR_PARAMS ||
+             a.index == HVM_PARAM_PAE_ENABLED )
             return -EINVAL;
 
         d = rcu_lock_domain_by_any_id(a.domid);

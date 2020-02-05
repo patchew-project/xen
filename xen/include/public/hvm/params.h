@@ -86,7 +86,7 @@
 #define HVM_PARAM_STORE_PFN    1
 #define HVM_PARAM_STORE_EVTCHN 2
 
-#define HVM_PARAM_PAE_ENABLED  4
+#define HVM_PARAM_PAE_ENABLED  4 /* Obsolete.  Do not use. */
 
 #define HVM_PARAM_IOREQ_PFN    5
 
