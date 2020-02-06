@@ -2283,15 +2283,27 @@ int assign_pages(
             get_knownalive_domain(d);
     }
 
+    spin_lock(&heap_lock);
     for ( i = 0; i < (1 << order); i++ )
     {
+        /*
+         * We should only be here if the page is inuse or offlining.
+         * The latter happen if we race with mark_page_offline() as we
+         * don't hold the heap_lock.
+         */
+        ASSERT(page_state_is(&pg[i], inuse) ||
+               page_state_is(&pg[i], offlining));
+        ASSERT(!(pg[i].count_info & ~(PGC_state | PGC_broken)));
         ASSERT(page_get_owner(&pg[i]) == NULL);
-        ASSERT(!pg[i].count_info);
         page_set_owner(&pg[i], d);
         smp_wmb(); /* Domain pointer must be visible before updating refcnt. */
-        pg[i].count_info = PGC_allocated | 1;
+
+        pg[i].count_info &= PGC_state | PGC_broken;
+        pg[i].count_info |= PGC_allocated | 1;
+
         page_list_add_tail(&pg[i], &d->page_list);
     }
+    spin_unlock(&heap_lock);
 
  out:
     spin_unlock(&d->page_alloc_lock);
