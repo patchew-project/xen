@@ -590,7 +590,7 @@ static void validate_guest_pt_write(struct vcpu *v, mfn_t gmfn,
 
     if ( rc & SHADOW_SET_FLUSH )
         /* Need to flush TLBs to pick up shadow PT changes */
-        flush_tlb_mask(d->dirty_cpumask);
+        flush_mask(d->dirty_cpumask, FLUSH_TLB | FLUSH_GUESTS_TLB);
 
     if ( rc & SHADOW_SET_ERROR )
     {
