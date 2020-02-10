@@ -18,6 +18,7 @@
  *
  * Copyright (c) 2019 Microsoft.
  */
+#include <xen/cpumask.h>
 #include <xen/init.h>
 #include <xen/types.h>
 
@@ -71,6 +72,15 @@ void __init hypervisor_e820_fixup(struct e820map *e820)
 {
     if ( ops.e820_fixup )
         ops.e820_fixup(e820);
+}
+
+int hypervisor_flush_tlb(const cpumask_t *mask, const void *va,
+                         unsigned int order)
+{
+    if ( ops.flush_tlb )
+        return alternative_call(ops.flush_tlb, mask, va, order);
+
+    return -ENOSYS;
 }
 
 /*
