@@ -249,8 +249,11 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
     libxl_domain_build_info *const info = &d_config->b_info;
     libxl_ctx *ctx = libxl__gc_owner(gc);
     char *xs_domid, *con_domid;
-    int rc;
+    int rc = 0;
     uint64_t size;
+
+    if ( state->forked_vm )
+        goto skip_fork;
 
     if (xc_domain_max_vcpus(ctx->xch, domid, info->max_vcpus) != 0) {
         LOG(ERROR, "Couldn't set max vcpu count");
@@ -362,7 +365,6 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
         }
     }
 
-
     rc = libxl__arch_extra_memory(gc, info, &size);
     if (rc < 0) {
         LOGE(ERROR, "Couldn't get arch extra constant memory size");
@@ -374,6 +376,11 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
         return ERROR_FAIL;
     }
 
+    rc = libxl__arch_domain_create(gc, d_config, domid);
+    if ( rc )
+        goto out;
+
+skip_fork:
     xs_domid = xs_read(ctx->xsh, XBT_NULL, "/tool/xenstored/domid", NULL);
     state->store_domid = xs_domid ? atoi(xs_domid) : 0;
     free(xs_domid);
@@ -385,8 +392,7 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
     state->store_port = xc_evtchn_alloc_unbound(ctx->xch, domid, state->store_domid);
     state->console_port = xc_evtchn_alloc_unbound(ctx->xch, domid, state->console_domid);
 
-    rc = libxl__arch_domain_create(gc, d_config, domid);
-
+out:
     return rc;
 }
 
@@ -444,6 +450,9 @@ int libxl__build_post(libxl__gc *gc, uint32_t domid,
     char **ents;
     int i, rc;
 
+    if ( state->forked_vm )
+        goto skip_fork;
+
     if (info->num_vnuma_nodes && !info->num_vcpu_soft_affinity) {
         rc = set_vnuma_affinity(gc, domid, info);
         if (rc)
@@ -468,6 +477,7 @@ int libxl__build_post(libxl__gc *gc, uint32_t domid,
         }
     }
 
+skip_fork:
     ents = libxl__calloc(gc, 12 + (info->max_vcpus * 2) + 2, sizeof(char *));
     ents[0] = "memory/static-max";
     ents[1] = GCSPRINTF("%"PRId64, info->max_memkb);
@@ -730,14 +740,16 @@ static int hvm_build_set_params(xc_interface *handle, uint32_t domid,
                                 libxl_domain_build_info *info,
                                 int store_evtchn, unsigned long *store_mfn,
                                 int console_evtchn, unsigned long *console_mfn,
-                                domid_t store_domid, domid_t console_domid)
+                                domid_t store_domid, domid_t console_domid,
+                                bool forked_vm)
 {
     struct hvm_info_table *va_hvm;
     uint8_t *va_map, sum;
     uint64_t str_mfn, cons_mfn;
     int i;
 
-    if (info->type == LIBXL_DOMAIN_TYPE_HVM) {
+    if ( info->type == LIBXL_DOMAIN_TYPE_HVM && !forked_vm )
+    {
         va_map = xc_map_foreign_range(handle, domid,
                                       XC_PAGE_SIZE, PROT_READ | PROT_WRITE,
                                       HVM_INFO_PFN);
@@ -1053,6 +1065,23 @@ int libxl__build_hvm(libxl__gc *gc, uint32_t domid,
     struct xc_dom_image *dom = NULL;
     bool device_model = info->type == LIBXL_DOMAIN_TYPE_HVM ? true : false;
 
+    if ( state->forked_vm )
+    {
+        rc = hvm_build_set_params(ctx->xch, domid, info, state->store_port,
+                                  &state->store_mfn, state->console_port,
+                                  &state->console_mfn, state->store_domid,
+                                  state->console_domid, state->forked_vm);
+
+        if ( rc )
+            return rc;
+
+        return xc_dom_gnttab_seed(ctx->xch, domid, true,
+                                  state->console_mfn,
+                                  state->store_mfn,
+                                  state->console_domid,
+                                  state->store_domid);
+    }
+
     xc_dom_loginit(ctx->xch);
 
     /*
@@ -1177,7 +1206,7 @@ int libxl__build_hvm(libxl__gc *gc, uint32_t domid,
     rc = hvm_build_set_params(ctx->xch, domid, info, state->store_port,
                                &state->store_mfn, state->console_port,
                                &state->console_mfn, state->store_domid,
-                               state->console_domid);
+                               state->console_domid, false);
     if (rc != 0) {
         LOG(ERROR, "hvm build set params failed");
         goto out;

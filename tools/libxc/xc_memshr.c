@@ -239,6 +239,28 @@ int xc_memshr_debug_gref(xc_interface *xch,
     return xc_memshr_memop(xch, domid, &mso);
 }
 
+int xc_memshr_fork(xc_interface *xch, uint32_t pdomid, uint32_t domid)
+{
+    xen_mem_sharing_op_t mso;
+
+    memset(&mso, 0, sizeof(mso));
+
+    mso.op = XENMEM_sharing_op_fork;
+    mso.u.fork.parent_domain = pdomid;
+
+    return xc_memshr_memop(xch, domid, &mso);
+}
+
+int xc_memshr_fork_reset(xc_interface *xch, uint32_t domid)
+{
+    xen_mem_sharing_op_t mso;
+
+    memset(&mso, 0, sizeof(mso));
+    mso.op = XENMEM_sharing_op_fork_reset;
+
+    return xc_memshr_memop(xch, domid, &mso);
+}
+
 int xc_memshr_audit(xc_interface *xch)
 {
     xen_mem_sharing_op_t mso;

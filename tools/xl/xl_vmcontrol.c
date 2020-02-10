@@ -645,6 +645,7 @@ int create_domain(struct domain_create *dom_info)
 
     libxl_domain_config d_config;
 
+    uint32_t ddomid = dom_info->ddomid; // launch dm for this domain iff set
     int debug = dom_info->debug;
     int daemonize = dom_info->daemonize;
     int monitor = dom_info->monitor;
@@ -655,6 +656,7 @@ int create_domain(struct domain_create *dom_info)
     const char *restore_file = dom_info->restore_file;
     const char *config_source = NULL;
     const char *restore_source = NULL;
+    const char *dm_restore_file = dom_info->dm_restore_file;
     int migrate_fd = dom_info->migrate_fd;
     bool config_in_json;
 
@@ -923,6 +925,12 @@ start:
          * restore/migrate-receive it again.
          */
         restoring = 0;
+    } else if ( ddomid ) {
+        d_config.dm_restore_file = dm_restore_file;
+        ret = libxl_domain_fork_launch_dm(ctx, &d_config, ddomid,
+                                          autoconnect_console_how);
+        domid = ddomid;
+        ddomid = INVALID_DOMID;
     } else if (domid_soft_reset != INVALID_DOMID) {
         /* Do soft reset. */
         ret = libxl_domain_soft_reset(ctx, &d_config, domid_soft_reset,
