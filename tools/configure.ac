@@ -488,4 +488,28 @@ AC_ARG_ENABLE([pvshim],
 ])
 AC_SUBST(pvshim)
 
+# If 32-bit stubs header is not already available, check for the 64-bit one
+# and generate a 32-bit stubs header
+AC_CHECK_HEADER([gnu/stubs-32.h], [], [
+    AC_CHECK_HEADER([gnu/stubs-64.h], [
+        echo '#include <gnu/stubs-64.h>' >conf-stubs.c
+        SIXTY_FOUR_HDR=`$CC -M conf-stubs.c | grep '/stubs-64.h$'`
+        rm conf-stubs.c
+        mkdir -p include/gnu
+        cat "${SIXTY_FOUR_HDR}" | \
+            grep -v 'stub_bdflush\|stub_getmsg\|stub_putmsg' >include/gnu/stubs-32.h
+        echo \#define __stub___kernel_cosl >> include/gnu/stubs-32.h
+        echo \#define __stub___kernel_sinl >> include/gnu/stubs-32.h
+        echo \#define __stub___kernel_tanl >> include/gnu/stubs-32.h
+    ], [AC_MSG_ERROR[No gnu stubs headers found]], []) ], [])
+
+AC_CHECK_HEADER([bits/long-double-32.h], [], [
+     AC_CHECK_HEADER([bits/long-double-64.h], [
+        echo '#include <bits/long-double-64.h>' >conf-double.c
+        SIXTY_FOUR_HDR=`$CC -M conf-double.c | grep '/long-double-64.h$'`
+        rm conf-double.c
+        mkdir -p include/bits
+        cat "${SIXTY_FOUR_HDR}" >include/bits/long-double-32.h
+    ], [AC_MSG_ERROR[No long-double headers found]], []) ], [])
+
 AC_OUTPUT()

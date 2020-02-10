@@ -9769,7 +9769,55 @@ else
   systemd=n
 fi
 
+# If 32-bit stubs header is not already available, check for the 64-bit one
+# and generate a 32-bit stubs header
+ac_fn_c_check_header_mongrel "$LINENO" "gnu/stubs-32.h" "ac_cv_header_gnu_stubs_32_h" "$ac_includes_default"
+if test "x$ac_cv_header_gnu_stubs_32_h" = xyes; then :
 
+else
+
+    ac_fn_c_check_header_mongrel "$LINENO" "gnu/stubs-64.h" "ac_cv_header_gnu_stubs_64_h" "$ac_includes_default"
+if test "x$ac_cv_header_gnu_stubs_64_h" = xyes; then :
+
+        echo '#include <gnu/stubs-64.h>' >conf-stubs.c
+        SIXTY_FOUR_HDR=`$CC -M conf-stubs.c | grep '/stubs-64.h$'`
+        rm conf-stubs.c
+        mkdir -p include/gnu
+        cat "${SIXTY_FOUR_HDR}" | \
+            grep -v 'stub_bdflush\|stub_getmsg\|stub_putmsg' >include/gnu/stubs-32.h
+        echo \#define __stub___kernel_cosl >> include/gnu/stubs-32.h
+        echo \#define __stub___kernel_sinl >> include/gnu/stubs-32.h
+        echo \#define __stub___kernel_tanl >> include/gnu/stubs-32.h
+
+else
+  as_fn_error $? "" "$LINENO" 5No gnu stubs headers found
+fi
+
+
+fi
+
+# If 32-bit long-double header is not already available, check for the 64-bit
+# one and copy it
+ac_fn_c_check_header_mongrel "$LINENO" "bits/long-double-32.h" "ac_cv_header_bits_long_double_32_h" "$ac_includes_default"
+if test "x$ac_cv_header_bits_long_double_32_h" = xyes; then :
+
+else
+
+     ac_fn_c_check_header_mongrel "$LINENO" "bits/long-double-64.h" "ac_cv_header_bits_long_double_64_h" "$ac_includes_default"
+if test "x$ac_cv_header_bits_long_double_64_h" = xyes; then :
+
+        echo '#include <bits/long-double-64.h>' >conf-double.c
+        SIXTY_FOUR_HDR=`$CC -M conf-double.c | grep '/long-double-64.h$'`
+        rm conf-double.c
+        mkdir -p include/bits
+        cat "${SIXTY_FOUR_HDR}" >include/bits/long-double-32.h
+
+else
+  as_fn_error $? "" "$LINENO" 5No long-double headers found
+fi
+
+
+fi
 
 if test "x$systemd" = "xy"; then :
 
