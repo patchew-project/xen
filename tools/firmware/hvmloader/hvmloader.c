@@ -121,7 +121,6 @@ static void init_hypercalls(void)
     uint32_t eax, ebx, ecx, edx;
     unsigned long i;
     char signature[13];
-    xen_extraversion_t extraversion;
     uint32_t base;
 
     for ( base = 0x40000000; base < 0x40010000; base += 0x100 )
@@ -146,8 +145,7 @@ static void init_hypercalls(void)
 
     /* Print version information. */
     cpuid(base + 1, &eax, &ebx, &ecx, &edx);
-    hypercall_xen_version(XENVER_extraversion, extraversion);
-    printf("Detected Xen v%u.%u%s\n", eax >> 16, eax & 0xffff, extraversion);
+    printf("Detected Xen v%u.%u\n", eax >> 16, eax & 0xffff);
 }
 
 /* Replace possibly erroneous memory-size CMOS fields with correct values. */

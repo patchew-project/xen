@@ -256,7 +256,6 @@ hvm_write_smbios_tables(
     xen_domain_handle_t uuid;
     uint16_t xen_major_version, xen_minor_version;
     uint32_t xen_version;
-    char xen_extra_version[XEN_EXTRAVERSION_LEN];
     /* guess conservatively on buffer length for Xen version string */
     char xen_version_str[80];
     /* temporary variables used to build up Xen version string */
@@ -273,8 +272,6 @@ hvm_write_smbios_tables(
     xen_version = hypercall_xen_version(XENVER_version, NULL);
     xen_major_version = (uint16_t) (xen_version >> 16);
     xen_minor_version = (uint16_t) xen_version;
-
-    hypercall_xen_version(XENVER_extraversion, xen_extra_version);
 
     /* build up human-readable Xen version string */
     p = xen_version_str;
@@ -300,13 +297,6 @@ hvm_write_smbios_tables(
     if ( len >= sizeof(xen_version_str) )
         goto error_out;
     strcpy(p, tmp);
-    p += tmp_len;
-
-    tmp_len = strlen(xen_extra_version);
-    len += tmp_len;
-    if ( len >= sizeof(xen_version_str) )
-        goto error_out;
-    strcpy(p, xen_extra_version);
     p += tmp_len;
 
     xen_version_str[sizeof(xen_version_str)-1] = '\0';
