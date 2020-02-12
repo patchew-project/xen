@@ -23,6 +23,16 @@ DECLARE_PER_CPU(cpumask_var_t, cpu_sibling_mask);
 DECLARE_PER_CPU(cpumask_var_t, cpu_core_mask);
 DECLARE_PER_CPU(cpumask_var_t, scratch_cpumask);
 
+#ifndef NDEBUG
+/* Not to be called directly, use {get/put}_scratch_cpumask(). */
+cpumask_t *scratch_cpumask(const char *fn);
+#define get_scratch_cpumask() scratch_cpumask(__func__)
+#define put_scratch_cpumask() ((void)scratch_cpumask(NULL))
+#else
+#define get_scratch_cpumask() this_cpu(scratch_cpumask)
+#define put_scratch_cpumask()
+#endif
+
 /*
  * Do we, for platform reasons, need to actually keep CPUs online when we
  * would otherwise prefer them to be off?

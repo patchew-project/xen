@@ -1271,7 +1271,7 @@ void put_page_from_l1e(l1_pgentry_t l1e, struct domain *l1e_owner)
              (l1e_owner == pg_owner) )
         {
             struct vcpu *v;
-            cpumask_t *mask = this_cpu(scratch_cpumask);
+            cpumask_t *mask = get_scratch_cpumask();
 
             cpumask_clear(mask);
 
@@ -1288,6 +1288,7 @@ void put_page_from_l1e(l1_pgentry_t l1e, struct domain *l1e_owner)
 
             if ( !cpumask_empty(mask) )
                 flush_tlb_mask(mask);
+            put_scratch_cpumask();
         }
 #endif /* CONFIG_PV_LDT_PAGING */
         put_page(page);
@@ -2912,7 +2913,7 @@ static int _get_page_type(struct page_info *page, unsigned long type,
                  * vital that no other CPUs are left with mappings of a frame
                  * which is about to become writeable to the guest.
                  */
-                cpumask_t *mask = this_cpu(scratch_cpumask);
+                cpumask_t *mask = get_scratch_cpumask();
 
                 BUG_ON(in_irq());
                 cpumask_copy(mask, d->dirty_cpumask);
@@ -2928,6 +2929,7 @@ static int _get_page_type(struct page_info *page, unsigned long type,
                     perfc_incr(need_flush_tlb_flush);
                     flush_tlb_mask(mask);
                 }
+                put_scratch_cpumask();
 
                 /* We lose existing type and validity. */
                 nx &= ~(PGT_type_mask | PGT_validated);
@@ -3644,7 +3646,7 @@ long do_mmuext_op(
         case MMUEXT_TLB_FLUSH_MULTI:
         case MMUEXT_INVLPG_MULTI:
         {
-            cpumask_t *mask = this_cpu(scratch_cpumask);
+            cpumask_t *mask = get_scratch_cpumask();
 
             if ( unlikely(currd != pg_owner) )
                 rc = -EPERM;
@@ -3654,12 +3656,17 @@ long do_mmuext_op(
                                    mask)) )
                 rc = -EINVAL;
             if ( unlikely(rc) )
+            {
+                put_scratch_cpumask();
                 break;
+            }
 
             if ( op.cmd == MMUEXT_TLB_FLUSH_MULTI )
                 flush_tlb_mask(mask);
             else if ( __addr_ok(op.arg1.linear_addr) )
                 flush_tlb_one_mask(mask, op.arg1.linear_addr);
+            put_scratch_cpumask();
+
             break;
         }
 
@@ -3692,7 +3699,7 @@ long do_mmuext_op(
             else if ( likely(cache_flush_permitted(currd)) )
             {
                 unsigned int cpu;
-                cpumask_t *mask = this_cpu(scratch_cpumask);
+                cpumask_t *mask = get_scratch_cpumask();
 
                 cpumask_clear(mask);
                 for_each_online_cpu(cpu)
@@ -3700,6 +3707,7 @@ long do_mmuext_op(
                                              per_cpu(cpu_sibling_mask, cpu)) )
                         __cpumask_set_cpu(cpu, mask);
                 flush_mask(mask, FLUSH_CACHE);
+                put_scratch_cpumask();
             }
             else
                 rc = -EINVAL;
@@ -4165,12 +4173,13 @@ long do_mmu_update(
          * Force other vCPU-s of the affected guest to pick up L4 entry
          * changes (if any).
          */
-        unsigned int cpu = smp_processor_id();
-        cpumask_t *mask = per_cpu(scratch_cpumask, cpu);
+        cpumask_t *mask = get_scratch_cpumask();
 
-        cpumask_andnot(mask, pt_owner->dirty_cpumask, cpumask_of(cpu));
+        cpumask_andnot(mask, pt_owner->dirty_cpumask,
+                       cpumask_of(smp_processor_id()));
         if ( !cpumask_empty(mask) )
             flush_mask(mask, FLUSH_TLB_GLOBAL | FLUSH_ROOT_PGTBL);
+        put_scratch_cpumask();
     }
 
     perfc_add(num_page_updates, i);
@@ -4361,7 +4370,7 @@ static int __do_update_va_mapping(
             mask = d->dirty_cpumask;
             break;
         default:
-            mask = this_cpu(scratch_cpumask);
+            mask = get_scratch_cpumask();
             rc = vcpumask_to_pcpumask(d, const_guest_handle_from_ptr(bmap_ptr,
                                                                      void),
                                       mask);
@@ -4381,7 +4390,7 @@ static int __do_update_va_mapping(
             mask = d->dirty_cpumask;
             break;
         default:
-            mask = this_cpu(scratch_cpumask);
+            mask = get_scratch_cpumask();
             rc = vcpumask_to_pcpumask(d, const_guest_handle_from_ptr(bmap_ptr,
                                                                      void),
                                       mask);
@@ -4391,6 +4400,9 @@ static int __do_update_va_mapping(
             flush_tlb_one_mask(mask, va);
         break;
     }
+
+    if ( mask && mask != d->dirty_cpumask )
+        put_scratch_cpumask();
 
     return rc;
 }

@@ -57,6 +57,30 @@ DEFINE_PER_CPU_READ_MOSTLY(cpumask_var_t, cpu_core_mask);
 DEFINE_PER_CPU_READ_MOSTLY(cpumask_var_t, scratch_cpumask);
 static cpumask_t scratch_cpu0mask;
 
+#ifndef NDEBUG
+cpumask_t *scratch_cpumask(const char *fn)
+{
+    static DEFINE_PER_CPU(const char *, scratch_cpumask_use);
+
+    /*
+     * Scratch cpumask cannot be used in IRQ context, or else we would have to
+     * make sure all users have interrupts disabled while using the scratch
+     * mask.
+     */
+    BUG_ON(in_irq());
+
+    if ( fn && unlikely(this_cpu(scratch_cpumask_use)) )
+    {
+        printk("%s: scratch CPU mask already in use by %s\n",
+              fn, this_cpu(scratch_cpumask_use));
+        BUG();
+    }
+    this_cpu(scratch_cpumask_use) = fn;
+
+    return fn ? this_cpu(scratch_cpumask) : NULL;
+}
+#endif
+
 DEFINE_PER_CPU_READ_MOSTLY(cpumask_var_t, send_ipi_cpumask);
 static cpumask_t send_ipi_cpu0mask;
 

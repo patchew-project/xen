@@ -2236,10 +2236,11 @@ int io_apic_set_pci_routing (int ioapic, int pin, int irq, int edge_level, int a
     entry.vector = vector;
 
     if (cpumask_intersects(desc->arch.cpu_mask, TARGET_CPUS)) {
-        cpumask_t *mask = this_cpu(scratch_cpumask);
+        cpumask_t *mask = get_scratch_cpumask();
 
         cpumask_and(mask, desc->arch.cpu_mask, TARGET_CPUS);
         SET_DEST(entry, logical, cpu_mask_to_apicid(mask));
+        put_scratch_cpumask();
     } else {
         printk(XENLOG_ERR "IRQ%d: no target CPU (%*pb vs %*pb)\n",
                irq, CPUMASK_PR(desc->arch.cpu_mask), CPUMASK_PR(TARGET_CPUS));
@@ -2433,10 +2434,11 @@ int ioapic_guest_write(unsigned long physbase, unsigned int reg, u32 val)
 
     if ( cpumask_intersects(desc->arch.cpu_mask, TARGET_CPUS) )
     {
-        cpumask_t *mask = this_cpu(scratch_cpumask);
+        cpumask_t *mask = get_scratch_cpumask();
 
         cpumask_and(mask, desc->arch.cpu_mask, TARGET_CPUS);
         SET_DEST(rte, logical, cpu_mask_to_apicid(mask));
+        put_scratch_cpumask();
     }
     else
     {
