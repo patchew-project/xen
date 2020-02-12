@@ -58,6 +58,7 @@ static void send_IPI_shortcut(unsigned int shortcut, int vector,
     apic_write(APIC_ICR, cfg);
 }
 
+DECLARE_PER_CPU(cpumask_var_t, send_ipi_cpumask);
 /*
  * send_IPI_mask(cpumask, vector): sends @vector IPI to CPUs in @cpumask,
  * excluding the local CPU. @cpumask may be empty.
@@ -66,7 +67,8 @@ static void send_IPI_shortcut(unsigned int shortcut, int vector,
 void send_IPI_mask(const cpumask_t *mask, int vector)
 {
     bool cpus_locked = false;
-    cpumask_t *scratch = this_cpu(scratch_cpumask);
+    cpumask_t *scratch = this_cpu(send_ipi_cpumask);
+    unsigned long flags;
 
     /*
      * This can only be safely used when no CPU hotplug or unplug operations
@@ -80,7 +82,15 @@ void send_IPI_mask(const cpumask_t *mask, int vector)
          local_irq_is_enabled() && (cpus_locked = get_cpu_maps()) &&
          (park_offline_cpus ||
           cpumask_equal(&cpu_online_map, &cpu_present_map)) )
+    {
+        /*
+         * send_IPI_mask can be called from interrupt context, and hence we
+         * need to disable interrupts in order to protect the per-cpu
+         * send_ipi_cpumask while being used.
+         */
+        local_irq_save(flags);
         cpumask_or(scratch, mask, cpumask_of(smp_processor_id()));
+    }
     else
     {
         if ( cpus_locked )
@@ -88,6 +98,7 @@ void send_IPI_mask(const cpumask_t *mask, int vector)
             put_cpu_maps();
             cpus_locked = false;
         }
+        local_irq_save(flags);
         cpumask_clear(scratch);
     }
 
@@ -96,6 +107,7 @@ void send_IPI_mask(const cpumask_t *mask, int vector)
     else
         alternative_vcall(genapic.send_IPI_mask, mask, vector);
 
+    local_irq_restore(flags);
     if ( cpus_locked )
         put_cpu_maps();
 }
