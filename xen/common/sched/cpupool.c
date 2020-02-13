@@ -893,7 +893,9 @@ void dump_runq(unsigned char key)
     s_time_t         now = NOW();
     struct cpupool **c;
 
-    spin_lock(&cpupool_lock);
+    if ( !keyhandler_spin_lock(&cpupool_lock, "could not get cpupools") )
+        return;
+
     local_irq_save(flags);
 
     printk("sched_smt_power_savings: %s\n",

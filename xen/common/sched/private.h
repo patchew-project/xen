@@ -631,5 +631,6 @@ struct cpupool *cpupool_get_by_id(int poolid);
 void cpupool_put(struct cpupool *pool);
 int cpupool_add_domain(struct domain *d, int poolid);
 void cpupool_rm_domain(struct domain *d);
+spinlock_t *keyhandler_pcpu_lock(unsigned int cpu);
 
 #endif /* __XEN_SCHED_IF_H__ */

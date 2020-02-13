@@ -3655,7 +3655,8 @@ csched2_dump(const struct scheduler *ops)
      * We need the private scheduler lock as we access global
      * scheduler data and (below) the list of active domains.
      */
-    read_lock(&prv->lock);
+    if ( !keyhandler_read_lock(&prv->lock, "could not get credit2 data") )
+        return;
 
     printk("Active queues: %d\n"
            "\tdefault-weight     = %d\n",
@@ -3711,12 +3712,15 @@ csched2_dump(const struct scheduler *ops)
             struct csched2_unit * const svc = csched2_unit(unit);
             spinlock_t *lock;
 
-            lock = unit_schedule_lock(unit);
+            lock = keyhandler_pcpu_lock(unit->res->master_cpu);
 
-            printk("\t%3d: ", ++loop);
-            csched2_dump_unit(prv, svc);
+            if ( lock )
+            {
+                printk("\t%3d: ", ++loop);
+                csched2_dump_unit(prv, svc);
 
-            unit_schedule_unlock(lock, unit);
+                pcpu_schedule_unlock(lock, unit->res->master_cpu);
+            }
         }
     }
 
@@ -3727,7 +3731,8 @@ csched2_dump(const struct scheduler *ops)
         int loop = 0;
 
         /* We need the lock to scan the runqueue. */
-        spin_lock(&rqd->lock);
+        if ( !keyhandler_spin_lock(&rqd->lock, "could not get runq") )
+            continue;
 
         printk("Runqueue %d:\n", i);
 

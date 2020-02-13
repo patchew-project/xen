@@ -354,7 +354,9 @@ rt_dump_pcpu(const struct scheduler *ops, int cpu)
     struct rt_private *prv = rt_priv(ops);
     const struct rt_unit *svc;
 
-    spin_lock(&prv->lock);
+    if ( !keyhandler_spin_lock(&prv->lock, "could not get rt data") )
+        return;
+
     printk("CPU[%02d]\n", cpu);
     /* current UNIT (nothing to say if that's the idle unit). */
     svc = rt_unit(curr_on_cpu(cpu));
@@ -373,7 +375,8 @@ rt_dump(const struct scheduler *ops)
     const struct rt_unit *svc;
     const struct rt_dom *sdom;
 
-    spin_lock(&prv->lock);
+    if ( !keyhandler_spin_lock(&prv->lock, "could not get rt data") )
+        return;
 
     if ( list_empty(&prv->sdom) )
         goto out;

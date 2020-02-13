@@ -28,6 +28,7 @@
  * if the scheduler is used inside a cpupool.
  */
 
+#include <xen/keyhandler.h>
 #include <xen/sched.h>
 #include <xen/softirq.h>
 #include <xen/trace.h>
@@ -982,7 +983,8 @@ static void null_dump(const struct scheduler *ops)
     struct list_head *iter;
     unsigned int loop;
 
-    spin_lock(&prv->lock);
+    if ( !keyhandler_spin_lock(&prv->lock, "could not get null data") )
+        return;
 
     printk("\tcpus_free = %*pbl\n", CPUMASK_PR(&prv->cpus_free));
 
@@ -1001,31 +1003,37 @@ static void null_dump(const struct scheduler *ops)
             struct null_unit * const nvc = null_unit(unit);
             spinlock_t *lock;
 
-            lock = unit_schedule_lock(unit);
+            lock = keyhandler_pcpu_lock(unit->res->master_cpu);
 
-            printk("\t%3d: ", ++loop);
-            dump_unit(prv, nvc);
-            printk("\n");
+            if ( lock )
+            {
+                printk("\t%3d: ", ++loop);
+                dump_unit(prv, nvc);
+                printk("\n");
 
-            unit_schedule_unlock(lock, unit);
+                pcpu_schedule_unlock(lock, unit->res->master_cpu);
+            }
         }
     }
 
     printk("Waitqueue: ");
     loop = 0;
-    spin_lock(&prv->waitq_lock);
-    list_for_each( iter, &prv->waitq )
+    if ( keyhandler_spin_lock(&prv->waitq_lock, "could not get waitq") )
     {
-        struct null_unit *nvc = list_entry(iter, struct null_unit, waitq_elem);
+        list_for_each( iter, &prv->waitq )
+        {
+            struct null_unit *nvc = list_entry(iter, struct null_unit,
+                                               waitq_elem);
 
-        if ( loop++ != 0 )
-            printk(", ");
-        if ( loop % 24 == 0 )
-            printk("\n\t");
-        printk("%pdv%d", nvc->unit->domain, nvc->unit->unit_id);
+            if ( loop++ != 0 )
+                printk(", ");
+            if ( loop % 24 == 0 )
+                printk("\n\t");
+            printk("%pdv%d", nvc->unit->domain, nvc->unit->unit_id);
+        }
+        printk("\n");
+        spin_unlock(&prv->waitq_lock);
     }
-    printk("\n");
-    spin_unlock(&prv->waitq_lock);
 
     spin_unlock(&prv->lock);
 }

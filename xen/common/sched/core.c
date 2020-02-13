@@ -21,6 +21,7 @@
 #include <xen/domain.h>
 #include <xen/delay.h>
 #include <xen/event.h>
+#include <xen/keyhandler.h>
 #include <xen/time.h>
 #include <xen/timer.h>
 #include <xen/perfc.h>
@@ -3301,6 +3302,12 @@ void __init sched_setup_dom0_vcpus(struct domain *d)
     domain_update_node_affinity(d);
 }
 #endif
+
+spinlock_t *keyhandler_pcpu_lock(unsigned int cpu)
+{
+    keyhandler_lock_body(spinlock_t *, pcpu_schedule_trylock(cpu),
+                         "could not get pcpu lock, cpu=%u\n", cpu);
+}
 
 #ifdef CONFIG_COMPAT
 #include "compat.c"

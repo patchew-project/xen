@@ -2057,8 +2057,15 @@ csched_dump_pcpu(const struct scheduler *ops, int cpu)
      * - we scan through the runqueue, so we need the proper runqueue
      *   lock (the one of the runqueue of this cpu).
      */
-    spin_lock(&prv->lock);
-    lock = pcpu_schedule_lock(cpu);
+    if ( !keyhandler_spin_lock(&prv->lock, "could not get credit data") )
+        return;
+
+    lock = keyhandler_pcpu_lock(cpu);
+    if ( !lock )
+    {
+        spin_unlock(&prv->lock);
+        return;
+    }
 
     spc = CSCHED_PCPU(cpu);
     runq = &spc->runq;
@@ -2098,7 +2105,8 @@ csched_dump(const struct scheduler *ops)
     struct csched_private *prv = CSCHED_PRIV(ops);
     int loop;
 
-    spin_lock(&prv->lock);
+    if ( !keyhandler_spin_lock(&prv->lock, "could not get credit data") )
+        return;
 
     printk("info:\n"
            "\tncpus              = %u\n"
@@ -2142,12 +2150,15 @@ csched_dump(const struct scheduler *ops)
             spinlock_t *lock;
 
             svc = list_entry(iter_svc, struct csched_unit, active_unit_elem);
-            lock = unit_schedule_lock(svc->unit);
+            lock = keyhandler_pcpu_lock(svc->unit->res->master_cpu);
 
-            printk("\t%3d: ", ++loop);
-            csched_dump_unit(svc);
+            if ( lock )
+            {
+                printk("\t%3d: ", ++loop);
+                csched_dump_unit(svc);
 
-            unit_schedule_unlock(lock, svc->unit);
+                pcpu_schedule_unlock(lock, svc->unit->res->master_cpu);
+            }
         }
     }
 
