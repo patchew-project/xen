@@ -3649,14 +3649,13 @@ csched2_dump(const struct scheduler *ops)
 {
     struct list_head *iter_sdom;
     struct csched2_private *prv = csched2_priv(ops);
-    unsigned long flags;
     unsigned int i, j, loop;
 
     /*
      * We need the private scheduler lock as we access global
      * scheduler data and (below) the list of active domains.
      */
-    read_lock_irqsave(&prv->lock, flags);
+    read_lock(&prv->lock);
 
     printk("Active queues: %d\n"
            "\tdefault-weight     = %d\n",
@@ -3749,7 +3748,7 @@ csched2_dump(const struct scheduler *ops)
         spin_unlock(&rqd->lock);
     }
 
-    read_unlock_irqrestore(&prv->lock, flags);
+    read_unlock(&prv->lock);
 }
 
 static void *

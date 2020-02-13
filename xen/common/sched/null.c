@@ -954,9 +954,8 @@ static void null_dump_pcpu(const struct scheduler *ops, int cpu)
     const struct null_pcpu *npc = get_sched_res(cpu)->sched_priv;
     const struct null_unit *nvc;
     spinlock_t *lock;
-    unsigned long flags;
 
-    lock = pcpu_schedule_lock_irqsave(cpu, &flags);
+    lock = pcpu_schedule_lock(cpu);
 
     printk("CPU[%02d] sibling={%*pbl}, core={%*pbl}",
            cpu, CPUMASK_PR(per_cpu(cpu_sibling_mask, cpu)),
@@ -974,17 +973,16 @@ static void null_dump_pcpu(const struct scheduler *ops, int cpu)
         printk("\n");
     }
 
-    pcpu_schedule_unlock_irqrestore(lock, flags, cpu);
+    pcpu_schedule_unlock(lock, cpu);
 }
 
 static void null_dump(const struct scheduler *ops)
 {
     struct null_private *prv = null_priv(ops);
     struct list_head *iter;
-    unsigned long flags;
     unsigned int loop;
 
-    spin_lock_irqsave(&prv->lock, flags);
+    spin_lock(&prv->lock);
 
     printk("\tcpus_free = %*pbl\n", CPUMASK_PR(&prv->cpus_free));
 
@@ -1029,7 +1027,7 @@ static void null_dump(const struct scheduler *ops)
     printk("\n");
     spin_unlock(&prv->waitq_lock);
 
-    spin_unlock_irqrestore(&prv->lock, flags);
+    spin_unlock(&prv->lock);
 }
 
 static const struct scheduler sched_null_def = {

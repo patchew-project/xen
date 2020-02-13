@@ -353,9 +353,8 @@ rt_dump_pcpu(const struct scheduler *ops, int cpu)
 {
     struct rt_private *prv = rt_priv(ops);
     const struct rt_unit *svc;
-    unsigned long flags;
 
-    spin_lock_irqsave(&prv->lock, flags);
+    spin_lock(&prv->lock);
     printk("CPU[%02d]\n", cpu);
     /* current UNIT (nothing to say if that's the idle unit). */
     svc = rt_unit(curr_on_cpu(cpu));
@@ -363,7 +362,7 @@ rt_dump_pcpu(const struct scheduler *ops, int cpu)
     {
         rt_dump_unit(ops, svc);
     }
-    spin_unlock_irqrestore(&prv->lock, flags);
+    spin_unlock(&prv->lock);
 }
 
 static void
@@ -373,9 +372,8 @@ rt_dump(const struct scheduler *ops)
     struct rt_private *prv = rt_priv(ops);
     const struct rt_unit *svc;
     const struct rt_dom *sdom;
-    unsigned long flags;
 
-    spin_lock_irqsave(&prv->lock, flags);
+    spin_lock(&prv->lock);
 
     if ( list_empty(&prv->sdom) )
         goto out;
@@ -421,7 +419,7 @@ rt_dump(const struct scheduler *ops)
     }
 
  out:
-    spin_unlock_irqrestore(&prv->lock, flags);
+    spin_unlock(&prv->lock);
 }
 
 /*

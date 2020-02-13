@@ -2048,7 +2048,6 @@ csched_dump_pcpu(const struct scheduler *ops, int cpu)
     const struct csched_pcpu *spc;
     const struct csched_unit *svc;
     spinlock_t *lock;
-    unsigned long flags;
     int loop;
 
     /*
@@ -2058,7 +2057,7 @@ csched_dump_pcpu(const struct scheduler *ops, int cpu)
      * - we scan through the runqueue, so we need the proper runqueue
      *   lock (the one of the runqueue of this cpu).
      */
-    spin_lock_irqsave(&prv->lock, flags);
+    spin_lock(&prv->lock);
     lock = pcpu_schedule_lock(cpu);
 
     spc = CSCHED_PCPU(cpu);
@@ -2089,7 +2088,7 @@ csched_dump_pcpu(const struct scheduler *ops, int cpu)
     }
 
     pcpu_schedule_unlock(lock, cpu);
-    spin_unlock_irqrestore(&prv->lock, flags);
+    spin_unlock(&prv->lock);
 }
 
 static void
@@ -2098,9 +2097,8 @@ csched_dump(const struct scheduler *ops)
     struct list_head *iter_sdom, *iter_svc;
     struct csched_private *prv = CSCHED_PRIV(ops);
     int loop;
-    unsigned long flags;
 
-    spin_lock_irqsave(&prv->lock, flags);
+    spin_lock(&prv->lock);
 
     printk("info:\n"
            "\tncpus              = %u\n"
@@ -2153,7 +2151,7 @@ csched_dump(const struct scheduler *ops)
         }
     }
 
-    spin_unlock_irqrestore(&prv->lock, flags);
+    spin_unlock(&prv->lock);
 }
 
 static int __init
