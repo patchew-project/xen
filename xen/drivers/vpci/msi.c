@@ -16,6 +16,7 @@
  * License along with this program; If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <xen/keyhandler.h>
 #include <xen/sched.h>
 #include <xen/softirq.h>
 #include <xen/vpci.h>
@@ -283,7 +284,9 @@ void vpci_dump_msi(void)
             const struct vpci_msi *msi;
             const struct vpci_msix *msix;
 
-            if ( !pdev->vpci || !spin_trylock(&pdev->vpci->lock) )
+            if ( !pdev->vpci ||
+                 !keyhandler_spin_lock(&pdev->vpci->lock,
+                                       "could not get vpci lock") )
                 continue;
 
             msi = pdev->vpci->msi;

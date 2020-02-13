@@ -16,6 +16,7 @@
  * along with this program; If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <xen/keyhandler.h>
 #include <xen/softirq.h>
 
 #include <asm/io_apic.h>
@@ -886,9 +887,12 @@ static int dump_intremap_mapping(const struct amd_iommu *iommu,
     if ( !ivrs_mapping )
         return 0;
 
-    spin_lock_irqsave(&(ivrs_mapping->intremap_lock), flags);
-    dump_intremap_table(iommu, ivrs_mapping->intremap_table, ivrs_mapping);
-    spin_unlock_irqrestore(&(ivrs_mapping->intremap_lock), flags);
+    if ( keyhandler_spin_lock_irqsave(&(ivrs_mapping->intremap_lock), &flags,
+                                      "could not get intremap lock") )
+    {
+        dump_intremap_table(iommu, ivrs_mapping->intremap_table, ivrs_mapping);
+        spin_unlock_irqrestore(&(ivrs_mapping->intremap_lock), flags);
+    }
 
     process_pending_softirqs();
 
@@ -909,7 +913,9 @@ void amd_iommu_dump_intremap_tables(unsigned char key)
 
         printk("--- Dumping Shared IOMMU Interrupt Remapping Table ---\n");
 
-        spin_lock_irqsave(&shared_intremap_lock, flags);
+        if ( !keyhandler_spin_lock_irqsave(&shared_intremap_lock, &flags,
+                                           "could not get lock") )
+            return;
         dump_intremap_table(list_first_entry(&amd_iommu_head, struct amd_iommu,
                                              list),
                             shared_intremap_table, NULL);

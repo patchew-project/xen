@@ -1356,12 +1356,20 @@ static int _dump_pci_devices(struct pci_seg *pseg, void *arg)
     return 0;
 }
 
+static bool keyhandler_pcidevs_lock(void)
+{
+    keyhandler_lock_body(bool_t, pcidevs_trylock(),
+                         "could not get pcidevs lock\n");
+}
+
 static void dump_pci_devices(unsigned char ch)
 {
     printk("==== PCI devices ====\n");
-    pcidevs_lock();
-    pci_segments_iterate(_dump_pci_devices, NULL);
-    pcidevs_unlock();
+    if ( keyhandler_pcidevs_lock() )
+    {
+        pci_segments_iterate(_dump_pci_devices, NULL);
+        pcidevs_unlock();
+    }
 }
 
 static int __init setup_dump_pcidevs(void)
