@@ -278,6 +278,41 @@ static inline void _percpu_read_lock(percpu_rwlock_t **per_cpudata,
     }
 }
 
+static inline int _percpu_read_trylock(percpu_rwlock_t **per_cpudata,
+                                         percpu_rwlock_t *percpu_rwlock)
+{
+    /* Validate the correct per_cpudata variable has been provided. */
+    _percpu_rwlock_owner_check(per_cpudata, percpu_rwlock);
+
+    /* We cannot support recursion on the same lock. */
+    ASSERT(this_cpu_ptr(per_cpudata) != percpu_rwlock);
+    /*
+     * Detect using a second percpu_rwlock_t simulatenously and fallback
+     * to standard read_trylock.
+     */
+    if ( unlikely(this_cpu_ptr(per_cpudata) != NULL ) )
+        return read_trylock(&percpu_rwlock->rwlock);
+
+    /* Indicate this cpu is reading. */
+    this_cpu_ptr(per_cpudata) = percpu_rwlock;
+    smp_mb();
+    /* Check if a writer is waiting. */
+    if ( unlikely(percpu_rwlock->writer_activating) )
+    {
+        /* Let the waiting writer know we aren't holding the lock. */
+        this_cpu_ptr(per_cpudata) = NULL;
+        /* Try using the read lock to keep the lock fair. */
+        if ( !read_trylock(&percpu_rwlock->rwlock) )
+            return 0;
+        /* Set the per CPU data again and continue. */
+        this_cpu_ptr(per_cpudata) = percpu_rwlock;
+        /* Drop the read lock because we don't need it anymore. */
+        read_unlock(&percpu_rwlock->rwlock);
+    }
+
+    return 1;
+}
+
 static inline void _percpu_read_unlock(percpu_rwlock_t **per_cpudata,
                 percpu_rwlock_t *percpu_rwlock)
 {
@@ -318,6 +353,8 @@ static inline void _percpu_write_unlock(percpu_rwlock_t **per_cpudata,
 
 #define percpu_read_lock(percpu, lock) \
     _percpu_read_lock(&get_per_cpu_var(percpu), lock)
+#define percpu_read_trylock(percpu, lock) \
+    _percpu_read_trylock(&get_per_cpu_var(percpu), lock)
 #define percpu_read_unlock(percpu, lock) \
     _percpu_read_unlock(&get_per_cpu_var(percpu), lock)
 #define percpu_write_lock(percpu, lock) \

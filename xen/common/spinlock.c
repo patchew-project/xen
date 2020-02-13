@@ -349,17 +349,23 @@ static struct lock_profile_anc lock_profile_ancs[LOCKPROF_TYPE_N];
 static struct lock_profile_qhead lock_profile_glb_q;
 static spinlock_t lock_profile_lock = SPIN_LOCK_UNLOCKED;
 
-static void spinlock_profile_iterate(lock_profile_subfunc *sub, void *par)
+static void spinlock_profile_iterate_locked(lock_profile_subfunc *sub,
+                                            void *par)
 {
     int i;
     struct lock_profile_qhead *hq;
     struct lock_profile *eq;
 
-    spin_lock(&lock_profile_lock);
     for ( i = 0; i < LOCKPROF_TYPE_N; i++ )
         for ( hq = lock_profile_ancs[i].head_q; hq; hq = hq->head_q )
             for ( eq = hq->elem_q; eq; eq = eq->next )
                 sub(eq, i, hq->idx, par);
+}
+
+static void spinlock_profile_iterate(lock_profile_subfunc *sub, void *par)
+{
+    spin_lock(&lock_profile_lock);
+    spinlock_profile_iterate_locked(sub, par);
     spin_unlock(&lock_profile_lock);
 }
 
@@ -389,7 +395,13 @@ void spinlock_profile_printall(unsigned char key)
     diff = now - lock_profile_start;
     printk("Xen lock profile info SHOW  (now = %"PRI_stime" total = "
            "%"PRI_stime")\n", now, diff);
-    spinlock_profile_iterate(spinlock_profile_print_elem, NULL);
+
+    if ( !keyhandler_spin_lock(&lock_profile_lock, "could not get lock") )
+        return;
+
+    spinlock_profile_iterate_locked(spinlock_profile_print_elem, NULL);
+
+    spin_unlock(&lock_profile_lock);
 }
 
 static void spinlock_profile_reset_elem(struct lock_profile *data,

@@ -2072,11 +2072,8 @@ static void livepatch_printall(unsigned char key)
     if ( !xen_build_id(&binary_id, &len) )
         printk("build-id: %*phN\n", len, binary_id);
 
-    if ( !spin_trylock(&payload_lock) )
-    {
-        printk("Lock held. Try again.\n");
+    if ( !keyhandler_spin_lock(&payload_lock, "could not get payload lock") )
         return;
-    }
 
     list_for_each_entry ( data, &payload_list, list )
     {
@@ -2096,11 +2093,9 @@ static void livepatch_printall(unsigned char key)
             {
                 spin_unlock(&payload_lock);
                 process_pending_softirqs();
-                if ( !spin_trylock(&payload_lock) )
-                {
-                    printk("Couldn't reacquire lock. Try again.\n");
+                if ( !keyhandler_spin_lock(&payload_lock,
+                                           "could not reacquire payload lock") )
                     return;
-                }
             }
         }
         if ( data->id.len )

@@ -335,6 +335,11 @@ static inline void grant_read_lock(struct grant_table *gt)
     percpu_read_lock(grant_rwlock, &gt->lock);
 }
 
+static inline int grant_read_trylock(struct grant_table *gt)
+{
+    return percpu_read_trylock(grant_rwlock, &gt->lock);
+}
+
 static inline void grant_read_unlock(struct grant_table *gt)
 {
     percpu_read_unlock(grant_rwlock, &gt->lock);
@@ -4040,6 +4045,24 @@ int gnttab_get_status_frame(struct domain *d, unsigned long idx,
     return rc;
 }
 
+static int keyhandler_grant_read_lock(struct domain *d)
+{
+    keyhandler_lock_body(int, grant_read_trylock(d->grant_table),
+                         "could not get grant lock for %pd\n", d);
+}
+
+static inline struct active_grant_entry *
+keyhandler_active_entry_acquire(struct grant_table *t, grant_ref_t e)
+{
+    struct active_grant_entry *act;
+
+    act = &_active_entry(t, e);
+    if ( !keyhandler_spin_lock(&act->lock, "could not acquire active entry") )
+        return NULL;
+
+    return act;
+}
+
 static void gnttab_usage_print(struct domain *rd)
 {
     int first = 1;
@@ -4047,10 +4070,11 @@ static void gnttab_usage_print(struct domain *rd)
     struct grant_table *gt = rd->grant_table;
     unsigned int nr_ents;
 
+    if ( !keyhandler_grant_read_lock(rd) )
+        return;
+
     printk("      -------- active --------       -------- shared --------\n");
     printk("[ref] localdom mfn      pin          localdom gmfn     flags\n");
-
-    grant_read_lock(gt);
 
     printk("grant-table for remote d%d (v%u)\n"
            "  %u frames (%u max), %u maptrack frames (%u max)\n",
@@ -4066,7 +4090,9 @@ static void gnttab_usage_print(struct domain *rd)
         uint16_t status;
         uint64_t frame;
 
-        act = active_entry_acquire(gt, ref);
+        act = keyhandler_active_entry_acquire(gt, ref);
+        if ( !act )
+            continue;
         if ( !act->pin )
         {
             active_entry_release(act);

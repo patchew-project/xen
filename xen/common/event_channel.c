@@ -1387,7 +1387,8 @@ static void domain_dump_evtchn_info(struct domain *d)
            "Polling vCPUs: {%*pbl}\n"
            "    port [p/m/s]\n", d->domain_id, d->max_vcpus, d->poll_mask);
 
-    spin_lock(&d->event_lock);
+    if ( !keyhandler_spin_lock(&d->event_lock, "could not get event lock") )
+        return;
 
     for ( port = 1; port < d->max_evtchns; ++port )
     {

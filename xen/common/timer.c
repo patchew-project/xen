@@ -561,12 +561,15 @@ static void dump_timerq(unsigned char key)
         ts = &per_cpu(timers, i);
 
         printk("CPU%02d:\n", i);
-        spin_lock_irqsave(&ts->lock, flags);
-        for ( j = 1; j <= heap_metadata(ts->heap)->size; j++ )
-            dump_timer(ts->heap[j], now);
-        for ( t = ts->list; t != NULL; t = t->list_next )
-            dump_timer(t, now);
-        spin_unlock_irqrestore(&ts->lock, flags);
+        if ( keyhandler_spin_lock_irqsave(&ts->lock, &flags,
+                                          "could not get lock") )
+        {
+            for ( j = 1; j <= heap_metadata(ts->heap)->size; j++ )
+                dump_timer(ts->heap[j], now);
+            for ( t = ts->list; t != NULL; t = t->list_next )
+                dump_timer(t, now);
+            spin_unlock_irqrestore(&ts->lock, flags);
+        }
     }
 }
 
