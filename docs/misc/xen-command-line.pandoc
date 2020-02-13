@@ -1384,6 +1384,15 @@ Force the use of `[<seg>:]<bus>:<device>.<func>` as device ID of IO-APIC
 `<ioapic>` instead of the one specified by the IVHD sub-tables of the IVRS
 ACPI table.
 
+### keyhandler-lock-timeout
+> `= <integer>`
+
+> Default: `1`
+
+> Can be modified at runtime
+
+Specify the lock timeout of keyhandlers in milliseconds.
+
 ### lapic (x86)
 > `= <boolean>`
 

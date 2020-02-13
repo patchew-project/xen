@@ -14,8 +14,10 @@
 #include <xen/rangeset.h>
 #include <xen/compat.h>
 #include <xen/ctype.h>
+#include <xen/param.h>
 #include <xen/perfc.h>
 #include <xen/mm.h>
+#include <xen/time.h>
 #include <xen/watchdog.h>
 #include <xen/init.h>
 #include <asm/debugger.h>
@@ -70,6 +72,30 @@ static struct keyhandler {
 #undef IRQ_KEYHANDLER
 #undef KEYHANDLER
 };
+
+static unsigned int lock_timeout = 1;
+integer_runtime_param("keyhandler-lock-timeout", lock_timeout);
+
+s_time_t keyhandler_lock_timeout(void)
+{
+    return NOW() + MILLISECS(lock_timeout);
+}
+
+bool keyhandler_spin_lock(spinlock_t *lock, const char *msg)
+{
+    keyhandler_lock_body(bool, spin_trylock(lock), "%s\n", msg);
+}
+
+bool keyhandler_spin_lock_irqsave(spinlock_t *lock, unsigned long *flags,
+                                  const char *msg)
+{
+    keyhandler_lock_body(bool, spin_trylock_irqsave(lock, *flags), "%s\n", msg);
+}
+
+bool keyhandler_read_lock(rwlock_t *lock, const char *msg)
+{
+    keyhandler_lock_body(bool, read_trylock(lock), "%s\n", msg);
+}
 
 static void keypress_action(void *unused)
 {
@@ -378,7 +404,8 @@ static void read_clocks(unsigned char key)
     static u32 count = 0;
     static DEFINE_SPINLOCK(lock);
 
-    spin_lock(&lock);
+    if ( !keyhandler_spin_lock(&lock, "could not read clock stats") )
+        return;
 
     smp_call_function(read_clocks_slave, NULL, 0);
 

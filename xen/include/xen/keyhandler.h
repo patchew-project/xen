@@ -10,6 +10,9 @@
 #ifndef __XEN_KEYHANDLER_H__
 #define __XEN_KEYHANDLER_H__
 
+#include <xen/rwlock.h>
+#include <xen/spinlock.h>
+#include <xen/time.h>
 #include <xen/types.h>
 
 /*
@@ -47,5 +50,28 @@ void register_irq_keyhandler(unsigned char key,
 
 /* Inject a keypress into the key-handling subsystem. */
 extern void handle_keypress(unsigned char key, struct cpu_user_regs *regs);
+
+/* Locking primitives for inside keyhandlers (like trylock). */
+bool keyhandler_spin_lock(spinlock_t *lock, const char *msg);
+bool keyhandler_spin_lock_irqsave(spinlock_t *lock, unsigned long *flags,
+                                  const char *msg);
+bool keyhandler_read_lock(rwlock_t *lock, const char *msg);
+
+/* Primitives for custom keyhandler lock functions. */
+s_time_t keyhandler_lock_timeout(void);
+#define keyhandler_lock_body(type, lockfunc, arg...) \
+    s_time_t end = keyhandler_lock_timeout();        \
+    type ret;                                        \
+                                                     \
+    do {                                             \
+        ret = lockfunc;                              \
+        if ( ret )                                   \
+            return ret;                              \
+        cpu_relax();                                 \
+    } while ( NOW() < end );                         \
+                                                     \
+    printk("-->lock conflict: " arg);                \
+                                                     \
+    return ret
 
 #endif /* __XEN_KEYHANDLER_H__ */

@@ -9,6 +9,7 @@
 
 #include <xen/sched.h>
 #include <xen/errno.h>
+#include <xen/keyhandler.h>
 #include <xen/rangeset.h>
 #include <xsm/xsm.h>
 
@@ -546,7 +547,8 @@ static void rangeset_printk(struct rangeset *r)
     int nr_printed = 0;
     struct range *x;
 
-    read_lock(&r->lock);
+    if ( !keyhandler_read_lock(&r->lock, "could not read rangeset") )
+        return;
 
     printk("%-10s {", r->name);
 
@@ -575,7 +577,8 @@ void rangeset_domain_printk(
 
     printk("Rangesets belonging to domain %u:\n", d->domain_id);
 
-    spin_lock(&d->rangesets_lock);
+    if ( !keyhandler_spin_lock(&d->rangesets_lock, "could not get rangesets") )
+        return;
 
     if ( list_empty(&d->rangesets) )
         printk("    None\n");

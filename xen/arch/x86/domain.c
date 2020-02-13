@@ -22,6 +22,7 @@
 #include <xen/grant_table.h>
 #include <xen/iocap.h>
 #include <xen/kernel.h>
+#include <xen/keyhandler.h>
 #include <xen/hypercall.h>
 #include <xen/multicall.h>
 #include <xen/irq.h>
@@ -222,7 +223,8 @@ void dump_pageframe_info(struct domain *d)
     {
         printk("    DomPage list too long to display\n");
     }
-    else
+    else if ( keyhandler_spin_lock(&d->page_alloc_lock,
+                                   "could not read page_list") )
     {
         unsigned long total[MASK_EXTR(PGT_type_mask, PGT_type_mask) + 1] = {};
 
@@ -251,7 +253,10 @@ void dump_pageframe_info(struct domain *d)
     if ( is_hvm_domain(d) )
         p2m_pod_dump_data(d);
 
-    spin_lock(&d->page_alloc_lock);
+    if ( !keyhandler_spin_lock(&d->page_alloc_lock,
+                               "could not read page_list") )
+        return;
+
     page_list_for_each ( page, &d->xenpage_list )
     {
         printk("    XenPage %p: caf=%08lx, taf=%" PRtype_info "\n",
