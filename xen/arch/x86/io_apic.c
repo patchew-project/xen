@@ -1098,6 +1098,18 @@ static inline void UNEXPECTED_IO_APIC(void)
 {
 }
 
+static bool get_ioapic_lock(unsigned long *flags, bool boot)
+{
+    if ( boot )
+    {
+        spin_lock_irqsave(&ioapic_lock, *flags);
+        return true;
+    }
+
+    return keyhandler_spin_lock_irqsave(&ioapic_lock, flags,
+                                        "could not get ioapic lock");
+}
+
 static void /*__init*/ __print_IO_APIC(bool boot)
 {
     int apic, i;
@@ -1125,13 +1137,16 @@ static void /*__init*/ __print_IO_APIC(bool boot)
         if (!nr_ioapic_entries[apic])
             continue;
 
-	spin_lock_irqsave(&ioapic_lock, flags);
+        if ( !get_ioapic_lock(&flags, boot) )
+                continue;
+
 	reg_00.raw = io_apic_read(apic, 0);
 	reg_01.raw = io_apic_read(apic, 1);
 	if (reg_01.bits.version >= 0x10)
             reg_02.raw = io_apic_read(apic, 2);
 	if (reg_01.bits.version >= 0x20)
             reg_03.raw = io_apic_read(apic, 3);
+
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 
 	printk(KERN_DEBUG "IO APIC #%d......\n", mp_ioapics[apic].mpc_apicid);
@@ -1201,7 +1216,12 @@ static void /*__init*/ __print_IO_APIC(bool boot)
 	for (i = 0; i <= reg_01.bits.entries; i++) {
             struct IO_APIC_route_entry entry;
 
-            entry = ioapic_read_entry(apic, i, 0);
+            if ( !get_ioapic_lock(&flags, boot) )
+                continue;
+
+            entry = __ioapic_read_entry(apic, i, 0);
+
+            spin_unlock_irqrestore(&ioapic_lock, flags);
 
             if ( x2apic_enabled && iommu_intremap )
                 printk(KERN_DEBUG " %02x %08x", i, entry.dest.dest32);
@@ -2495,21 +2515,28 @@ void dump_ioapic_irq_info(void)
 
         for ( ; ; )
         {
+            unsigned long flags;
+
             pin = entry->pin;
 
             printk("      Apic 0x%02x, Pin %2d: ", entry->apic, pin);
 
-            rte = ioapic_read_entry(entry->apic, pin, 0);
+            if ( keyhandler_spin_lock_irqsave(&ioapic_lock, &flags,
+                                              "could not get ioapic lock") )
+            {
+                rte = __ioapic_read_entry(entry->apic, pin, 0);
+                spin_unlock_irqrestore(&ioapic_lock, flags);
 
-            printk("vec=%02x delivery=%-5s dest=%c status=%d "
-                   "polarity=%d irr=%d trig=%c mask=%d dest_id:%0*x\n",
-                   rte.vector, delivery_mode_2_str(rte.delivery_mode),
-                   rte.dest_mode ? 'L' : 'P',
-                   rte.delivery_status, rte.polarity, rte.irr,
-                   rte.trigger ? 'L' : 'E', rte.mask,
-                   (x2apic_enabled && iommu_intremap) ? 8 : 2,
-                   (x2apic_enabled && iommu_intremap) ?
-                       rte.dest.dest32 : rte.dest.logical.logical_dest);
+                printk("vec=%02x delivery=%-5s dest=%c status=%d "
+                       "polarity=%d irr=%d trig=%c mask=%d dest_id:%0*x\n",
+                       rte.vector, delivery_mode_2_str(rte.delivery_mode),
+                       rte.dest_mode ? 'L' : 'P',
+                       rte.delivery_status, rte.polarity, rte.irr,
+                       rte.trigger ? 'L' : 'E', rte.mask,
+                       (x2apic_enabled && iommu_intremap) ? 8 : 2,
+                       (x2apic_enabled && iommu_intremap) ?
+                           rte.dest.dest32 : rte.dest.logical.logical_dest);
+            }
 
             if ( entry->next == 0 )
                 break;

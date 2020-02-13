@@ -2470,7 +2470,9 @@ static void dump_irqs(unsigned char key)
 
         ssid = in_irq() ? NULL : xsm_show_irq_sid(irq);
 
-        spin_lock_irqsave(&desc->lock, flags);
+        if ( !keyhandler_spin_lock_irqsave(&desc->lock, &flags,
+                                           "could not get irq lock") )
+            goto free_ssid;
 
         printk("   IRQ:%4d vec:%02x %-15s status=%03x aff:{%*pbl}/{%*pbl} ",
                irq, desc->arch.vector, desc->handler->typename, desc->status,
@@ -2506,6 +2508,7 @@ static void dump_irqs(unsigned char key)
 
         spin_unlock_irqrestore(&desc->lock, flags);
 
+ free_ssid:
         xfree(ssid);
     }
 

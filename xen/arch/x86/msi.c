@@ -1470,7 +1470,9 @@ static void dump_msi(unsigned char key)
         if ( !irq_desc_initialized(desc) )
             continue;
 
-        spin_lock_irqsave(&desc->lock, flags);
+        if ( !keyhandler_spin_lock_irqsave(&desc->lock, &flags,
+                                           "could not get irq lock") )
+            continue;
 
         entry = desc->msi_desc;
         if ( !entry )
