@@ -2,12 +2,14 @@
 #define __ASM_HARDIRQ_H
 
 #include <xen/cache.h>
+#include <xen/lib.h>
+#include <xen/smp.h>
 #include <xen/types.h>
 
 typedef struct {
 	unsigned int __softirq_pending;
 	unsigned int __local_irq_count;
-	unsigned int __nmi_count;
+	bool in_nmi;
 	unsigned int mc_count;
 	bool_t __mwait_wakeup;
 } __cacheline_aligned irq_cpustat_t;
@@ -22,6 +24,20 @@ typedef struct {
 #define in_mc() 	(mc_count(smp_processor_id()) != 0)
 #define mc_enter()	(mc_count(smp_processor_id())++)
 #define mc_exit()	(mc_count(smp_processor_id())--)
+
+#define in_nmi()	__IRQ_STAT(smp_processor_id(), in_nmi)
+
+static inline void nmi_enter(void)
+{
+    ASSERT(!in_nmi());
+    in_nmi() = true;
+}
+
+static inline void nmi_exit(void)
+{
+    ASSERT(in_nmi());
+    in_nmi() = false;
+}
 
 void ack_bad_irq(unsigned int irq);
 
