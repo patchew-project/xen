@@ -27,15 +27,15 @@ static void async_exception_cleanup(struct vcpu *curr)
 {
     unsigned int trap;
 
-    if ( !curr->arch.async_exception_mask )
+    if ( !curr->arch.async_event_mask )
         return;
 
-    if ( !(curr->arch.async_exception_mask & (curr->arch.async_exception_mask - 1)) )
-        trap = __scanbit(curr->arch.async_exception_mask, VCPU_TRAP_NONE);
+    if ( !(curr->arch.async_event_mask & (curr->arch.async_event_mask - 1)) )
+        trap = __scanbit(curr->arch.async_event_mask, 0);
     else
-        for ( trap = VCPU_TRAP_NONE + 1; trap <= VCPU_TRAP_LAST; ++trap )
-            if ( (curr->arch.async_exception_mask ^
-                  curr->arch.async_exception_state(trap).old_mask) == (1u << trap) )
+        for ( trap = 0; trap <= VCPU_TRAP_LAST; ++trap )
+            if ( (curr->arch.async_event_mask ^
+                  curr->arch.async_event[trap].old_mask) == (1u << trap) )
                 break;
     if ( unlikely(trap > VCPU_TRAP_LAST) )
     {
@@ -44,8 +44,7 @@ static void async_exception_cleanup(struct vcpu *curr)
     }
 
     /* Restore previous asynchronous exception mask. */
-    curr->arch.async_exception_mask =
-        curr->arch.async_exception_state(trap).old_mask;
+    curr->arch.async_event_mask = curr->arch.async_event[trap].old_mask;
 }
 
 unsigned long do_iret(void)

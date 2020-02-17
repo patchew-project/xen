@@ -19,17 +19,6 @@
 #define is_hvm_pv_evtchn_vcpu(v) (is_hvm_pv_evtchn_domain(v->domain))
 #define is_domain_direct_mapped(d) ((void)(d), 0)
 
-#define VCPU_TRAP_NONE         0
-#define VCPU_TRAP_NMI          1
-#define VCPU_TRAP_MCE          2
-#define VCPU_TRAP_LAST         VCPU_TRAP_MCE
-
-#define nmi_state              async_exception_state(VCPU_TRAP_NMI)
-#define mce_state              async_exception_state(VCPU_TRAP_MCE)
-
-#define nmi_pending            nmi_state.pending
-#define mce_pending            mce_state.pending
-
 struct trap_bounce {
     uint32_t      error_code;
     uint8_t       flags; /* TBF_ */
@@ -557,12 +546,22 @@ struct arch_vcpu
 
     struct vpmu_struct vpmu;
 
-    struct {
-        bool    pending;
-        uint8_t old_mask;
-    } async_exception_state[VCPU_TRAP_LAST];
-#define async_exception_state(t) async_exception_state[(t)-1]
-    uint8_t async_exception_mask;
+    union {
+#define VCPU_TRAP_NMI          0
+#define VCPU_TRAP_MCE          1
+#define VCPU_TRAP_LAST         VCPU_TRAP_MCE
+        struct {
+            bool    pending;
+            uint8_t old_mask;
+        } async_event[VCPU_TRAP_LAST + 1];
+        struct {
+            bool    nmi_pending;
+            uint8_t nmi_old_mask;
+            bool    mce_pending;
+            uint8_t mce_old_mask;
+        };
+    };
+    uint8_t async_event_mask;
 
     /* Virtual Machine Extensions */
     union {

@@ -96,33 +96,33 @@ process_softirqs:
         ALIGN
 /* %rbx: struct vcpu */
 process_mce:
-        testb $1 << VCPU_TRAP_MCE, VCPU_async_exception_mask(%rbx)
+        testb $1 << VCPU_TRAP_MCE, VCPU_async_event_mask(%rbx)
         jnz  .Ltest_guest_nmi
         sti
         movb $0, VCPU_mce_pending(%rbx)
         call set_guest_machinecheck_trapbounce
         test %al, %al
         jz   test_all_events
-        movzbl VCPU_async_exception_mask(%rbx), %edx # save mask for the
+        movzbl VCPU_async_event_mask(%rbx), %edx     # save mask for the
         movb %dl, VCPU_mce_old_mask(%rbx)            # iret hypercall
         orl  $1 << VCPU_TRAP_MCE, %edx
-        movb %dl, VCPU_async_exception_mask(%rbx)
+        movb %dl, VCPU_async_event_mask(%rbx)
         jmp  process_trap
 
         ALIGN
 /* %rbx: struct vcpu */
 process_nmi:
-        testb $1 << VCPU_TRAP_NMI, VCPU_async_exception_mask(%rbx)
+        testb $1 << VCPU_TRAP_NMI, VCPU_async_event_mask(%rbx)
         jnz  test_guest_events
         sti
         movb $0, VCPU_nmi_pending(%rbx)
         call set_guest_nmi_trapbounce
         test %al, %al
         jz   test_all_events
-        movzbl VCPU_async_exception_mask(%rbx), %edx # save mask for the
+        movzbl VCPU_async_event_mask(%rbx), %edx     # save mask for the
         movb %dl, VCPU_nmi_old_mask(%rbx)            # iret hypercall
         orl  $1 << VCPU_TRAP_NMI, %edx
-        movb %dl, VCPU_async_exception_mask(%rbx)
+        movb %dl, VCPU_async_event_mask(%rbx)
         /* FALLTHROUGH */
 process_trap:
         leaq VCPU_trap_bounce(%rbx), %rdx

@@ -600,7 +600,7 @@ static void do_nmi_stats(unsigned char key)
         return;
 
     pend = v->arch.nmi_pending;
-    mask = v->arch.async_exception_mask & (1 << VCPU_TRAP_NMI);
+    mask = v->arch.async_event_mask & (1 << VCPU_TRAP_NMI);
     if ( pend || mask )
         printk("%pv: NMI%s%s\n",
                v, pend ? " pending" : "", mask ? " masked" : "");

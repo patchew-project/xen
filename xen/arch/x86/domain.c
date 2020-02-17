@@ -1246,9 +1246,8 @@ int arch_initialise_vcpu(struct vcpu *v, XEN_GUEST_HANDLE_PARAM(void) arg)
 
 int arch_vcpu_reset(struct vcpu *v)
 {
-    v->arch.async_exception_mask = 0;
-    memset(v->arch.async_exception_state, 0,
-           sizeof(v->arch.async_exception_state));
+    v->arch.async_event_mask = 0;
+    memset(v->arch.async_event, 0, sizeof(v->arch.async_event));
 
     if ( is_pv_vcpu(v) )
     {

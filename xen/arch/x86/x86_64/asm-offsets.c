@@ -74,9 +74,9 @@ void __dummy__(void)
     OFFSET(VCPU_arch_msrs, struct vcpu, arch.msrs);
     OFFSET(VCPU_nmi_pending, struct vcpu, arch.nmi_pending);
     OFFSET(VCPU_mce_pending, struct vcpu, arch.mce_pending);
-    OFFSET(VCPU_nmi_old_mask, struct vcpu, arch.nmi_state.old_mask);
-    OFFSET(VCPU_mce_old_mask, struct vcpu, arch.mce_state.old_mask);
-    OFFSET(VCPU_async_exception_mask, struct vcpu, arch.async_exception_mask);
+    OFFSET(VCPU_nmi_old_mask, struct vcpu, arch.nmi_old_mask);
+    OFFSET(VCPU_mce_old_mask, struct vcpu, arch.mce_old_mask);
+    OFFSET(VCPU_async_event_mask, struct vcpu, arch.async_event_mask);
     DEFINE(VCPU_TRAP_NMI, VCPU_TRAP_NMI);
     DEFINE(VCPU_TRAP_MCE, VCPU_TRAP_MCE);
     DEFINE(_VGCF_syscall_disables_events,  _VGCF_syscall_disables_events);
