@@ -26,5 +26,6 @@ extern irq_cpustat_t irq_stat[];
 #define local_irq_count(cpu)	__IRQ_STAT((cpu), __local_irq_count)
 #define nmi_count(cpu)		__IRQ_STAT((cpu), __nmi_count)
 #define mwait_wakeup(cpu)	__IRQ_STAT((cpu), __mwait_wakeup)
+#define mc_count(cpu)		__IRQ_STAT((cpu), mc_count)
 
 #endif	/* __irq_cpustat_h */
