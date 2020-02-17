@@ -196,7 +196,7 @@ static void _clear_irq_vector(struct irq_desc *desc)
 {
     unsigned int cpu, old_vector, irq = desc->irq;
     unsigned int vector = desc->arch.vector;
-    cpumask_t *tmp_mask = this_cpu(scratch_cpumask);
+    cpumask_t *tmp_mask = get_scratch_cpumask();
 
     BUG_ON(!valid_irq_vector(vector));
 
@@ -223,7 +223,10 @@ static void _clear_irq_vector(struct irq_desc *desc)
     trace_irq_mask(TRC_HW_IRQ_CLEAR_VECTOR, irq, vector, tmp_mask);
 
     if ( likely(!desc->arch.move_in_progress) )
+    {
+        put_scratch_cpumask();
         return;
+    }
 
     /* If we were in motion, also clear desc->arch.old_vector */
     old_vector = desc->arch.old_vector;
@@ -236,6 +239,7 @@ static void _clear_irq_vector(struct irq_desc *desc)
         per_cpu(vector_irq, cpu)[old_vector] = ~irq;
     }
 
+    put_scratch_cpumask();
     release_old_vec(desc);
 
     desc->arch.move_in_progress = 0;
@@ -1152,10 +1156,11 @@ static void irq_guest_eoi_timer_fn(void *data)
         break;
 
     case ACKTYPE_EOI:
-        cpu_eoi_map = this_cpu(scratch_cpumask);
+        cpu_eoi_map = get_scratch_cpumask();
         cpumask_copy(cpu_eoi_map, action->cpu_eoi_map);
         spin_unlock_irq(&desc->lock);
         on_selected_cpus(cpu_eoi_map, set_eoi_ready, desc, 0);
+        put_scratch_cpumask();
         return;
     }
 
@@ -2531,12 +2536,12 @@ void fixup_irqs(const cpumask_t *mask, bool verbose)
     unsigned int irq;
     static int warned;
     struct irq_desc *desc;
+    cpumask_t *affinity = get_scratch_cpumask();
 
     for ( irq = 0; irq < nr_irqs; irq++ )
     {
         bool break_affinity = false, set_affinity = true;
         unsigned int vector;
-        cpumask_t *affinity = this_cpu(scratch_cpumask);
 
         if ( irq == 2 )
             continue;
@@ -2639,6 +2644,8 @@ void fixup_irqs(const cpumask_t *mask, bool verbose)
             printk("Broke affinity for IRQ%u, new: %*pb\n",
                    irq, CPUMASK_PR(affinity));
     }
+
+    put_scratch_cpumask();
 
     /* That doesn't seem sufficient.  Give it 1ms. */
     local_irq_enable();

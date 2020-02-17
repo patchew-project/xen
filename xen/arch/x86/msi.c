@@ -159,13 +159,15 @@ void msi_compose_msg(unsigned vector, const cpumask_t *cpu_mask, struct msi_msg 
 
     if ( cpu_mask )
     {
-        cpumask_t *mask = this_cpu(scratch_cpumask);
+        cpumask_t *mask;
 
         if ( !cpumask_intersects(cpu_mask, &cpu_online_map) )
             return;
 
+        mask = get_scratch_cpumask();
         cpumask_and(mask, cpu_mask, &cpu_online_map);
         msg->dest32 = cpu_mask_to_apicid(mask);
+        put_scratch_cpumask();
     }
 
     msg->address_hi = MSI_ADDR_BASE_HI;
