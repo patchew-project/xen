@@ -83,7 +83,6 @@ struct rcu_data {
     struct rcu_head **donetail;
     long            blimit;           /* Upper limit on a processed batch */
     int cpu;
-    struct rcu_head barrier;
     long            last_rs_qlen;     /* qlen during the last resched */
 
     /* 3) idle CPUs handling */
@@ -91,6 +90,7 @@ struct rcu_data {
     bool idle_timer_active;
 
     bool            process_callbacks;
+    bool            barrier_active;
 };
 
 /*
@@ -143,47 +143,68 @@ static int qhimark = 10000;
 static int qlowmark = 100;
 static int rsinterval = 1000;
 
-struct rcu_barrier_data {
-    struct rcu_head head;
-    atomic_t *cpu_count;
-};
+/*
+ * rcu_barrier() handling:
+ * cpu_count holds the number of cpu required to finish barrier handling.
+ * Cpus are synchronized via softirq mechanism. rcu_barrier() is regarded to
+ * be active if cpu_count is not zero. In case rcu_barrier() is called on
+ * multiple cpus it is enough to check for cpu_count being not zero on entry
+ * and to call process_pending_softirqs() in a loop until cpu_count drops to
+ * zero, as syncing has been requested already and we don't need to sync
+ * multiple times.
+ */
+static atomic_t cpu_count = ATOMIC_INIT(0);
 
 static void rcu_barrier_callback(struct rcu_head *head)
 {
-    struct rcu_barrier_data *data = container_of(
-        head, struct rcu_barrier_data, head);
-    atomic_inc(data->cpu_count);
+    atomic_dec(&cpu_count);
 }
 
-static int rcu_barrier_action(void *_cpu_count)
+static void rcu_barrier_action(void)
 {
-    struct rcu_barrier_data data = { .cpu_count = _cpu_count };
-
-    ASSERT(!local_irq_is_enabled());
-    local_irq_enable();
+    struct rcu_head head;
 
     /*
      * When callback is executed, all previously-queued RCU work on this CPU
      * is completed. When all CPUs have executed their callback, data.cpu_count
      * will have been incremented to include every online CPU.
      */
-    call_rcu(&data.head, rcu_barrier_callback);
+    call_rcu(&head, rcu_barrier_callback);
 
-    while ( atomic_read(data.cpu_count) != num_online_cpus() )
+    while ( atomic_read(&cpu_count) )
+    {
+        process_pending_softirqs();
+        cpu_relax();
+    }
+}
+
+void rcu_barrier(void)
+{
+    int initial = atomic_read(&cpu_count);
+
+    while ( !get_cpu_maps() )
+    {
+        process_pending_softirqs();
+        if ( initial && !atomic_read(&cpu_count) )
+            return;
+
+        cpu_relax();
+        initial = atomic_read(&cpu_count);
+    }
+
+    if ( !initial )
+    {
+        atomic_set(&cpu_count, num_online_cpus());
+        cpumask_raise_softirq(&cpu_online_map, RCU_SOFTIRQ);
+    }
+
+    while ( atomic_read(&cpu_count) )
     {
         process_pending_softirqs();
         cpu_relax();
     }
 
-    local_irq_disable();
-
-    return 0;
-}
-
-int rcu_barrier(void)
-{
-    atomic_t cpu_count = ATOMIC_INIT(0);
-    return stop_machine_run(rcu_barrier_action, &cpu_count, NR_CPUS);
+    put_cpu_maps();
 }
 
 /* Is batch a before batch b ? */
@@ -421,6 +442,13 @@ static void rcu_process_callbacks(void)
     {
         rdp->process_callbacks = false;
         __rcu_process_callbacks(&rcu_ctrlblk, rdp);
+    }
+
+    if ( atomic_read(&cpu_count) && !rdp->barrier_active )
+    {
+        rdp->barrier_active = true;
+        rcu_barrier_action();
+        rdp->barrier_active = false;
     }
 }
 
