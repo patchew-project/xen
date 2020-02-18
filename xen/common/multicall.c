@@ -10,6 +10,7 @@
 #include <xen/multicall.h>
 #include <xen/guest_access.h>
 #include <xen/perfc.h>
+#include <xen/preempt.h>
 #include <xen/trace.h>
 #include <asm/current.h>
 #include <asm/hardirq.h>

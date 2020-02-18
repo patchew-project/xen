@@ -30,6 +30,8 @@ static void __do_softirq(unsigned long ignore_mask, bool rcu_allowed)
     unsigned int i, cpu;
     unsigned long pending;
 
+    ASSERT(!rcu_allowed || rcu_quiesce_allowed());
+
     for ( ; ; )
     {
         /*

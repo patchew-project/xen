@@ -34,9 +34,22 @@
 #include <xen/cache.h>
 #include <xen/spinlock.h>
 #include <xen/cpumask.h>
-#include <xen/preempt.h>
+#include <xen/percpu.h>
 
 #define __rcu
+
+#ifndef NDEBUG
+DECLARE_PER_CPU(unsigned int, rcu_lock_cnt);
+
+#define rcu_quiesce_disable() (this_cpu(rcu_lock_cnt))++
+#define rcu_quiesce_enable()  (this_cpu(rcu_lock_cnt))--
+#define rcu_quiesce_allowed() (!this_cpu(rcu_lock_cnt))
+
+#else
+#define rcu_quiesce_disable() ((void)0)
+#define rcu_quiesce_enable()  ((void)0)
+#define rcu_quiesce_allowed() true
+#endif
 
 /**
  * struct rcu_head - callback structure for use with RCU
@@ -90,16 +103,16 @@ typedef struct _rcu_read_lock rcu_read_lock_t;
  * will be deferred until the outermost RCU read-side critical section
  * completes.
  *
- * It is illegal to block while in an RCU read-side critical section.
+ * It is illegal to process softirqs while in an RCU read-side critical section.
  */
-#define rcu_read_lock(x)       ({ ((void)(x)); preempt_disable(); })
+#define rcu_read_lock(x)       ({ ((void)(x)); rcu_quiesce_disable(); })
 
 /**
  * rcu_read_unlock - marks the end of an RCU read-side critical section.
  *
  * See rcu_read_lock() for more information.
  */
-#define rcu_read_unlock(x)     ({ ((void)(x)); preempt_enable(); })
+#define rcu_read_unlock(x)     ({ ((void)(x)); rcu_quiesce_enable(); })
 
 /*
  * So where is rcu_write_lock()?  It does not exist, as there is no

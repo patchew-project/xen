@@ -19,6 +19,7 @@
  * along with this program; If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <xen/preempt.h>
 #include <xen/sched.h>
 #include <xen/softirq.h>
 #include <xen/wait.h>

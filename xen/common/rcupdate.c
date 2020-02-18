@@ -46,6 +46,10 @@
 #include <xen/cpu.h>
 #include <xen/stop_machine.h>
 
+#ifndef NDEBUG
+DEFINE_PER_CPU(unsigned int, rcu_lock_cnt);
+#endif
+
 /* Global control variables for rcupdate callback mechanism. */
 static struct rcu_ctrlblk {
     long cur;           /* Current batch number.                      */
