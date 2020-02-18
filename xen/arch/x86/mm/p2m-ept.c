@@ -1344,7 +1344,7 @@ static void ept_dump_p2m_table(unsigned char key)
                            c ?: ept_entry->ipat ? '!' : ' ');
 
                 if ( !(record_counter++ % 100) )
-                    process_pending_softirqs();
+                    process_pending_softirqs_norcu();
             }
             unmap_domain_page(table);
         }

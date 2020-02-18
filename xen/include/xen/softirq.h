@@ -37,7 +37,9 @@ void cpu_raise_softirq_batch_finish(void);
  * Process pending softirqs on this CPU. This should be called periodically
  * when performing work that prevents softirqs from running in a timely manner.
  * Use this instead of do_softirq() when you do not want to be preempted.
+ * The norcu variant is to be used while holding a read_rcu_lock().
  */
 void process_pending_softirqs(void);
+void process_pending_softirqs_norcu(void);
 
 #endif /* __XEN_SOFTIRQ_H__ */
