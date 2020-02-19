@@ -4180,6 +4180,7 @@ struct libxl__domain_create_state {
     /* necessary if the domain creation failed and we have to destroy it */
     libxl__domain_destroy_state dds;
     libxl__multidev multidev;
+    libxl__ev_xswatch console_watch;
 };
 
 _hidden int libxl__device_nic_set_devids(libxl__gc *gc,

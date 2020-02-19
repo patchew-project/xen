@@ -1190,6 +1190,21 @@ static void domcreate_console_available(libxl__egc *egc,
                                         dcs->aop_console_how.for_event));
 }
 
+static void console_watch_callback(libxl__egc *egc, libxl__ev_xswatch *watch,
+                                   const char *watch_path,
+                                   const char *event_path) {
+    EGC_GC;
+    libxl__domain_create_state *dcs = CONTAINER_OF(watch, *dcs, console_watch);
+    char *dompath = libxl__xs_get_dompath(gc, dcs->guest_domid);
+    char *tty_path = GCSPRINTF("%s/console/tty", dompath);
+    char *tty = libxl__xs_read(gc, XBT_NULL, tty_path);
+
+    if (tty && tty[0] != '\0') {
+        domcreate_console_available(egc, dcs);
+        domcreate_complete(egc, dcs, 0);
+    }
+}
+
 static void domcreate_bootloader_done(libxl__egc *egc,
                                       libxl__bootloader_state *bl,
                                       int rc)
@@ -1705,6 +1720,8 @@ static void domcreate_attach_devices(libxl__egc *egc,
     int domid = dcs->guest_domid;
     libxl_domain_config *const d_config = dcs->guest_config;
     const libxl__device_type *dt;
+    char *tty_path;
+    int rc;
 
     if (ret) {
         LOGD(ERROR, domid, "unable to add %s devices",
@@ -1728,9 +1745,15 @@ static void domcreate_attach_devices(libxl__egc *egc,
         return;
     }
 
-    domcreate_console_available(egc, dcs);
-
-    domcreate_complete(egc, dcs, 0);
+    tty_path = GCSPRINTF("%s/console/tty", libxl__xs_get_dompath(gc, domid));
+    rc = libxl__ev_xswatch_register(gc, &dcs->console_watch,
+                                    console_watch_callback,
+                                    tty_path);
+    if (rc) {
+        LOG(ERROR, "unable to set up watch for console path: %s",
+            tty_path);
+        goto error_out;
+    }
 
     return;
 
@@ -1746,6 +1769,9 @@ static void domcreate_complete(libxl__egc *egc,
     STATE_AO_GC(dcs->ao);
     libxl_domain_config *const d_config = dcs->guest_config;
     libxl_domain_config *d_config_saved = &dcs->guest_config_saved;
+
+    if (libxl__ev_xswatch_isregistered(&dcs->console_watch))
+        libxl__ev_xswatch_deregister(gc, &dcs->console_watch);
 
     libxl__domain_build_state_dispose(&dcs->build_state);
 
@@ -1861,6 +1887,7 @@ static int do_domain_create(libxl_ctx *ctx, libxl_domain_config *d_config,
 
     libxl__ao_progress_gethow(&cdcs->dcs.aop_console_how, aop_console_how);
     cdcs->domid_out = domid;
+    libxl__ev_xswatch_init(&cdcs->dcs.console_watch);
 
     initiate_domain_create(egc, &cdcs->dcs);
 
