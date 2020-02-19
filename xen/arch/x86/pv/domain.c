@@ -22,6 +22,7 @@ static __read_mostly enum {
     PCID_XPTI,
     PCID_NOXPTI
 } opt_pcid = PCID_XPTI;
+static char opt_pcid_val[7] = "xpti";
 
 static int parse_pcid(const char *s)
 {
@@ -31,10 +32,12 @@ static int parse_pcid(const char *s)
     {
     case 0:
         opt_pcid = PCID_OFF;
+        snprintf(opt_pcid_val, sizeof(opt_pcid_val), "off");
         break;
 
     case 1:
         opt_pcid = PCID_ALL;
+        snprintf(opt_pcid_val, sizeof(opt_pcid_val), "on");
         break;
 
     default:
@@ -42,10 +45,12 @@ static int parse_pcid(const char *s)
         {
         case 0:
             opt_pcid = PCID_NOXPTI;
+            snprintf(opt_pcid_val, sizeof(opt_pcid_val), "noxpti");
             break;
 
         case 1:
             opt_pcid = PCID_XPTI;
+            snprintf(opt_pcid_val, sizeof(opt_pcid_val), "xpti");
             break;
 
         default:
@@ -57,7 +62,7 @@ static int parse_pcid(const char *s)
 
     return rc;
 }
-custom_runtime_param("pcid", parse_pcid);
+custom_runtime_param("pcid", parse_pcid, opt_pcid_val);
 
 static void noreturn continue_nonidle_domain(struct vcpu *v)
 {

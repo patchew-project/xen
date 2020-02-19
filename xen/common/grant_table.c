@@ -85,8 +85,10 @@ struct grant_table {
     struct grant_table_arch arch;
 };
 
+#define PAR_VAL_SZ 12
+
 static int parse_gnttab_limit(const char *param, const char *arg,
-                              unsigned int *valp)
+                              unsigned int *valp, char *par_val)
 {
     const char *e;
     unsigned long val;
@@ -99,28 +101,33 @@ static int parse_gnttab_limit(const char *param, const char *arg,
         return -ERANGE;
 
     *valp = val;
+    snprintf(par_val, PAR_VAL_SZ, "%lu", val);
 
     return 0;
 }
 
 unsigned int __read_mostly opt_max_grant_frames = 64;
+static char gnttab_max_frames_val[PAR_VAL_SZ] = "64";
 
 static int parse_gnttab_max_frames(const char *arg)
 {
     return parse_gnttab_limit("gnttab_max_frames", arg,
-                              &opt_max_grant_frames);
+                              &opt_max_grant_frames, gnttab_max_frames_val);
 }
-custom_runtime_param("gnttab_max_frames", parse_gnttab_max_frames);
+custom_runtime_param("gnttab_max_frames", parse_gnttab_max_frames,
+                     gnttab_max_frames_val);
 
 static unsigned int __read_mostly opt_max_maptrack_frames = 1024;
+static char max_maptrack_frames_val[PAR_VAL_SZ] = "1024";
 
 static int parse_gnttab_max_maptrack_frames(const char *arg)
 {
     return parse_gnttab_limit("gnttab_max_maptrack_frames", arg,
-                              &opt_max_maptrack_frames);
+                              &opt_max_maptrack_frames,
+                              max_maptrack_frames_val);
 }
 custom_runtime_param("gnttab_max_maptrack_frames",
-                     parse_gnttab_max_maptrack_frames);
+                     parse_gnttab_max_maptrack_frames, max_maptrack_frames_val);
 
 #ifndef GNTTAB_MAX_VERSION
 #define GNTTAB_MAX_VERSION 2
