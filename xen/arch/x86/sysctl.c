@@ -78,8 +78,11 @@ static void l3_cache_get(void *arg)
 long cpu_up_helper(void *data)
 {
     unsigned int cpu = (unsigned long)data;
-    int ret = cpu_up(cpu);
+    int ret;
 
+    /* Flush potentially scheduled RCU work from preceding CPU offline */
+    rcu_barrier();
+    ret = cpu_up(cpu);
     if ( ret == -EBUSY )
     {
         /* On EBUSY, flush RCU work and have one more go. */
@@ -104,7 +107,11 @@ long cpu_up_helper(void *data)
 long cpu_down_helper(void *data)
 {
     int cpu = (unsigned long)data;
-    int ret = cpu_down(cpu);
+    int ret;
+
+    /* Flush potentially scheduled RCU work from preceding CPU online */
+    rcu_barrier();
+    ret = cpu_down(cpu);
     if ( ret == -EBUSY )
     {
         /* On EBUSY, flush RCU work and have one more go. */
