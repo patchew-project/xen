@@ -1256,6 +1256,33 @@ static void domcreate_console_available(libxl__egc *egc,
                                         dcs->aop_console_how.for_event));
 }
 
+static void console_xswait_callback(libxl__egc *egc, libxl__xswait_state *xswa,
+                                    int rc, const char *p)
+{
+    EGC_GC;
+    libxl__domain_create_state *dcs = CONTAINER_OF(xswa, *dcs, console_xswait);
+    char *dompath = libxl__xs_get_dompath(gc, dcs->guest_domid);
+    char *tty_path = GCSPRINTF("%s/console/tty", dompath);
+    char *tty;
+
+    if (rc) {
+        if (rc == ERROR_TIMEDOUT)
+            LOG(ERROR, "%s: timed out", xswa->what);
+        libxl__xswait_stop(gc, xswa);
+        domcreate_complete(egc, dcs, rc);
+        return;
+    }
+
+    tty = libxl__xs_read(gc, XBT_NULL, tty_path);
+
+    if (tty && tty[0] != '\0') {
+        libxl__xswait_stop(gc, xswa);
+
+        domcreate_console_available(egc, dcs);
+        domcreate_complete(egc, dcs, 0);
+    }
+}
+
 static void domcreate_bootloader_done(libxl__egc *egc,
                                       libxl__bootloader_state *bl,
                                       int rc)
@@ -1794,9 +1821,18 @@ static void domcreate_attach_devices(libxl__egc *egc,
         return;
     }
 
-    domcreate_console_available(egc, dcs);
-
-    domcreate_complete(egc, dcs, 0);
+    dcs->console_xswait.ao = ao;
+    dcs->console_xswait.what = GCSPRINTF("domain %d console tty", domid);
+    dcs->console_xswait.path = GCSPRINTF("%s/console/tty",
+                                         libxl__xs_get_dompath(gc, domid));
+    dcs->console_xswait.timeout_ms = 10 * 1000;
+    dcs->console_xswait.callback = console_xswait_callback;
+    ret = libxl__xswait_start(gc, &dcs->console_xswait);
+    if (ret) {
+        LOG(ERROR, "unable to set up watch for domain %d console path",
+            domid);
+        goto error_out;
+    }
 
     return;
 
@@ -1927,6 +1963,7 @@ static int do_domain_create(libxl_ctx *ctx, libxl_domain_config *d_config,
 
     libxl__ao_progress_gethow(&cdcs->dcs.aop_console_how, aop_console_how);
     cdcs->domid_out = domid;
+    libxl__xswait_init(&cdcs->dcs.console_xswait);
 
     initiate_domain_create(egc, &cdcs->dcs);
 
