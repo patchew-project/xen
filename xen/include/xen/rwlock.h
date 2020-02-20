@@ -20,20 +20,29 @@ typedef struct {
 #define DEFINE_RWLOCK(l) rwlock_t l = RW_LOCK_UNLOCKED
 #define rwlock_init(l) (*(l) = (rwlock_t)RW_LOCK_UNLOCKED)
 
-/*
- * Writer states & reader shift and bias.
- *
- * Writer field is 8 bit to allow for potential optimisation, see
- * _write_unlock().
- */
-#define    _QW_WAITING  1               /* A writer is waiting     */
-#define    _QW_LOCKED   0xff            /* A writer holds the lock */
-#define    _QW_WMASK    0xff            /* Writer mask.*/
-#define    _QR_SHIFT    8               /* Reader count shift      */
+/* Writer states & reader shift and bias. */
+#define    _QW_WAITING  1                       /* A writer is waiting */
+#define    _QW_LOCKED   3                       /* A writer holds the lock */
+#define    _QW_WMASK    3                       /* Writer mask */
+#define    _QW_CPUSHIFT 2                       /* Writer CPU shift */
+#define    _QW_CPUMASK  0x3ffc                  /* Writer CPU mask */
+#define    _QR_SHIFT    14                      /* Reader count shift */
 #define    _QR_BIAS     (1U << _QR_SHIFT)
 
 void queue_read_lock_slowpath(rwlock_t *lock);
 void queue_write_lock_slowpath(rwlock_t *lock);
+
+static inline bool _is_write_locked_by_me(uint32_t cnts)
+{
+    BUILD_BUG_ON((_QW_CPUMASK >> _QW_CPUSHIFT) < NR_CPUS);
+    return (cnts & _QW_WMASK) == _QW_LOCKED &&
+           MASK_EXTR(cnts, _QW_CPUMASK) == smp_processor_id();
+}
+
+static inline bool _can_read_lock(uint32_t cnts)
+{
+    return !(cnts & _QW_WMASK) || _is_write_locked_by_me(cnts);
+}
 
 /*
  * _read_trylock - try to acquire read lock of a queue rwlock.
@@ -45,10 +54,10 @@ static inline int _read_trylock(rwlock_t *lock)
     u32 cnts;
 
     cnts = atomic_read(&lock->cnts);
-    if ( likely(!(cnts & _QW_WMASK)) )
+    if ( likely(_can_read_lock(cnts)) )
     {
         cnts = (u32)atomic_add_return(_QR_BIAS, &lock->cnts);
-        if ( likely(!(cnts & _QW_WMASK)) )
+        if ( likely(_can_read_lock(cnts)) )
             return 1;
         atomic_sub(_QR_BIAS, &lock->cnts);
     }
@@ -64,7 +73,7 @@ static inline void _read_lock(rwlock_t *lock)
     u32 cnts;
 
     cnts = atomic_add_return(_QR_BIAS, &lock->cnts);
-    if ( likely(!(cnts & _QW_WMASK)) )
+    if ( likely(_can_read_lock(cnts)) )
         return;
 
     /* The slowpath will decrement the reader count, if necessary. */
@@ -115,6 +124,11 @@ static inline int _rw_is_locked(rwlock_t *lock)
     return atomic_read(&lock->cnts);
 }
 
+static inline uint32_t _write_lock_val(void)
+{
+    return _QW_LOCKED | MASK_INSR(smp_processor_id(), _QW_CPUMASK);
+}
+
 /*
  * queue_write_lock - acquire write lock of a queue rwlock.
  * @lock : Pointer to queue rwlock structure.
@@ -122,7 +136,7 @@ static inline int _rw_is_locked(rwlock_t *lock)
 static inline void _write_lock(rwlock_t *lock)
 {
     /* Optimize for the unfair lock case where the fair flag is 0. */
-    if ( atomic_cmpxchg(&lock->cnts, 0, _QW_LOCKED) == 0 )
+    if ( atomic_cmpxchg(&lock->cnts, 0, _write_lock_val()) == 0 )
         return;
 
     queue_write_lock_slowpath(lock);
@@ -157,7 +171,7 @@ static inline int _write_trylock(rwlock_t *lock)
     if ( unlikely(cnts) )
         return 0;
 
-    return likely(atomic_cmpxchg(&lock->cnts, 0, _QW_LOCKED) == 0);
+    return likely(atomic_cmpxchg(&lock->cnts, 0, _write_lock_val()) == 0);
 }
 
 static inline void _write_unlock(rwlock_t *lock)
@@ -166,7 +180,8 @@ static inline void _write_unlock(rwlock_t *lock)
      * If the writer field is atomic, it can be cleared directly.
      * Otherwise, an atomic subtraction will be used to clear it.
      */
-    atomic_sub(_QW_LOCKED, &lock->cnts);
+    ASSERT(_is_write_locked_by_me(atomic_read(&lock->cnts)));
+    atomic_sub(_write_lock_val(), &lock->cnts);
 }
 
 static inline void _write_unlock_irq(rwlock_t *lock)
