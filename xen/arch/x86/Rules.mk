@@ -63,7 +63,8 @@ CFLAGS += -mno-red-zone -fpic -fno-asynchronous-unwind-tables
 
 # Xen doesn't use SSE interally.  If the compiler supports it, also skip the
 # SSE setup for variadic function calls.
-CFLAGS += -mno-sse $(call cc-option,$(CC),-mskip-rax-setup)
+CFLAGS += -mno-sse
+$(call cc-option-add,CFLAGS,CC,-mskip-rax-setup)
 
 # Compile with thunk-extern, indirect-branch-register if avaiable.
 ifeq ($(CONFIG_INDIRECT_THUNK),y)
