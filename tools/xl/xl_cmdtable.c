@@ -185,6 +185,18 @@ struct cmd_spec cmd_table[] = {
       "Restore a domain from a saved state",
       "- for internal use only",
     },
+    { "fork-vm",
+      &main_fork_vm, 0, 1,
+      "Fork a domain from the running parent domid",
+      "[options] <Domid>",
+      "-h                           Print this help.\n"
+      "-C <config>                  Use config file for VM fork.\n"
+      "-Q <qemu-save-file>          Use qemu save file for VM fork.\n"
+      "--launch-dm <yes|no|late>    Launch device model (QEMU) for VM fork.\n"
+      "--fork-reset                 Reset VM fork.\n"
+      "-p                           Do not unpause fork VM after operation.\n"
+      "-d                           Enable debug messages.\n"
+    },
 #endif
     { "dump-core",
       &main_dump_core, 0, 1,
