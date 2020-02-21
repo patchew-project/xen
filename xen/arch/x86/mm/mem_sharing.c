@@ -22,6 +22,7 @@
 
 #include <xen/types.h>
 #include <xen/domain_page.h>
+#include <xen/event.h>
 #include <xen/spinlock.h>
 #include <xen/rwlock.h>
 #include <xen/mm.h>
@@ -36,6 +37,9 @@
 #include <asm/altp2m.h>
 #include <asm/atomic.h>
 #include <asm/event.h>
+#include <asm/hap.h>
+#include <asm/hvm/hvm.h>
+#include <asm/hvm/save.h>
 #include <xsm/xsm.h>
 
 #include "mm-locks.h"
@@ -1444,6 +1448,194 @@ static inline int mem_sharing_control(struct domain *d, bool enable)
     return 0;
 }
 
+/*
+ * Forking a page only gets called when the VM faults due to no entry being
+ * in the EPT for the access. Depending on the type of access we either
+ * populate the physmap with a shared entry for read-only access or
+ * fork the page if its a write access.
+ *
+ * The client p2m is already locked so we only need to lock
+ * the parent's here.
+ */
+int mem_sharing_fork_page(struct domain *d, gfn_t gfn, bool unsharing)
+{
+    int rc = -ENOENT;
+    shr_handle_t handle;
+    struct domain *parent;
+    struct p2m_domain *p2m;
+    unsigned long gfn_l = gfn_x(gfn);
+    mfn_t mfn, new_mfn;
+    p2m_type_t p2mt;
+    struct page_info *page;
+
+    if ( !mem_sharing_is_fork(d) )
+        return -ENOENT;
+
+    parent = d->parent;
+
+    if ( !unsharing )
+    {
+        /* For read-only accesses we just add a shared entry to the physmap */
+        while ( parent )
+        {
+            if ( !(rc = nominate_page(parent, gfn, 0, &handle)) )
+                break;
+
+            parent = parent->parent;
+        }
+
+        if ( !rc )
+        {
+            /* The client's p2m is already locked */
+            struct p2m_domain *pp2m = p2m_get_hostp2m(parent);
+
+            p2m_lock(pp2m);
+            rc = add_to_physmap(parent, gfn_l, handle, d, gfn_l, false);
+            p2m_unlock(pp2m);
+
+            if ( !rc )
+                return 0;
+        }
+    }
+
+    /*
+     * If it's a write access (ie. unsharing) or if adding a shared entry to
+     * the physmap failed we'll fork the page directly.
+     */
+    p2m = p2m_get_hostp2m(d);
+    parent = d->parent;
+
+    while ( parent )
+    {
+        mfn = get_gfn_query(parent, gfn_l, &p2mt);
+
+        if ( mfn_valid(mfn) && p2m_is_any_ram(p2mt) )
+            break;
+
+        put_gfn(parent, gfn_l);
+        parent = parent->parent;
+    }
+
+    if ( !parent )
+        return -ENOENT;
+
+    if ( !(page = alloc_domheap_page(d, 0)) )
+    {
+        put_gfn(parent, gfn_l);
+        return -ENOMEM;
+    }
+
+    new_mfn = page_to_mfn(page);
+    copy_domain_page(new_mfn, mfn);
+    set_gpfn_from_mfn(mfn_x(new_mfn), gfn_l);
+
+    put_gfn(parent, gfn_l);
+
+    return p2m->set_entry(p2m, gfn, new_mfn, PAGE_ORDER_4K, p2m_ram_rw,
+                          p2m->default_access, -1);
+}
+
+static int bring_up_vcpus(struct domain *cd, struct cpupool *cpupool)
+{
+    int ret;
+    unsigned int i;
+
+    if ( (ret = cpupool_move_domain(cd, cpupool)) )
+        return ret;
+
+    for ( i = 0; i < cd->max_vcpus; i++ )
+    {
+        if ( cd->vcpu[i] )
+            continue;
+
+        if ( !vcpu_create(cd, i) )
+            return -EINVAL;
+    }
+
+    domain_update_node_affinity(cd);
+    return 0;
+}
+
+static int fork_hap_allocation(struct domain *cd, struct domain *d)
+{
+    int rc;
+    bool preempted;
+    unsigned long mb = hap_get_allocation(d);
+
+    if ( mb == hap_get_allocation(cd) )
+        return 0;
+
+    paging_lock(cd);
+    rc = hap_set_allocation(cd, mb << (20 - PAGE_SHIFT), &preempted);
+    paging_unlock(cd);
+
+    if ( rc )
+        return rc;
+
+    if ( preempted )
+        return -ERESTART;
+
+    return 0;
+}
+
+static void fork_tsc(struct domain *cd, struct domain *d)
+{
+    uint32_t tsc_mode;
+    uint32_t gtsc_khz;
+    uint32_t incarnation;
+    uint64_t elapsed_nsec;
+
+    tsc_get_info(d, &tsc_mode, &elapsed_nsec, &gtsc_khz, &incarnation);
+    /* Don't bump incarnation on set */
+    tsc_set_info(cd, tsc_mode, elapsed_nsec, gtsc_khz, incarnation - 1);
+}
+
+static int mem_sharing_fork(struct domain *d, struct domain *cd)
+{
+    int rc = -EINVAL;
+
+    if ( !cd->controller_pause_count )
+        return rc;
+
+    /*
+     * We only want to get and pause the parent once, not each time this
+     * operation is restarted due to preemption.
+     */
+    if ( !cd->parent_paused )
+    {
+        ASSERT(get_domain(d));
+        domain_pause(d);
+
+        cd->parent_paused = true;
+        cd->max_pages = d->max_pages;
+        cd->max_vcpus = d->max_vcpus;
+    }
+
+    /* this is preemptible so it's the first to get done */
+    if ( (rc = fork_hap_allocation(cd, d)) )
+        goto done;
+
+    if ( (rc = bring_up_vcpus(cd, d->cpupool)) )
+        goto done;
+
+    if ( (rc = hvm_copy_context_and_params(cd, d)) )
+        goto done;
+
+    fork_tsc(cd, d);
+
+    cd->parent = d;
+
+ done:
+    if ( rc && rc != -ERESTART )
+    {
+        domain_unpause(d);
+        put_domain(d);
+        cd->parent_paused = false;
+    }
+
+    return rc;
+}
+
 int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
 {
     int rc;
@@ -1697,6 +1889,36 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
     case XENMEM_sharing_op_debug_gref:
         rc = debug_gref(d, mso.u.debug.u.gref);
         break;
+
+    case XENMEM_sharing_op_fork:
+    {
+        struct domain *pd;
+
+        rc = -EINVAL;
+        if ( mso.u.fork._pad[0] || mso.u.fork._pad[1] ||
+             mso.u.fork._pad[2] )
+            goto out;
+
+        rc = rcu_lock_live_remote_domain_by_id(mso.u.fork.parent_domain,
+                                               &pd);
+        if ( rc )
+            goto out;
+
+        if ( !mem_sharing_enabled(pd) )
+        {
+            if ( (rc = mem_sharing_control(pd, true)) )
+                goto out;
+        }
+
+        rc = mem_sharing_fork(pd, d);
+
+        if ( rc == -ERESTART )
+            rc = hypercall_create_continuation(__HYPERVISOR_memory_op,
+                                               "lh", XENMEM_sharing_op,
+                                               arg);
+        rcu_unlock_domain(pd);
+        break;
+    }
 
     default:
         rc = -ENOSYS;
