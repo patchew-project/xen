@@ -38,7 +38,7 @@
 #include "hvm/save.h"
 #include "memory.h"
 
-#define XEN_DOMCTL_INTERFACE_VERSION 0x00000012
+#define XEN_DOMCTL_INTERFACE_VERSION 0x00000013
 
 /*
  * NB. xen_domctl.domain is an IN/OUT parameter for this operation.
@@ -92,6 +92,7 @@ struct xen_domctl_createdomain {
     uint32_t max_evtchn_port;
     int32_t max_grant_frames;
     int32_t max_maptrack_frames;
+    domid_t parent_domid;
 
     struct xen_arch_domainconfig arch;
 };

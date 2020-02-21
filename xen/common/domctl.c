@@ -489,6 +489,7 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
     case XEN_DOMCTL_createdomain:
     {
         domid_t        dom;
+        domid_t        parent_dom;
         static domid_t rover = 0;
 
         dom = op->domain;
@@ -513,6 +514,19 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
                 break;
 
             rover = dom;
+        }
+
+        parent_dom = op->u.createdomain.parent_domid;
+        if ( parent_dom )
+        {
+            struct domain *pd = rcu_lock_domain_by_id(parent_dom);
+
+            ret = -EINVAL;
+            if ( !pd )
+                break;
+
+            op->u.createdomain.max_vcpus = pd->max_vcpus;
+            rcu_unlock_domain(pd);
         }
 
         d = domain_create(dom, &op->u.createdomain, false);
