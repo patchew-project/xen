@@ -10,8 +10,11 @@
  */
 
 /* Allocate space for typed object. */
-#define xmalloc(_type) ((_type *)_xmalloc(sizeof(_type), __alignof__(_type)))
-#define xzalloc(_type) ((_type *)_xzalloc(sizeof(_type), __alignof__(_type)))
+#define xmalloc(_type) \
+    ((typeof(_type) *)_xmalloc(sizeof(_type), __alignof__(_type)))
+
+#define xzalloc(_type) \
+    ((typeof(_type) *)_xzalloc(sizeof(_type), __alignof__(_type)))
 
 /*
  * Allocate space for a typed object and copy an existing instance.
@@ -31,16 +34,16 @@
 
 /* Allocate space for array of typed objects. */
 #define xmalloc_array(_type, _num) \
-    ((_type *)_xmalloc_array(sizeof(_type), __alignof__(_type), _num))
+    ((typeof(_type) *)_xmalloc_array(sizeof(_type), __alignof__(_type), _num))
 #define xzalloc_array(_type, _num) \
-    ((_type *)_xzalloc_array(sizeof(_type), __alignof__(_type), _num))
+    ((typeof(_type) *)_xzalloc_array(sizeof(_type), __alignof__(_type), _num))
 
 /* Allocate space for a structure with a flexible array of typed objects. */
 #define xzalloc_flex_struct(type, field, nr) \
-    ((type *)_xzalloc(offsetof(type, field[nr]), __alignof__(type)))
+    ((typeof(type) *)_xzalloc(offsetof(type, field[nr]), __alignof__(type)))
 
 #define xmalloc_flex_struct(type, field, nr) \
-    ((type *)_xmalloc(offsetof(type, field[nr]), __alignof__(type)))
+    ((typeof(type) *)_xmalloc(offsetof(type, field[nr]), __alignof__(type)))
 
 /* Re-allocate space for a structure with a flexible array of typed objects. */
 #define xrealloc_flex_struct(ptr, field, nr)                           \
