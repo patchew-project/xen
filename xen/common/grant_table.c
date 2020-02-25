@@ -1793,11 +1793,7 @@ gnttab_grow_table(struct domain *d, unsigned int req_nr_frames)
     struct grant_table *gt = d->grant_table;
     unsigned int i, j;
 
-    if ( unlikely(!gt->active) )
-    {
-        gprintk(XENLOG_WARNING, "grant_table_set_limits() call missing\n");
-        return -ENODEV;
-    }
+    ASSERT(gt->active);
 
     if ( req_nr_frames < INITIAL_NR_GRANT_FRAMES )
         req_nr_frames = INITIAL_NR_GRANT_FRAMES;
