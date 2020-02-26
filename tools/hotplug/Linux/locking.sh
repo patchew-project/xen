@@ -50,14 +50,8 @@ claim_lock()
         # actually a synthetic symlink in /proc and we aren't
         # guaranteed that our stat(2) won't lose the race with an
         # rm(1) between reading the synthetic link and traversing the
-        # file system to find the inum.  Perl is very fast so use that.
-        rightfile=$( perl -e '
-            open STDIN, "<&'$_lockfd'" or die $!;
-            my $fd_inum = (stat STDIN)[1]; die $! unless defined $fd_inum;
-            my $file_inum = (stat $ARGV[0])[1];
-            print "y\n" if $fd_inum eq $file_inum;
-                             ' "$_lockfile" )
-        if [ x$rightfile = xy ]; then break; fi
+        # file system to find the inum.
+        if cmp-fd-file-inode $_lockfd $_lockfile ; then break; fi
 	# Some versions of bash appear to be buggy if the same
 	# $_lockfile is opened repeatedly. Close the current fd here.
         eval "exec $_lockfd<&-"
