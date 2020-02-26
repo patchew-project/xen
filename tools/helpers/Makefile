@@ -8,6 +8,7 @@ include $(XEN_ROOT)/tools/Rules.mk
 PROGS += xen-init-dom0
 ifeq ($(CONFIG_Linux),y)
 PROGS += init-xenstore-domain
+PROGS += cmp-fd-file-inode
 endif
 
 XEN_INIT_DOM0_OBJS = xen-init-dom0.o init-dom-json.o
@@ -40,12 +41,14 @@ install: all
 	$(INSTALL_PROG) xen-init-dom0 $(DESTDIR)$(LIBEXEC_BIN)
 ifeq ($(CONFIG_Linux),y)
 	$(INSTALL_PROG) init-xenstore-domain $(DESTDIR)$(LIBEXEC_BIN)
+	$(INSTALL_PROG) cmp-fd-file-inode $(DESTDIR)$(LIBEXEC_BIN)
 endif
 
 .PHONY: uninstall
 uninstall:
 ifeq ($(CONFIG_Linux),y)
 	rm -f $(DESTDIR)$(LIBEXEC_BIN)/init-xenstore-domain
+	rm -f $(DESTDIR)$(LIBEXEC_BIN)/cmp-fd-file-inode
 endif
 	rm -f $(DESTDIR)$(LIBEXEC_BIN)/xen-init-dom0
 

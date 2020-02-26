@@ -164,6 +164,7 @@ tools/fuzz/x86_instruction_emulator/x86-emulate.[ch]
 tools/helpers/_paths.h
 tools/helpers/init-xenstore-domain
 tools/helpers/xen-init-dom0
+tools/helpers/cmp-fd-file-inode
 tools/hotplug/common/hotplugpath.sh
 tools/hotplug/FreeBSD/rc.d/xencommons
 tools/hotplug/FreeBSD/rc.d/xendriverdomain
