@@ -80,11 +80,17 @@ static inline int is_arm_mapping_symbol(const char *str)
 	       && (str[2] == '\0' || str[2] == '.');
 }
 
+enum symbol_type {
+     symbol = 0,
+     single_source = 1,
+     dir_source = 2,
+     obj_source = 3,
+};
 static int read_symbol(FILE *in, struct sym_entry *s)
 {
 	char str[500], type[20] = "";
 	char *sym, stype;
-	static enum { symbol, single_source, multi_source } last;
+	static enum symbol_type last;
 	static char *filename;
 	int rc = -1;
 
@@ -125,13 +131,19 @@ static int read_symbol(FILE *in, struct sym_entry *s)
 		 * prefer the first one if that names an object file or has a
 		 * directory component (to cover multiply compiled files).
 		 */
-		bool multi = strchr(str, '/') || (sym && sym[1] == 'o');
+		enum symbol_type current;
+		if (sym && sym[1] == 'o')
+		    current = obj_source;
+		else if (strchr(str, '/'))
+		    current = dir_source;
+		else
+		    current = single_source;
 
-		if (multi || last != multi_source) {
+		if (current > last || last == single_source) {
 			free(filename);
 			filename = *str ? strdup(str) : NULL;
+			last = current;
 		}
-		last = multi ? multi_source : single_source;
 		goto skip_tail;
 	}
 
