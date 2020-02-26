@@ -75,6 +75,7 @@ obj-y += hpet.o
 obj-y += vm_event.o
 obj-y += xstate.o
 extra-y += asm-macros.i
+extra-y += xen.lds
 
 x86_emulate.o: x86_emulate/x86_emulate.c x86_emulate/x86_emulate.h
 
@@ -197,6 +198,7 @@ endif
 note_file_option ?= $(note_file)
 
 ifeq ($(XEN_BUILD_PE),y)
+extra-y += efi.lds
 $(TARGET).efi: prelink-efi.o $(note_file) efi.lds efi/relocs-dummy.o efi/mkreloc
 	$(foreach base, $(VIRT_BASE) $(ALT_BASE), \
 	          $(LD) $(call EFI_LDFLAGS,$(base)) -T efi.lds -N $< efi/relocs-dummy.o \
@@ -244,9 +246,7 @@ $(BASEDIR)/include/asm-x86/asm-macros.h: asm-macros.i Makefile
 
 efi.lds: AFLAGS-y += -DEFI
 xen.lds efi.lds: xen.lds.S
-	$(CC) -P -E -Ui386 $(filter-out -Wa$(comma)%,$(a_flags)) -o $@ $<
-	sed -e 's/.*\.lds\.o:/$(@F):/g' <.$(@F).d >.$(@F).d.new
-	mv -f .$(@F).d.new .$(@F).d
+	$(call if_changed,cc_lds_S)
 
 boot/mkelf32: boot/mkelf32.c
 	$(HOSTCC) $(HOSTCFLAGS) -o $@ $<
