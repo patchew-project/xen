@@ -20,12 +20,21 @@ AV_H_FILES = include/av_perm_to_string.h include/av_permissions.h
 ALL_H_FILES = $(FLASK_H_FILES) $(AV_H_FILES)
 
 $(obj-y) ss/built_in.o: $(ALL_H_FILES)
+extra-y += $(ALL_H_FILES)
 
-$(FLASK_H_FILES): $(FLASK_H_DEPEND)
-	$(CONFIG_SHELL) policy/mkflask.sh $(AWK) include $(FLASK_H_DEPEND)
+mkflask := policy/mkflask.sh
+quiet_cmd_mkflash = MKFLASH $@
+cmd_mkflash = $(CONFIG_SHELL) $(mkflask) $(AWK) include $(real-prereqs)
 
-$(AV_H_FILES): $(AV_H_DEPEND)
-	$(CONFIG_SHELL) policy/mkaccess_vector.sh $(AWK) $(AV_H_DEPEND)
+$(FLASK_H_FILES): $(FLASK_H_DEPEND) $(mkflash) FORCE
+	$(call if_changed,mkflash)
+
+mkaccess_vector := policy/mkaccess_vector.sh
+quiet_cmd_mkaccess_vector = MKACCESS VECTOR $@
+cmd_mkaccess_vector = $(CONFIG_SHELL) $(mkaccess_vector) $(AWK) $(real-prereqs)
+
+$(AV_H_FILES): $(AV_H_DEPEND) $(mkaccess_vector) FORCE
+	$(call if_changed,mkaccess_vector)
 
 obj-bin-$(CONFIG_XSM_FLASK_POLICY) += flask-policy.o
 flask-policy.o: policy.bin
