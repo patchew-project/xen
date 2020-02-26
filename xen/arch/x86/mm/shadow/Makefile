@@ -6,11 +6,14 @@ else
 obj-y += none.o
 endif
 
-guest_%.o: multi.c Makefile
-	$(CC) $(c_flags) -DGUEST_PAGING_LEVELS=$* -c $< -o $@
+$(foreach gw,$(filter guest_%.o,$(obj-y)),\
+    $(eval CFLAGS_$(gw) = -DGUEST_PAGING_LEVELS=$$*))
 
-guest_%.i: multi.c Makefile
-	$(CPP) $(filter-out -Wa$(comma)%,$(c_flags)) -DGUEST_PAGING_LEVELS=$* -c $< -o $@
+guest_%.o: multi.c FORCE
+	$(call if_changed_rule,cc_o_c)
 
-guest_%.s: multi.c Makefile
-	$(CC) $(filter-out -Wa$(comma)%,$(c_flags)) -DGUEST_PAGING_LEVELS=$* -S $< -o $@
+guest_%.i: multi.c FORCE
+	$(call if_changed,cpp_i_c)
+
+guest_%.s: multi.c FORCE
+	$(call if_changed,cc_s_c)

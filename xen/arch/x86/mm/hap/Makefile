@@ -5,11 +5,14 @@ obj-y += guest_walk_4level.o
 obj-y += nested_hap.o
 obj-y += nested_ept.o
 
-guest_walk_%level.o: guest_walk.c Makefile
-	$(CC) $(c_flags) -DGUEST_PAGING_LEVELS=$* -c $< -o $@
+$(foreach gw,$(filter guest_walk_%level.o,$(obj-y)),\
+    $(eval CFLAGS_$(gw) = -DGUEST_PAGING_LEVELS=$$*))
 
-guest_walk_%level.i: guest_walk.c Makefile
-	$(CPP) $(filter-out -Wa$(comma)%,$(c_flags)) -DGUEST_PAGING_LEVELS=$* -c $< -o $@
+guest_walk_%level.o: guest_walk.c FORCE
+	$(call if_changed_rule,cc_o_c)
 
-guest_walk_%level.s: guest_walk.c Makefile
-	$(CC) $(filter-out -Wa$(comma)%,$(c_flags)) -DGUEST_PAGING_LEVELS=$* -S $< -o $@
+guest_walk_%level.i: guest_walk.c FORCE
+	$(call if_changed,cpp_i_c)
+
+guest_walk_%level.s: guest_walk.c FORCE
+	$(call if_changed,cc_s_c)

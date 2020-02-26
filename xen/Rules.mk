@@ -115,6 +115,9 @@ endif
 # FIXME LTO broken, but we would need a different way to filter -flto out
 # $(obj-bin-y): CFLAGS := $(filter-out -flto,$(CFLAGS))
 
+# target with its suffix stripped
+target-stem = $(basename $@)
+
 # Calculation of flags, first the generic flags, then the arch specific flags,
 # and last the flags modified for a target or a directory.
 
@@ -123,7 +126,7 @@ a_flags = -MMD -MF $(@D)/.$(@F).d $(XEN_AFLAGS)
 
 include $(BASEDIR)/arch/$(TARGET_ARCH)/Rules.mk
 
-c_flags += $(CFLAGS-y)
+c_flags += $(CFLAGS-y) $(CFLAGS_$(target-stem).o)
 a_flags += $(CFLAGS-y) $(AFLAGS-y)
 
 quiet_cmd_ld_builtin = LD      $@
