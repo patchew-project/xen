@@ -6,6 +6,7 @@
 *.o
 *.d
 *.d2
+.*.cmd
 *.opic
 *.a
 *.so
