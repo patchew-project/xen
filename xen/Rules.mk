@@ -126,14 +126,21 @@ include $(BASEDIR)/arch/$(TARGET_ARCH)/Rules.mk
 c_flags += $(CFLAGS-y)
 a_flags += $(CFLAGS-y) $(AFLAGS-y)
 
-built_in.o: $(obj-y) $(extra-y)
+quiet_cmd_ld_builtin = LD      $@
+cmd_ld_builtin = \
+    $(LD) $(XEN_LDFLAGS) -r -o $@ $(filter-out $(extra-y),$(real-prereqs))
+quiet_cmd_cc_builtin = LD      $@
+cmd_cc_builtin = \
+    $(CC) $(XEN_CFLAGS) -c -x c /dev/null -o $@
+
+built_in.o: $(obj-y) $(extra-y) FORCE
 ifeq ($(obj-y),)
-	$(CC) $(c_flags) -c -x c /dev/null -o $@
+	$(call if_changed,cc_builtin)
 else
 ifeq ($(CONFIG_LTO),y)
 	$(LD_LTO) -r -o $@ $(filter-out $(extra-y),$^)
 else
-	$(LD) $(XEN_LDFLAGS) -r -o $@ $(filter-out $(extra-y),$^)
+	$(call if_changed,ld_builtin)
 endif
 endif
 
