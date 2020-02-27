@@ -1270,7 +1270,7 @@ static long
 gnttab_map_grant_ref(
     XEN_GUEST_HANDLE_PARAM(gnttab_map_grant_ref_t) uop, unsigned int count)
 {
-    int i;
+    unsigned int i;
     struct gnttab_map_grant_ref op;
 
     for ( i = 0; i < count; i++ )
@@ -1568,13 +1568,14 @@ static long
 gnttab_unmap_grant_ref(
     XEN_GUEST_HANDLE_PARAM(gnttab_unmap_grant_ref_t) uop, unsigned int count)
 {
-    int i, c, partial_done, done = 0;
+    unsigned int i, partial_done, done = 0;
     struct gnttab_unmap_grant_ref op;
     struct gnttab_unmap_common common[GNTTAB_UNMAP_BATCH_SIZE];
 
     while ( count != 0 )
     {
-        c = min(count, (unsigned int)GNTTAB_UNMAP_BATCH_SIZE);
+        unsigned int c = min(count, (unsigned int)GNTTAB_UNMAP_BATCH_SIZE);
+
         partial_done = 0;
 
         for ( i = 0; i < c; i++ )
@@ -1633,13 +1634,14 @@ static long
 gnttab_unmap_and_replace(
     XEN_GUEST_HANDLE_PARAM(gnttab_unmap_and_replace_t) uop, unsigned int count)
 {
-    int i, c, partial_done, done = 0;
+    unsigned int i, partial_done, done = 0;
     struct gnttab_unmap_and_replace op;
     struct gnttab_unmap_common common[GNTTAB_UNMAP_BATCH_SIZE];
 
     while ( count != 0 )
     {
-        c = min(count, (unsigned int)GNTTAB_UNMAP_BATCH_SIZE);
+        unsigned int c = min(count, (unsigned int)GNTTAB_UNMAP_BATCH_SIZE);
+
         partial_done = 0;
 
         for ( i = 0; i < c; i++ )
@@ -2142,7 +2144,7 @@ gnttab_transfer(
     struct domain *d = current->domain;
     struct domain *e;
     struct page_info *page;
-    int i;
+    unsigned int i;
     struct gnttab_transfer gop;
     mfn_t mfn;
     unsigned int max_bitsize;
@@ -3359,7 +3361,7 @@ static long
 gnttab_swap_grant_ref(XEN_GUEST_HANDLE_PARAM(gnttab_swap_grant_ref_t) uop,
                       unsigned int count)
 {
-    int i;
+    unsigned int i;
     gnttab_swap_grant_ref_t op;
 
     for ( i = 0; i < count; i++ )
