@@ -1775,6 +1775,91 @@ static int fork(struct domain *cd, struct domain *d)
     return rc;
 }
 
+/*
+ * The fork reset operation is intended to be used on short-lived forks only.
+ */
+static int fork_reset(struct domain *d, struct domain *cd,
+                      struct mem_sharing_op_fork_reset *fr)
+{
+    int rc = 0;
+    struct p2m_domain* p2m = p2m_get_hostp2m(cd);
+    struct page_info *page, *tmp;
+    unsigned long list_position = 0, preempt_count = 0, restart = fr->opaque;
+
+    domain_pause(cd);
+
+    page_list_for_each_safe(page, tmp, &cd->page_list)
+    {
+        p2m_type_t p2mt;
+        p2m_access_t p2ma;
+        gfn_t gfn;
+        mfn_t mfn;
+        bool shared = false;
+
+        list_position++;
+
+        /* Resume were we left of before preemption */
+        if ( restart && list_position < restart )
+            continue;
+
+        mfn = page_to_mfn(page);
+        if ( mfn_valid(mfn) )
+        {
+
+            gfn = mfn_to_gfn(cd, mfn);
+            mfn = __get_gfn_type_access(p2m, gfn_x(gfn), &p2mt, &p2ma,
+                                        0, NULL, false);
+
+            if ( p2m_is_ram(p2mt) && !p2m_is_shared(p2mt) )
+            {
+                /* take an extra reference, must work for a shared page */
+                if( !get_page(page, cd) )
+                {
+                    ASSERT_UNREACHABLE();
+                    return -EINVAL;
+                }
+
+                shared = true;
+                preempt_count += 0x10;
+
+                /*
+                 * Must succeed, it's a shared page that exists and
+                 * thus its size is guaranteed to be 4k so we are not splitting
+                 * large pages.
+                 */
+                rc = p2m->set_entry(p2m, gfn, INVALID_MFN, PAGE_ORDER_4K,
+                                    p2m_invalid, p2m_access_rwx, -1);
+                ASSERT(!rc);
+
+                put_page_alloc_ref(page);
+                put_page(page);
+            }
+        }
+
+        if ( !shared )
+            preempt_count++;
+
+        /* Preempt every 2MiB (shared) or 32MiB (unshared) - arbitrary. */
+        if ( preempt_count >= 0x2000 )
+        {
+            if ( hypercall_preempt_check() )
+            {
+                rc = -ERESTART;
+                break;
+            }
+            preempt_count = 0;
+        }
+    }
+
+    if ( rc )
+        fr->opaque = list_position;
+    else
+        rc = copy_settings(cd, d);
+
+    domain_unpause(cd);
+    return rc;
+}
+
 int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
 {
     int rc;
@@ -2063,6 +2148,36 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
                                                "lh", XENMEM_sharing_op,
                                                arg);
         rcu_unlock_domain(pd);
+        break;
+    }
+
+    case XENMEM_sharing_op_fork_reset:
+    {
+        struct domain *pd;
+
+        rc = -ENOSYS;
+        if ( !mem_sharing_is_fork(d) )
+            goto out;
+
+        rc = rcu_lock_live_remote_domain_by_id(d->parent->domain_id, &pd);
+        if ( rc )
+            goto out;
+
+        rc = fork_reset(pd, d, &mso.u.fork_reset);
+
+        rcu_unlock_domain(pd);
+
+        if ( rc > 0 )
+        {
+            if ( __copy_to_guest(arg, &mso, 1) )
+                rc = -EFAULT;
+            else
+                rc = hypercall_create_continuation(__HYPERVISOR_memory_op,
+                                                   "lh", XENMEM_sharing_op,
+                                                   arg);
+        }
+        else
+            mso.u.fork_reset.opaque = 0;
         break;
     }
 
