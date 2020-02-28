@@ -676,6 +676,12 @@ int create_domain(struct domain_create *dom_info)
 
     int restoring = (restore_file || (migrate_fd >= 0));
 
+#if defined(__i386__) || defined(__x86_64__)
+    /* VM forking */
+    uint32_t ddomid = dom_info->ddomid; // launch dm for this domain iff set
+    const char *dm_restore_file = dom_info->dm_restore_file;
+#endif
+
     libxl_domain_config_init(&d_config);
 
     if (restoring) {
@@ -926,6 +932,14 @@ start:
          * restore/migrate-receive it again.
          */
         restoring = 0;
+#if defined(__i386__) || defined(__x86_64__)
+    } else if ( ddomid ) {
+        d_config.dm_restore_file = dm_restore_file;
+        ret = libxl_domain_fork_launch_dm(ctx, &d_config, ddomid,
+                                          autoconnect_console_how);
+        domid = ddomid;
+        ddomid = INVALID_DOMID;
+#endif
     } else if (domid_soft_reset != INVALID_DOMID) {
         /* Do soft reset. */
         ret = libxl_domain_soft_reset(ctx, &d_config, domid_soft_reset,

@@ -1374,6 +1374,7 @@ typedef struct {
 
     char *saved_state;
     int dm_monitor_fd;
+    bool forked_vm;
 
     libxl__file_reference pv_kernel;
     libxl__file_reference pv_ramdisk;
@@ -4812,6 +4813,12 @@ _hidden int libxl__domain_pvcontrol(libxl__egc *egc,
 
 /* Check whether a domid is recent */
 int libxl__is_domid_recent(libxl__gc *gc, uint32_t domid, bool *recent);
+
+_hidden int libxl__do_domain_create(libxl_ctx *ctx, libxl_domain_config *d_config,
+                                    uint32_t *domid, int restore_fd, int send_back_fd,
+                                    const libxl_domain_restore_params *params,
+                                    const libxl_asyncop_how *ao_how,
+                                    const libxl_asyncprogress_how *aop_console_how);
 
 #endif
 
