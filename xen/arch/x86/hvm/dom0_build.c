@@ -491,6 +491,45 @@ static int __init pvh_populate_p2m(struct domain *d)
 #undef MB1_PAGES
 }
 
+static paddr_t find_memory(const struct domain *d, const struct elf_binary *elf,
+                           size_t size)
+{
+    paddr_t kernel_start = (paddr_t)elf->dest_base;
+    paddr_t kernel_end = (paddr_t)(elf->dest_base + elf->dest_size);
+    unsigned int i;
+
+    for ( i = 0; i < d->arch.nr_e820; i++ )
+    {
+        paddr_t start, end = d->arch.e820[i].addr + d->arch.e820[i].size;
+
+        /* Don't use memory below 1MB, as it could overwrite the BDA/EBDA. */
+        if ( end <= MB(1) || d->arch.e820[i].type != E820_RAM )
+            continue;
+
+        start = MAX(ROUNDUP(d->arch.e820[i].addr, PAGE_SIZE), MB(1));
+
+        if ( end <= kernel_start || start >= kernel_end )
+            ; /* No overlap, nothing to do. */
+        /* Deal with the kernel already being loaded in the region. */
+        else if ( kernel_start <= start && kernel_end > start )
+            /* Truncate the start of the region. */
+            start = ROUNDUP(kernel_end, PAGE_SIZE);
+        else if ( kernel_start <= end && kernel_end > end )
+            /* Truncate the end of the region. */
+            end = kernel_start;
+        /* Pick the biggest of the split regions. */
+        else if ( kernel_start - start > end - kernel_end )
+            end = kernel_start;
+        else
+            start = ROUNDUP(kernel_end, PAGE_SIZE);
+
+        if ( end - start >= size )
+            return start;
+    }
+
+    return INVALID_PADDR;
+}
+
 static int __init pvh_load_kernel(struct domain *d, const module_t *image,
                                   unsigned long image_headroom,
                                   module_t *initrd, void *image_base,
@@ -547,7 +586,24 @@ static int __init pvh_load_kernel(struct domain *d, const module_t *image,
         return rc;
     }
 
-    last_addr = ROUNDUP(parms.virt_kend - parms.virt_base, PAGE_SIZE);
+    /*
+     * Find a RAM region big enough (and that doesn't overlap with the loaded
+     * kernel) in order to load the initrd and the metadata. Note it could be
+     * split into smaller allocations, done it as a single region in order to
+     * simplify it.
+     */
+    last_addr = find_memory(d, &elf, sizeof(start_info) +
+                            (initrd ? ROUNDUP(initrd->mod_end, PAGE_SIZE) +
+                                      sizeof(mod)
+                                    : 0) +
+                            (cmdline ? ROUNDUP(strlen(cmdline) + 1,
+                                               elf_64bit(&elf) ? 8 : 4)
+                                     : 0));
+    if ( last_addr == INVALID_PADDR )
+    {
+        printk("Unable to find a memory region to load initrd and metadata\n");
+        return -ENOMEM;
+    }
 
     if ( initrd != NULL )
     {
