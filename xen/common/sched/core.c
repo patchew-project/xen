@@ -2415,7 +2415,8 @@ static struct sched_unit *sched_wait_rendezvous_in(struct sched_unit *prev,
 {
     struct sched_unit *next;
     struct vcpu *v;
-    unsigned int gran = get_sched_res(cpu)->granularity;
+    struct sched_resource *sr = get_sched_res(cpu);
+    unsigned int gran = sr->granularity;
 
     if ( !--prev->rendezvous_in_cnt )
     {
@@ -2482,6 +2483,19 @@ static struct sched_unit *sched_wait_rendezvous_in(struct sched_unit *prev,
             atomic_set(&prev->next_task->rendezvous_out_cnt, 0);
             prev->rendezvous_in_cnt = 0;
         }
+
+        /*
+         * Check for scheduling resourced switched. This happens when we are
+         * moved away from our cpupool and cpus are subject of the idle
+         * scheduler now.
+         */
+        if ( unlikely(sr != get_sched_res(cpu)) )
+        {
+            ASSERT(is_idle_unit(prev));
+            atomic_set(&prev->next_task->rendezvous_out_cnt, 0);
+            prev->rendezvous_in_cnt = 0;
+            return NULL;
+        }
     }
 
     return prev->next_task;
@@ -2538,7 +2552,10 @@ static void sched_slave(void)
 
     next = sched_wait_rendezvous_in(prev, &lock, cpu, now);
     if ( !next )
+    {
+        rcu_read_unlock(&sched_res_rculock);
         return;
+    }
 
     pcpu_schedule_unlock_irq(lock, cpu);
 
@@ -2567,10 +2584,10 @@ static void schedule(void)
 
     rcu_read_lock(&sched_res_rculock);
 
+    lock = pcpu_schedule_lock_irq(cpu);
+
     sr = get_sched_res(cpu);
     gran = sr->granularity;
-
-    lock = pcpu_schedule_lock_irq(cpu);
 
     if ( prev->rendezvous_in_cnt )
     {
@@ -2599,7 +2616,10 @@ static void schedule(void)
         cpumask_raise_softirq(mask, SCHED_SLAVE_SOFTIRQ);
         next = sched_wait_rendezvous_in(prev, &lock, cpu, now);
         if ( !next )
+        {
+            rcu_read_unlock(&sched_res_rculock);
             return;
+        }
     }
     else
     {
@@ -3151,7 +3171,10 @@ int schedule_cpu_rm(unsigned int cpu)
         per_cpu(sched_res_idx, cpu_iter) = 0;
         if ( cpu_iter == cpu )
         {
-            idle_vcpu[cpu_iter]->sched_unit->priv = NULL;
+            unit = idle_vcpu[cpu_iter]->sched_unit;
+            unit->priv = NULL;
+            atomic_set(&unit->next_task->rendezvous_out_cnt, 0);
+            unit->rendezvous_in_cnt = 0;
         }
         else
         {
@@ -3182,6 +3205,8 @@ int schedule_cpu_rm(unsigned int cpu)
     }
     sr->scheduler = &sched_idle_ops;
     sr->sched_priv = NULL;
+    sr->granularity = 1;
+    sr->cpupool = NULL;
 
     smp_mb();
     sr->schedule_lock = &sched_free_cpu_lock;
@@ -3193,9 +3218,6 @@ int schedule_cpu_rm(unsigned int cpu)
 
     sched_free_udata(old_ops, vpriv_old);
     sched_free_pdata(old_ops, ppriv_old, cpu);
-
-    sr->granularity = 1;
-    sr->cpupool = NULL;
 
 out:
     rcu_read_unlock(&sched_res_rculock);
