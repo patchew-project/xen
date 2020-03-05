@@ -2725,6 +2725,9 @@ skip_usbdev:
 
     parse_vkb_list(config, d_config);
 
+    xlu_cfg_get_defbool(config, "suspend_event_channel",
+                        &c_info->suspend_event_channel, 0);
+
     xlu_cfg_destroy(config);
 }
 

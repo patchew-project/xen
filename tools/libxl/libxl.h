@@ -1272,9 +1272,20 @@ void libxl_mac_copy(libxl_ctx *ctx, libxl_mac *dst, const libxl_mac *src);
  * LIBXL_HAVE_CREATEINFO_DOMID
  *
  * libxl_domain_create_new() and libxl_domain_create_restore() will use
- * a domid specified in libxl_domain_create_info().
+ * a domid specified in libxl_domain_create_info.
  */
 #define LIBXL_HAVE_CREATEINFO_DOMID
+
+/*
+ * LIBXL_HAVE_CREATEINFO_SUSPEND_EVENT_CHANNEL
+ *
+ * libxl_domain_create_info contains a boolean 'suspend_event_channel'
+ * value to control whether the xenstore path:
+ *
+ * /local/domain/$DOMID/device/suspend/event-channel (RW)
+ *
+ * is created.
+ */
 
 typedef char **libxl_string_list;
 void libxl_string_list_dispose(libxl_string_list *sl);
