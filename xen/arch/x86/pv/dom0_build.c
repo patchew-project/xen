@@ -743,7 +743,7 @@ int __init dom0_construct_pv(struct domain *d,
     clear_page(si);
     si->nr_pages = nr_pages;
 
-    si->shared_info = virt_to_maddr(d->shared_info);
+    si->shared_info = mfn_to_maddr(d->shared_info.mfn);
 
     if ( !pv_shim )
         si->flags    = SIF_PRIVILEGED | SIF_INITDOMAIN;
