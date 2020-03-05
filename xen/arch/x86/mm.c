@@ -1012,7 +1012,7 @@ get_page_from_l1e(
         unsigned long cacheattr = pte_flags_to_cacheattr(l1f);
         int err;
 
-        if ( is_xen_heap_page(page) )
+        if ( is_special_page(page) )
         {
             if ( write )
                 put_page_type(page);
@@ -2445,7 +2445,7 @@ static int cleanup_page_mappings(struct page_info *page)
     {
         page->count_info &= ~PGC_cacheattr_mask;
 
-        BUG_ON(is_xen_heap_page(page));
+        BUG_ON(is_special_page(page));
 
         rc = update_xen_mappings(mfn, 0);
     }
@@ -2475,7 +2475,7 @@ static int cleanup_page_mappings(struct page_info *page)
                 rc = rc2;
         }
 
-        if ( likely(!is_xen_heap_page(page)) )
+        if ( likely(!is_special_page(page)) )
         {
             ASSERT((page->u.inuse.type_info &
                     (PGT_type_mask | PGT_count_mask)) == PGT_writable_page);
@@ -4214,8 +4214,7 @@ int steal_page(
     if ( !(owner = page_get_owner_and_reference(page)) )
         goto fail;
 
-    if ( owner != d || is_xen_heap_page(page) ||
-         (page->count_info & PGC_extra) )
+    if ( owner != d || is_special_page(page) )
         goto fail_put;
 
     /*
