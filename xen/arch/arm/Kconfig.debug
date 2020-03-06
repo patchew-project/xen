@@ -1,0 +1,208 @@
+choice
+	bool "UART drivers for early printk"
+	optional
+	help
+		Choose one of the UART driver, then you'll have to specifie the
+		parameters, like the base address.
+
+		Alternatively, there are platform specific options
+	config EARLY_UART_CHOICE_8250
+		select EARLY_UART_8250
+		bool "8250 driver"
+	config EARLY_UART_CHOICE_CADENCE
+		select EARLY_UART_CADENCE
+		depends on ARM_64
+		bool "Enable early printk via Cadence UART"
+	config EARLY_UART_CHOICE_EXYNOS4210
+		select EARLY_UART_EXYNOS4210
+		depends on ARM_32
+		bool "exynos 4210 driver"
+	config EARLY_UART_CHOICE_MESON
+		select EARLY_UART_MESON
+		depends on ARM_64
+		bool "meson driver"
+	config EARLY_UART_CHOICE_MVEBU
+		select EARLY_UART_MVEBU
+		depends on ARM_64
+		bool "mvebu driver"
+	config EARLY_UART_CHOICE_PL011
+		select EARLY_UART_PL011
+		bool "pl011 driver"
+	config EARLY_UART_CHOICE_SCIF
+		select EARLY_UART_SCIF
+		bool "scif driver"
+endchoice
+
+
+choice
+	bool "Enable early printk for a specific platform (deprecated)"
+	depends on !(EARLY_UART_CHOICE_8250 || EARLY_UART_CHOICE_CADENCE || EARLY_UART_CHOICE_EXYNOS4210 || EARLY_UART_CHOICE_MESON || EARLY_UART_CHOICE_MVEBU || EARLY_UART_CHOICE_PL011 || EARLY_UART_CHOICE_SCIF)
+	optional
+	help
+		Those are platform specific options for early printk. This are
+		deprecated and will soon be removed.
+
+		Select a UART driver instead.
+
+	config EARLY_PRINTK_BRCM
+		bool "printk with 8250 on Broadcom 7445D0 boards with A15 processors"
+		select EARLY_UART_8250
+	config EARLY_PRINTK_DRA7
+		bool "printk with 8250 on DRA7 platform"
+		select EARLY_UART_8250
+	config EARLY_PRINTK_EXYNOS5250
+		bool "printk with the second UART on Exynos5250"
+		select EARLY_UART_EXYNOS4210
+		depends on ARM_32
+	config EARLY_PRINTK_FASTMODEL
+		bool "printk on ARM Fastmodel software emulators"
+		select EARLY_UART_PL011
+	config EARLY_PRINTK_HIKEY960
+		bool "printk with pl011 with Hikey 960"
+		select EARLY_UART_PL011
+	config EARLY_PRINTK_JUNO
+		bool "printk with pl011 on Juno platform"
+		select EARLY_UART_PL011
+	config EARLY_PRINTK_LAGER
+		bool "printk with SCIF0 on Renesas Lager board (R-Car H2 processor)"
+		select EARLY_UART_SCIF
+	config EARLY_PRINTK_MIDWAY
+		bool "printk with the pl011 on Calxeda Midway processors"
+		select EARLY_UART_PL011
+	config EARLY_PRINTK_MVEBU
+		bool "printk with the MVEBU for Marvell Armada 3700 SoCs"
+		select EARLY_UART_MVEBU
+		depends on ARM_64
+	config EARLY_PRINTK_OMAP5432
+		bool "printk with UART3 on TI OMAP5432 processors"
+		select EARLY_UART_8250
+	config EARLY_PRINTK_RCAR3
+		bool "printk with SCIF2 on Renesas R-Car Gen3 processors"
+		select EARLY_UART_SCIF
+	config EARLY_PRINTK_SEATTLE
+		bool "printk with pl011 for AMD Seattle processor"
+		select EARLY_UART_PL011
+	config EARLY_PRINTK_SUN6I
+		bool "printk with 8250 on Allwinner A31 processors"
+		select EARLY_UART_8250
+	config EARLY_PRINTK_SUN7I
+		bool "printk with 8250 on Allwinner A20 processors"
+		select EARLY_UART_8250
+	config EARLY_PRINTK_THUNDERX
+		bool "printk with pl011 for Cavium ThunderX processor"
+		select EARLY_UART_PL011
+	config EARLY_PRINTK_VEXPRESS
+		bool "printk with pl011 for versatile express"
+		select EARLY_UART_PL011
+	config EARLY_PRINTK_XGENE_MCDIVITT
+		bool "printk with 820 on Xgene mcdivitt platform"
+		select EARLY_UART_8250
+	config EARLY_PRINTK_XGENE_STORM
+		bool "printk with 820 on Xgene storm platform"
+		select EARLY_UART_8250
+	config EARLY_PRINTK_ZYNQMP
+		bool "printk with Cadence UART for Xilinx ZynqMP SoCs"
+		select EARLY_UART_CADENCE
+		depends on ARM_64
+		help
+		  Say Y here if you want the early printk support on Xilinx
+		  ZynQMP platform.
+
+endchoice
+
+
+config EARLY_UART_8250
+	bool
+config EARLY_UART_CADENCE
+	bool
+config EARLY_UART_EXYNOS4210
+	bool
+config EARLY_UART_MESON
+	bool
+config EARLY_UART_MVEBU
+	bool
+config EARLY_UART_PL011
+	bool
+config EARLY_UART_SCIF
+	bool
+
+config EARLY_PRINTK
+	depends on EARLY_UART_8250 || EARLY_UART_CADENCE || EARLY_UART_EXYNOS4210 || EARLY_UART_MESON || EARLY_UART_MVEBU || EARLY_UART_PL011 || EARLY_UART_SCIF
+	def_bool y
+
+config EARLY_UART_BASE_ADDRESS
+	depends on EARLY_UART_8250 || EARLY_UART_CADENCE || EARLY_UART_EXYNOS4210 || EARLY_UART_MESON || EARLY_UART_MVEBU || EARLY_UART_PL011 || EARLY_UART_SCIF
+	hex "Physical base address of debug UART"
+	default 0xF040AB00 if EARLY_PRINTK_BRCM
+	default 0x4806A000 if EARLY_PRINTK_DRA7
+	default 0x1c090000 if EARLY_PRINTK_FASTMODEL
+	default 0x12c20000 if EARLY_PRINTK_EXYNOS5250
+	default 0xfff32000 if EARLY_PRINTK_HIKEY960
+	default 0x7ff80000 if EARLY_PRINTK_JUNO
+	default 0xe6e60000 if EARLY_PRINTK_LAGER
+	default 0xfff36000 if EARLY_PRINTK_MIDWAY
+	default 0xd0012000 if EARLY_PRINTK_MVEBU
+	default 0x48020000 if EARLY_PRINTK_OMAP5432
+	default 0xe6e88000 if EARLY_PRINTK_RCAR3
+	default 0xe1010000 if EARLY_PRINTK_SEATTLE
+	default 0x01c28000 if EARLY_PRINTK_SUN6I
+	default 0x01c28000 if EARLY_PRINTK_SUN7I
+	default 0x87e024000000 if EARLY_PRINTK_THUNDERX
+	default 0x1c090000 if EARLY_PRINTK_VEXPRESS
+	default 0x1c021000 if EARLY_PRINTK_XGENE_MCDIVITT
+	default 0x1c020000 if EARLY_PRINTK_XGENE_STORM
+	default 0xff000000 if EARLY_PRINTK_ZYNQMP
+
+config EARLY_UART_INIT
+	depends on EARLY_UART_PL011
+	bool "Initialize UART early"
+	default y if EARLY_PRINTK_FASTMODEL
+	help
+		Select N to keep the settings that the bootloader or firmware
+		have selected, for maximum compatibility.
+
+		Select Y to initialize the UART with a new baud rate.
+
+config EARLY_UART_BAUD_RATE
+	depends on EARLY_UART_PL011 && EARLY_UART_INIT
+	int "Early printk UART baud rate"
+	help
+		Sets the baud rate which should be used to configure the UART
+		at start of day.
+
+		To avoid initialize the UART and reuse the bootloader or
+		firmware settings, set CONFIG_EARLY_UART_INIT to N (for maximum
+		compatibility).
+	default 115200 if EARLY_PRINTK_FASTMODEL
+
+config EARLY_UART_8250_REG_SHIFT
+	depends on EARLY_UART_8250
+	int "left-shift to apply to the register offsets within the uart"
+	default 2 if EARLY_PRINTK_BRCM
+	default 2 if EARLY_PRINTK_DRA7
+	default 2 if EARLY_PRINTK_OMAP5432
+	default 2 if EARLY_PRINTK_SUN6I
+	default 2 if EARLY_PRINTK_SUN7I
+	default 2 if EARLY_PRINTK_XGENE_MCDIVITT
+	default 2 if EARLY_PRINTK_XGENE_STORM
+	default 0
+
+choice EARLY_UART_SCIF_VERSION
+	prompt "UART SCIF interface version"
+	depends on EARLY_UART_SCIF
+	default EARLY_UART_SCIF_VERSION_NONE
+	config EARLY_UART_SCIF_VERSION_NONE
+		bool "default scif interface"
+	config EARLY_UART_SCIF_VERSION_A
+		bool "SCIF interface version A"
+endchoice
+
+config EARLY_PRINTK_INC
+	string
+	default "debug-8250.inc" if EARLY_UART_8250
+	default "debug-cadence.inc" if EARLY_UART_CADENCE
+	default "debug-exynos4210.inc" if EARLY_UART_EXYNOS4210
+	default "debug-meson.inc" if EARLY_UART_MESON
+	default "debug-mvebu.inc" if EARLY_UART_MVEBU
+	default "debug-pl011.inc" if EARLY_UART_PL011
+	default "debug-scif.inc" if EARLY_UART_SCIF
