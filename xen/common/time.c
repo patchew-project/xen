@@ -110,9 +110,9 @@ void update_domain_wallclock_time(struct domain *d)
     shared_info(d, wc_nsec)   = wc_nsec;
 #ifdef CONFIG_X86
     if ( likely(!has_32bit_shinfo(d)) )
-        d->shared_info->native.wc_sec_hi = sec >> 32;
+        d->shared_info.virt->native.wc_sec_hi = sec >> 32;
     else
-        d->shared_info->compat.arch.wc_sec_hi = sec >> 32;
+        d->shared_info.virt->compat.arch.wc_sec_hi = sec >> 32;
 #else
     shared_info(d, wc_sec_hi) = sec >> 32;
 #endif

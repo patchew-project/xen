@@ -43,7 +43,7 @@ typedef struct vcpu_info vcpu_info_t;
 
 extern vcpu_info_t dummy_vcpu_info;
 
-#define shared_info(d, field)      __shared_info(d, (d)->shared_info, field)
+#define shared_info(d, field)      __shared_info(d, (d)->shared_info.virt, field)
 #define vcpu_info(v, field)        __vcpu_info(v, (v)->vcpu_info, field)
 
 #endif /* __XEN_SHARED_H__ */

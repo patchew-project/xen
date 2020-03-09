@@ -47,6 +47,10 @@
 #include <asm/guest.h>
 #endif
 
+/* Override macros from asm/page.h to make them work with mfn_t */
+#undef virt_to_mfn
+#define virt_to_mfn(v) _mfn(__virt_to_mfn(v))
+
 /* Linux config option: propageted to domain0 */
 /* xen_processor_pmbits: xen control Cx, Px, ... */
 unsigned int xen_processor_pmbits = XEN_PROCESSOR_PM_PX;
@@ -1642,6 +1646,28 @@ int continue_hypercall_on_cpu(
 
     /* Dummy return value will be overwritten by tasklet. */
     return 0;
+}
+
+int alloc_shared_info(struct domain *d, unsigned int memflags)
+{
+    if ( (d->shared_info.virt = alloc_xenheap_pages(0, memflags)) == NULL )
+        return -ENOMEM;
+
+    d->shared_info.mfn = virt_to_mfn(d->shared_info.virt);
+
+    clear_page(d->shared_info.virt);
+    share_xen_page_with_guest(mfn_to_page(d->shared_info.mfn), d, SHARE_rw);
+
+    return 0;
+}
+
+void free_shared_info(struct domain *d)
+{
+    if ( !d->shared_info.virt )
+        return;
+
+    free_xenheap_page(d->shared_info.virt);
+    d->shared_info.virt = NULL;
 }
 
 /*
