@@ -282,7 +282,7 @@ static void write_start_info(struct domain *d)
     snprintf(si->magic, sizeof(si->magic), "xen-3.0-x86_%s",
              is_pv_32bit_domain(d) ? "32p" : "64");
     si->nr_pages = domain_tot_pages(d);
-    si->shared_info = virt_to_maddr(d->shared_info);
+    si->shared_info = mfn_to_maddr(d->shared_info.mfn);
     si->flags = 0;
     BUG_ON(xen_hypercall_hvm_get_param(HVM_PARAM_STORE_PFN, &si->store_mfn));
     BUG_ON(xen_hypercall_hvm_get_param(HVM_PARAM_STORE_EVTCHN, &param));

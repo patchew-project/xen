@@ -689,12 +689,8 @@ int arch_domain_create(struct domain *d,
     if ( (rc = p2m_init(d)) != 0 )
         goto fail;
 
-    rc = -ENOMEM;
-    if ( (d->shared_info = alloc_xenheap_pages(0, 0)) == NULL )
+    if ( (rc = alloc_shared_info(d, 0)) != 0 )
         goto fail;
-
-    clear_page(d->shared_info);
-    share_xen_page_with_guest(virt_to_page(d->shared_info), d, SHARE_rw);
 
     switch ( config->arch.gic_version )
     {
@@ -766,7 +762,7 @@ void arch_domain_destroy(struct domain *d)
     p2m_teardown(d);
     domain_vgic_free(d);
     domain_vuart_free(d);
-    free_xenheap_page(d->shared_info);
+    free_shared_info(d);
 #ifdef CONFIG_ACPI
     free_xenheap_pages(d->arch.efi_acpi_table,
                        get_order_from_bytes(d->arch.efi_acpi_len));

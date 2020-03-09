@@ -611,11 +611,8 @@ int arch_domain_create(struct domain *d,
      * The shared_info machine address must fit in a 32-bit field within a
      * 32-bit guest's start_info structure. Hence we specify MEMF_bits(32).
      */
-    if ( (d->shared_info = alloc_xenheap_pages(0, MEMF_bits(32))) == NULL )
+    if ( (rc = alloc_shared_info(d, MEMF_bits(32))) != 0 )
         goto fail;
-
-    clear_page(d->shared_info);
-    share_xen_page_with_guest(virt_to_page(d->shared_info), d, SHARE_rw);
 
     if ( (rc = init_domain_irq_mapping(d)) != 0 )
         goto fail;
@@ -664,7 +661,7 @@ int arch_domain_create(struct domain *d,
     psr_domain_free(d);
     iommu_domain_destroy(d);
     cleanup_domain_irq_mapping(d);
-    free_xenheap_page(d->shared_info);
+    free_shared_info(d);
     xfree(d->arch.cpuid);
     xfree(d->arch.msr);
     if ( paging_initialised )
@@ -693,7 +690,7 @@ void arch_domain_destroy(struct domain *d)
         pv_domain_destroy(d);
     free_perdomain_mappings(d);
 
-    free_xenheap_page(d->shared_info);
+    free_shared_info(d);
     cleanup_domain_irq_mapping(d);
 
     psr_domain_free(d);
@@ -719,7 +716,7 @@ void arch_domain_unpause(struct domain *d)
 
 int arch_domain_soft_reset(struct domain *d)
 {
-    struct page_info *page = virt_to_page(d->shared_info), *new_page;
+    struct page_info *page = mfn_to_page(d->shared_info.mfn), *new_page;
     int ret = 0;
     struct domain *owner;
     mfn_t mfn;

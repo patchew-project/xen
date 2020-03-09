@@ -1424,7 +1424,7 @@ int xenmem_add_to_physmap_one(
         if ( idx != 0 )
             return -EINVAL;
 
-        mfn = virt_to_mfn(d->shared_info);
+        mfn = d->shared_info.mfn;
         t = p2m_ram_rw;
 
         break;
