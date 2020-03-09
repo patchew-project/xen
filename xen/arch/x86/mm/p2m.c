@@ -2843,6 +2843,9 @@ void audit_p2m(struct domain *d,
     spin_lock(&d->page_alloc_lock);
     page_list_for_each ( page, &d->page_list )
     {
+        if ( page->count_info & PGC_extra )
+            continue;
+
         mfn = mfn_x(page_to_mfn(page));
 
         P2M_PRINTK("auditing guest page, mfn=%#lx\n", mfn);

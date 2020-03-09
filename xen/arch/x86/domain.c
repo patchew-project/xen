@@ -231,6 +231,9 @@ void dump_pageframe_info(struct domain *d)
             unsigned int index = MASK_EXTR(page->u.inuse.type_info,
                                            PGT_type_mask);
 
+            if ( page->count_info & PGC_extra )
+                continue;
+
             if ( ++total[index] > 16 )
             {
                 switch ( page->u.inuse.type_info & PGT_type_mask )
@@ -1044,7 +1047,8 @@ int arch_set_info_guest(
             {
                 struct page_info *page = page_list_remove_head(&d->page_list);
 
-                if ( page_lock(page) )
+                if ( !(page->count_info & PGC_extra) &&
+                     page_lock(page) )
                 {
                     if ( (page->u.inuse.type_info & PGT_type_mask) ==
                          PGT_l4_page_table )
