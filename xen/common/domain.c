@@ -1650,24 +1650,54 @@ int continue_hypercall_on_cpu(
 
 int alloc_shared_info(struct domain *d, unsigned int memflags)
 {
-    if ( (d->shared_info.virt = alloc_xenheap_pages(0, memflags)) == NULL )
+    struct page_info *pg;
+
+    pg = alloc_domheap_page(d, MEMF_no_refcount | memflags);
+    if ( !pg )
         return -ENOMEM;
 
-    d->shared_info.mfn = virt_to_mfn(d->shared_info.virt);
+    if ( !get_page_and_type(pg, d, PGT_writable_page) )
+    {
+        /*
+         * The domain should not be running at this point so there is
+         * no way we should reach this error path.
+         */
+        ASSERT_UNREACHABLE();
+        return -ENODATA;
+    }
+
+    d->shared_info.mfn = page_to_mfn(pg);
+    d->shared_info.virt = __map_domain_page_global(pg);
 
     clear_page(d->shared_info.virt);
-    share_xen_page_with_guest(mfn_to_page(d->shared_info.mfn), d, SHARE_rw);
 
     return 0;
 }
 
 void free_shared_info(struct domain *d)
 {
+    struct page_info *pg;
+
     if ( !d->shared_info.virt )
         return;
 
-    free_xenheap_page(d->shared_info.virt);
+    unmap_domain_page_global(d->shared_info.virt);
     d->shared_info.virt = NULL;
+
+    pg = mfn_to_page(d->shared_info.mfn);
+
+    put_page_alloc_ref(pg);
+    put_page_and_type(pg);
+}
+
+void dump_shared_info(struct domain *d)
+{
+    domain_lock(d);
+
+    if ( d->shared_info.virt )
+        printk("Shared Info: %"PRI_mfn"\n", mfn_x(d->shared_info.mfn));
+
+    domain_unlock(d);
 }
 
 /*

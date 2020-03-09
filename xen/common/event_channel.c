@@ -1325,6 +1325,9 @@ void evtchn_destroy(struct domain *d)
 {
     unsigned int i;
 
+    /* This must be done before shared_info is freed */
+    BUG_ON(!d->shared_info.virt);
+
     /* After this barrier no new event-channel allocations can occur. */
     BUG_ON(!d->is_dying);
     spin_barrier(&d->event_lock);

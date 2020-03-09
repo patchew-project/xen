@@ -261,6 +261,8 @@ void dump_pageframe_info(struct domain *d)
                page->count_info, page->u.inuse.type_info);
     }
     spin_unlock(&d->page_alloc_lock);
+
+    dump_shared_info(d);
 }
 
 void update_guest_memory_policy(struct vcpu *v,
@@ -693,7 +695,6 @@ void arch_domain_destroy(struct domain *d)
         pv_domain_destroy(d);
     free_perdomain_mappings(d);
 
-    free_shared_info(d);
     cleanup_domain_irq_mapping(d);
 
     psr_domain_free(d);
@@ -2248,6 +2249,8 @@ int domain_relinquish_resources(struct domain *d)
 
     if ( is_hvm_domain(d) )
         hvm_domain_relinquish_resources(d);
+
+    free_shared_info(d);
 
     return 0;
 }
