@@ -220,7 +220,12 @@ static void tboot_gen_domain_integrity(const uint8_t key[TB_KEY_SIZE],
         spin_lock(&d->page_alloc_lock);
         page_list_for_each(page, &d->page_list)
         {
-            void *pg = __map_domain_page(page);
+            void *pg;
+
+            if ( page->count_info & PGC_extra )
+                continue;
+
+            pg = __map_domain_page(page);
             vmac_update(pg, PAGE_SIZE, &ctx);
             unmap_domain_page(pg);
         }

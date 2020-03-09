@@ -428,6 +428,9 @@ static void dump_numa(unsigned char key)
         spin_lock(&d->page_alloc_lock);
         page_list_for_each(page, &d->page_list)
         {
+            if ( page->count_info & PGC_extra )
+                break;
+
             i = phys_to_nid(page_to_maddr(page));
             page_num_node[i]++;
         }
