@@ -1680,9 +1680,22 @@ static irq_guest_action_t *__pirq_guest_unbind(
 
     BUG_ON(!(desc->status & IRQ_GUEST));
 
-    for ( i = 0; (i < action->nr_guests) && (action->guest[i] != d); i++ )
-        continue;
-    BUG_ON(i == action->nr_guests);
+    for ( i = 0; i < action->nr_guests; i++ )
+        if ( action->guest[i] == d )
+            break;
+
+    if ( i == action->nr_guests ) /* No matching entry */
+    {
+        /*
+         * In case the pirq was shared, unbound for this domain in an earlier
+         * call, but still existed on the domain's pirq_tree, we still reach
+         * here if there are any later unbind calls on the same pirq. Return
+         * if such an unbind happens.
+         */
+        BUG_ON(!action->shareable);
+        return NULL;
+    }
+
     memmove(&action->guest[i], &action->guest[i+1],
             (action->nr_guests-i-1) * sizeof(action->guest[0]));
     action->nr_guests--;
