@@ -41,7 +41,9 @@ claim_lock()
     # from chiark-utils, except using flock.  It has the benefit of
     # it being possible to safely remove the lockfile when done.
     # See below for a correctness proof.
-    local rightfile
+    local stat
+    local fd_stat
+    local file_stat
     while true; do
         eval "exec $_lockfd<>$_lockfile"
         flock -x $_lockfd || return $?
@@ -50,16 +52,20 @@ claim_lock()
         # actually a synthetic symlink in /proc and we aren't
         # guaranteed that our stat(2) won't lose the race with an
         # rm(1) between reading the synthetic link and traversing the
-        # file system to find the inum.  Perl is very fast so use that.
-        rightfile=$( perl -e '
-            open STDIN, "<&'$_lockfd'" or die $!;
-            my $fd_inum = (stat STDIN)[1]; die $! unless defined $fd_inum;
-            my $file_inum = (stat $ARGV[0])[1];
-            print "y\n" if $fd_inum eq $file_inum;
-                             ' "$_lockfile" )
-        if [ x$rightfile = xy ]; then break; fi
-	# Some versions of bash appear to be buggy if the same
-	# $_lockfile is opened repeatedly. Close the current fd here.
+        # file system to find the inum.  stat(1) translates '-' into an
+        # fstat(2) of FD 0.  So we just need to arrange the FDs properly
+        # to get the fstat(2) we need.  stat will output two lines like:
+        # WW.XXX
+        # YY.ZZZ
+        # which need to be separated and compared.
+        stat=$( stat -L -c '%D.%i' - $_lockfile 0<&$_lockfd 2>/dev/null || : )
+        if [ -n "$stat" ]; then
+            fd_stat=$( echo "$stat" | sed -n '1p' )
+            file_stat=$( echo "$stat" | sed -n '2p' )
+            if [ "$fd_stat" = "$file_stat" ] ; then break; fi
+        fi
+        # Some versions of bash appear to be buggy if the same
+        # $_lockfile is opened repeatedly. Close the current fd here.
         eval "exec $_lockfd<&-"
     done
 }
