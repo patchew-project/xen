@@ -99,6 +99,18 @@ void update_domain_wallclock_time(struct domain *d)
     uint32_t *wc_version;
     uint64_t sec;
 
+    if ( d != current->domain )
+    {
+        /*
+         * We need to check is_dying here as, if it is set, the
+         * shared_info may have been freed. To do this safely we need
+         * hold the domain lock.
+         */
+        domain_lock(d);
+        if ( d->is_dying )
+            goto unlock;
+    }
+
     spin_lock(&wc_lock);
 
     wc_version = &shared_info(d, wc_version);
@@ -121,6 +133,9 @@ void update_domain_wallclock_time(struct domain *d)
     *wc_version = version_update_end(*wc_version);
 
     spin_unlock(&wc_lock);
+ unlock:
+    if ( d != current->domain )
+        domain_unlock(d);
 }
 
 /* Set clock to <secs,usecs> after 00:00:00 UTC, 1 January, 1970. */

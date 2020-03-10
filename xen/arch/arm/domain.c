@@ -1005,6 +1005,8 @@ int domain_relinquish_resources(struct domain *d)
         BUG();
     }
 
+    free_shared_info(d);
+
     return 0;
 }
 

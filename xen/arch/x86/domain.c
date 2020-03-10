@@ -260,9 +260,12 @@ void dump_pageframe_info(struct domain *d)
 
     page_list_for_each ( page, &d->extra_page_list )
     {
-        printk("    ExtraPage %p: caf=%08lx, taf=%" PRtype_info "\n",
+        const char *tag = mfn_eq(page_to_mfn(page), d->shared_info.mfn) ?
+            "[SHARED INFO]" : "";
+
+        printk("    ExtraPage %p: caf=%08lx, taf=%" PRtype_info " %s\n",
                _p(mfn_x(page_to_mfn(page))),
-               page->count_info, page->u.inuse.type_info);
+               page->count_info, page->u.inuse.type_info, tag);
     }
     spin_unlock(&d->page_alloc_lock);
 }
@@ -697,7 +700,6 @@ void arch_domain_destroy(struct domain *d)
         pv_domain_destroy(d);
     free_perdomain_mappings(d);
 
-    free_shared_info(d);
     cleanup_domain_irq_mapping(d);
 
     psr_domain_free(d);
@@ -2251,6 +2253,8 @@ int domain_relinquish_resources(struct domain *d)
 
     if ( is_hvm_domain(d) )
         hvm_domain_relinquish_resources(d);
+
+    free_shared_info(d);
 
     return 0;
 }
