@@ -418,7 +418,7 @@ static void dump_numa(unsigned char key)
     printk("Memory location of each domain:\n");
     for_each_domain ( d )
     {
-        process_pending_softirqs();
+        process_pending_softirqs_norcu();
 
         printk("Domain %u (total: %u):\n", d->domain_id, domain_tot_pages(d));
 
@@ -462,7 +462,7 @@ static void dump_numa(unsigned char key)
             for ( j = 0; j < d->max_vcpus; j++ )
             {
                 if ( !(j & 0x3f) )
-                    process_pending_softirqs();
+                    process_pending_softirqs_norcu();
 
                 if ( vnuma->vcpu_to_vnode[j] == i )
                 {

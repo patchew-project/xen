@@ -2646,7 +2646,7 @@ static void vtd_dump_p2m_table_level(paddr_t pt_maddr, int level, paddr_t gpa,
     for ( i = 0; i < PTE_NUM; i++ )
     {
         if ( !(i % 2) )
-            process_pending_softirqs();
+            process_pending_softirqs_norcu();
 
         pte = &pt_vaddr[i];
         if ( !dma_pte_present(*pte) )

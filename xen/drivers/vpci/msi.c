@@ -321,13 +321,13 @@ void vpci_dump_msi(void)
                      * holding the lock.
                      */
                     printk("unable to print all MSI-X entries: %d\n", rc);
-                    process_pending_softirqs();
+                    process_pending_softirqs_norcu();
                     continue;
                 }
             }
 
             spin_unlock(&pdev->vpci->lock);
-            process_pending_softirqs();
+            process_pending_softirqs_norcu();
         }
     }
     rcu_read_unlock(&domlist_read_lock);

@@ -587,7 +587,7 @@ static void amd_dump_p2m_table_level(struct page_info* pg, int level,
         struct amd_iommu_pte *pde = &table_vaddr[index];
 
         if ( !(index % 2) )
-            process_pending_softirqs();
+            process_pending_softirqs_norcu();
 
         if ( !pde->pr )
             continue;

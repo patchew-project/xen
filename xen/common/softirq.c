@@ -25,7 +25,7 @@ static softirq_handler softirq_handlers[NR_SOFTIRQS];
 static DEFINE_PER_CPU(cpumask_t, batch_mask);
 static DEFINE_PER_CPU(unsigned int, batching);
 
-static void __do_softirq(unsigned long ignore_mask)
+static void __do_softirq(unsigned long ignore_mask, bool rcu_allowed)
 {
     unsigned int i, cpu;
     unsigned long pending;
@@ -38,7 +38,7 @@ static void __do_softirq(unsigned long ignore_mask)
          */
         cpu = smp_processor_id();
 
-        if ( rcu_pending(cpu) )
+        if ( rcu_allowed && rcu_pending(cpu) )
             rcu_check_callbacks(cpu);
 
         if ( ((pending = (softirq_pending(cpu) & ~ignore_mask)) == 0)
@@ -55,13 +55,22 @@ void process_pending_softirqs(void)
 {
     ASSERT(!in_irq() && local_irq_is_enabled());
     /* Do not enter scheduler as it can preempt the calling context. */
-    __do_softirq((1ul << SCHEDULE_SOFTIRQ) | (1ul << SCHED_SLAVE_SOFTIRQ));
+    __do_softirq((1ul << SCHEDULE_SOFTIRQ) | (1ul << SCHED_SLAVE_SOFTIRQ),
+                 true);
+}
+
+void process_pending_softirqs_norcu(void)
+{
+    ASSERT(!in_irq() && local_irq_is_enabled());
+    /* Do not enter scheduler as it can preempt the calling context. */
+    __do_softirq((1ul << SCHEDULE_SOFTIRQ) | (1ul << SCHED_SLAVE_SOFTIRQ) |
+                 (1ul << RCU_SOFTIRQ), false);
 }
 
 void do_softirq(void)
 {
     ASSERT_NOT_IN_ATOMIC();
-    __do_softirq(0);
+    __do_softirq(0, true);
 }
 
 void open_softirq(int nr, softirq_handler handler)
