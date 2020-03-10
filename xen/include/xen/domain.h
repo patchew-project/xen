@@ -130,4 +130,7 @@ struct vnuma_info {
 
 void vnuma_destroy(struct vnuma_info *vnuma);
 
+int alloc_shared_info(struct domain *d, unsigned int memflags);
+void free_shared_info(struct domain *d);
+
 #endif /* __XEN_DOMAIN_H__ */

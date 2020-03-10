@@ -321,7 +321,10 @@ struct domain
     unsigned int     max_vcpus;
     struct vcpu    **vcpu;
 
-    shared_info_t   *shared_info;     /* shared data area */
+    struct {
+        mfn_t mfn;
+        shared_info_t *virt;
+    } shared_info; /* shared data area */
 
     rcu_read_lock_t  rcu_lock;
 

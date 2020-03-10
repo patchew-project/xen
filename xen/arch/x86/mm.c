@@ -4540,7 +4540,7 @@ int xenmem_add_to_physmap_one(
     {
         case XENMAPSPACE_shared_info:
             if ( idx == 0 )
-                mfn = virt_to_mfn(d->shared_info);
+                mfn = d->shared_info.mfn;
             break;
         case XENMAPSPACE_grant_table:
             rc = gnttab_map_frame(d, idx, gpfn, &mfn);

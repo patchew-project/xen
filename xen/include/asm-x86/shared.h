@@ -1,24 +1,25 @@
 #ifndef __XEN_X86_SHARED_H__
 #define __XEN_X86_SHARED_H__
 
-#define nmi_reason(d) (!has_32bit_shinfo(d) ?                             \
-                       (u32 *)&(d)->shared_info->native.arch.nmi_reason : \
-                       (u32 *)&(d)->shared_info->compat.arch.nmi_reason)
+#define nmi_reason(d)                                           \
+    (!has_32bit_shinfo(d) ?                                     \
+     (u32 *)&(d)->shared_info.virt->native.arch.nmi_reason :    \
+     (u32 *)&(d)->shared_info.virt->compat.arch.nmi_reason)
 
 #define GET_SET_SHARED(type, field)                             \
 static inline type arch_get_##field(const struct domain *d)     \
 {                                                               \
     return !has_32bit_shinfo(d) ?                               \
-           d->shared_info->native.arch.field :                  \
-           d->shared_info->compat.arch.field;                   \
+           d->shared_info.virt->native.arch.field :             \
+           d->shared_info.virt->compat.arch.field;              \
 }                                                               \
 static inline void arch_set_##field(struct domain *d,           \
                                     type val)                   \
 {                                                               \
     if ( !has_32bit_shinfo(d) )                                 \
-        d->shared_info->native.arch.field = val;                \
+        d->shared_info.virt->native.arch.field = val;           \
     else                                                        \
-        d->shared_info->compat.arch.field = val;                \
+        d->shared_info.virt->compat.arch.field = val;           \
 }
 
 #define GET_SET_VCPU(type, field)                               \
