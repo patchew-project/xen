@@ -21,13 +21,15 @@
 
 #include <xen/preempt.h>
 #include <xen/irq.h>
+#include <xen/rcupdate.h>
 #include <asm/system.h>
 
 DEFINE_PER_CPU(unsigned int, __preempt_count);
 
 bool_t in_atomic(void)
 {
-    return preempt_count() || in_irq() || !local_irq_is_enabled();
+    return preempt_count() || in_irq() || !local_irq_is_enabled() ||
+           !rcu_quiesce_allowed();
 }
 
 #ifndef NDEBUG
@@ -36,5 +38,6 @@ void ASSERT_NOT_IN_ATOMIC(void)
     ASSERT(!preempt_count());
     ASSERT(!in_irq());
     ASSERT(local_irq_is_enabled());
+    ASSERT(rcu_quiesce_allowed());
 }
 #endif
