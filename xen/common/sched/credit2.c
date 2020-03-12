@@ -234,7 +234,7 @@
  * units does not consume credits, and it must be lower than whatever
  * amount of credit 'regular' unit would end up with.
  */
-#define CSCHED2_IDLE_CREDIT          (-(1U<<30))
+#define CSCHED2_IDLE_CREDIT          INT_MIN
 /*
  * Carryover: How much "extra" credit may be carried over after
  * a reset.
