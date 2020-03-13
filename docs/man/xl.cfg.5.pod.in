@@ -668,6 +668,13 @@ file.
 
 =back
 
+=item B<suspend_event_channel=BOOLEAN>
+
+Create the xenstore path for the domain's suspend event channel. The
+existence of this path can cause problems with older PV drivers running
+in the guest. If this option is not specified then it will default to
+B<true>.
+
 =back
 
 =head2 Devices
