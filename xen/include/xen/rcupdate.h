@@ -37,21 +37,50 @@
 #include <xen/cpumask.h>
 #include <xen/percpu.h>
 #include <xen/preempt.h>
+#include <asm/atomic.h>
 
 #define __rcu
 
+#ifndef NDEBUG
+/* * Lock type for passing to rcu_read_{lock,unlock}. */
+struct _rcu_read_lock {
+    atomic_t cnt;
+};
+typedef struct _rcu_read_lock rcu_read_lock_t;
+#define DEFINE_RCU_READ_LOCK(x) rcu_read_lock_t x = { .cnt = ATOMIC_INIT(0) }
+#define RCU_READ_LOCK_INIT(x)   atomic_set(&(x)->cnt, 0)
+
+#else
+/*
+ * Dummy lock type for passing to rcu_read_{lock,unlock}. Currently exists
+ * only to document the reason for rcu_read_lock() critical sections.
+ */
+struct _rcu_read_lock {};
+typedef struct _rcu_read_lock rcu_read_lock_t;
+#define DEFINE_RCU_READ_LOCK(x) rcu_read_lock_t x
+#define RCU_READ_LOCK_INIT(x)
+
+#endif
+
 DECLARE_PER_CPU(unsigned int, rcu_lock_cnt);
 
-static inline void rcu_quiesce_disable(void)
+static inline void rcu_quiesce_disable(rcu_read_lock_t *lock)
 {
     preempt_disable();
     this_cpu(rcu_lock_cnt)++;
+#ifndef NDEBUG
+    atomic_inc(&lock->cnt);
+#endif
     barrier();
 }
 
-static inline void rcu_quiesce_enable(void)
+static inline void rcu_quiesce_enable(rcu_read_lock_t *lock)
 {
     barrier();
+#ifndef NDEBUG
+    ASSERT(atomic_read(&lock->cnt));
+    atomic_dec(&lock->cnt);
+#endif
     this_cpu(rcu_lock_cnt)--;
     preempt_enable();
 }
@@ -81,15 +110,6 @@ struct rcu_head {
 int rcu_pending(int cpu);
 int rcu_needs_cpu(int cpu);
 
-/*
- * Dummy lock type for passing to rcu_read_{lock,unlock}. Currently exists
- * only to document the reason for rcu_read_lock() critical sections.
- */
-struct _rcu_read_lock {};
-typedef struct _rcu_read_lock rcu_read_lock_t;
-#define DEFINE_RCU_READ_LOCK(x) rcu_read_lock_t x
-#define RCU_READ_LOCK_INIT(x)
-
 /**
  * rcu_read_lock - mark the beginning of an RCU read-side critical section.
  *
@@ -118,7 +138,7 @@ typedef struct _rcu_read_lock rcu_read_lock_t;
  */
 static inline void rcu_read_lock(rcu_read_lock_t *lock)
 {
-    rcu_quiesce_disable();
+    rcu_quiesce_disable(lock);
 }
 
 /**
@@ -129,7 +149,7 @@ static inline void rcu_read_lock(rcu_read_lock_t *lock)
 static inline void rcu_read_unlock(rcu_read_lock_t *lock)
 {
     ASSERT(!rcu_quiesce_allowed());
-    rcu_quiesce_enable();
+    rcu_quiesce_enable(lock);
 }
 
 /*
