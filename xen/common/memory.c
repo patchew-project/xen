@@ -1191,7 +1191,7 @@ long do_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         }
 
 #ifdef CONFIG_X86
-        if ( pv_shim && op != XENMEM_decrease_reservation && !args.preempted )
+        if ( pv_shim && op != XENMEM_decrease_reservation && !start_extent )
             /* Avoid calling pv_shim_online_memory when preempted. */
             pv_shim_online_memory(args.nr_extents, args.extent_order);
 #endif
