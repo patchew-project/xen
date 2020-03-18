@@ -688,7 +688,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
     char *cmdline, *kextra, *loader;
     unsigned int initrdidx, num_parked = 0;
     multiboot_info_t *mbi;
-    module_t *mod;
+    module_t *mod, *initrd = NULL;
     unsigned long nr_pages, raw_max_page, modules_headroom, module_map[1];
     int i, j, e820_warn = 0, bytes = 0;
     bool acpi_boot_table_init_done = false, relocated = false;
@@ -1798,6 +1798,8 @@ void __init noreturn __start_xen(unsigned long mbi_p)
         xen_processor_pmbits |= XEN_PROCESSOR_PM_CX;
 
     initrdidx = find_first_bit(module_map, mbi->mods_count);
+    if ( initrdidx < mbi->mods_count )
+        initrd = mod + initrdidx;
     if ( bitmap_weight(module_map, mbi->mods_count) > 1 )
         printk(XENLOG_WARNING
                "Multiple initrd candidates, picking module #%u\n",
@@ -1822,9 +1824,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
      * We're going to setup domain0 using the module(s) that we stashed safely
      * above our heap. The second module, if present, is an initrd ramdisk.
      */
-    if ( construct_dom0(dom0, mod, modules_headroom,
-                        (initrdidx > 0) && (initrdidx < mbi->mods_count)
-                        ? mod + initrdidx : NULL, cmdline) != 0)
+    if ( construct_dom0(dom0, mod, modules_headroom, initrd, cmdline) != 0 )
         panic("Could not set up DOM0 guest OS\n");
 
     if ( cpu_has_smap )
