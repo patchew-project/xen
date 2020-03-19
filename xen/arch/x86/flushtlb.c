@@ -59,8 +59,6 @@ static u32 pre_flush(void)
         raise_softirq(NEW_TLBFLUSH_CLOCK_PERIOD_SOFTIRQ);
 
  skip_clocktick:
-    hvm_flush_guest_tlbs();
-
     return t2;
 }
 
@@ -118,6 +116,7 @@ void switch_cr3_cr4(unsigned long cr3, unsigned long cr4)
     local_irq_save(flags);
 
     t = pre_flush();
+    hvm_flush_guest_tlbs();
 
     old_cr4 = read_cr4();
     ASSERT(!(old_cr4 & X86_CR4_PCIDE) || !(old_cr4 & X86_CR4_PGE));
@@ -220,6 +219,9 @@ unsigned int flush_area_local(const void *va, unsigned int flags)
         else
             do_tlb_flush();
     }
+
+    if ( flags & FLUSH_HVM_ASID_CORE )
+        hvm_flush_guest_tlbs();
 
     if ( flags & FLUSH_CACHE )
     {
