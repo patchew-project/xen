@@ -73,6 +73,10 @@ struct mpbhdr {
     uint8_t data[];
 };
 
+struct microcode_patch {
+    struct microcode_amd *mc_amd;
+};
+
 /* See comment in start_update() for cases when this routine fails */
 static int collect_cpu_info(struct cpu_signature *csig)
 {

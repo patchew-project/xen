@@ -11,13 +11,7 @@ enum microcode_match_result {
     MIS_UCODE, /* signature mismatched */
 };
 
-struct microcode_patch {
-    union {
-        struct microcode_intel *mc_intel;
-        struct microcode_amd *mc_amd;
-        void *mc;
-    };
-};
+struct microcode_patch; /* Opaque */
 
 struct microcode_ops {
     struct microcode_patch *(*cpu_request_microcode)(const void *buf,

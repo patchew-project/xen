@@ -71,6 +71,10 @@ struct extended_sigtable {
     struct extended_signature sigs[0];
 };
 
+struct microcode_patch {
+    struct microcode_intel *mc_intel;
+};
+
 #define DEFAULT_UCODE_DATASIZE  (2000)
 #define MC_HEADER_SIZE          (sizeof(struct microcode_header_intel))
 #define DEFAULT_UCODE_TOTALSIZE (DEFAULT_UCODE_DATASIZE + MC_HEADER_SIZE)
