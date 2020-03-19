@@ -26,7 +26,7 @@ struct microcode_ops {
     int (*apply_microcode)(const struct microcode_patch *patch);
     int (*start_update)(void);
     void (*end_update_percpu)(void);
-    void (*free_patch)(void *mc);
+    void (*free_patch)(struct microcode_patch *patch);
     bool (*match_cpu)(const struct microcode_patch *patch);
     enum microcode_match_result (*compare_patch)(
         const struct microcode_patch *new, const struct microcode_patch *old);

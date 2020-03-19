@@ -180,15 +180,22 @@ static bool match_cpu(const struct microcode_patch *patch)
     return patch && (microcode_fits(patch->mc_amd) == NEW_UCODE);
 }
 
-static void free_patch(void *mc)
+static void free_mc_amd(struct microcode_amd *mc_amd)
 {
-    struct microcode_amd *mc_amd = mc;
-
     if ( mc_amd )
     {
         xfree(mc_amd->equiv_cpu_table);
         xfree(mc_amd->mpb);
         xfree(mc_amd);
+    }
+}
+
+static void free_patch(struct microcode_patch *patch)
+{
+    if ( patch )
+    {
+        free_mc_amd(patch->mc_amd);
+        xfree(patch);
     }
 }
 
@@ -564,12 +571,12 @@ static struct microcode_patch *cpu_request_microcode(const void *buf,
             patch->mc_amd = mc_amd;
         else
         {
-            free_patch(mc_amd);
+            free_mc_amd(mc_amd);
             error = -ENOMEM;
         }
     }
     else
-        free_patch(mc_amd);
+        free_mc_amd(mc_amd);
 
   out:
     if ( error && !patch )

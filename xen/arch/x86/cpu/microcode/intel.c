@@ -248,9 +248,13 @@ static bool match_cpu(const struct microcode_patch *patch)
     return microcode_update_match(&patch->mc_intel->hdr) == NEW_UCODE;
 }
 
-static void free_patch(void *mc)
+static void free_patch(struct microcode_patch *patch)
 {
-    xfree(mc);
+    if ( patch )
+    {
+        xfree(patch->mc_intel);
+        xfree(patch);
+    }
 }
 
 static enum microcode_match_result compare_patch(
