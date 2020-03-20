@@ -1383,7 +1383,7 @@ static void nvmx_update_apicv(struct vcpu *v)
 {
     struct nestedvmx *nvmx = &vcpu_2_nvmx(v);
     unsigned long reason = get_vvmcs(v, VM_EXIT_REASON);
-    uint32_t intr_info = nvmx->intr.intr_info;
+    unsigned long intr_info = get_vvmcs(v, VM_EXIT_INTR_INFO);
 
     if ( reason == EXIT_REASON_EXTERNAL_INTERRUPT &&
          nvmx->intr.source == hvm_intsrc_lapic &&
@@ -1399,6 +1399,15 @@ static void nvmx_update_apicv(struct vcpu *v)
         ppr = vlapic_set_ppr(vlapic);
         WARN_ON((ppr & 0xf0) != (vector & 0xf0));
 
+        /*
+         * SVI must be updated when the interrupt has been signaled using the
+         * Ack on exit feature, or else the currently in-service interrupt
+         * won't be respected.
+         *
+         * Note that this is specific to the fact that when doing a VMEXIT an
+         * interrupt might get delivered using the interrupt info vmcs field
+         * instead of being injected normally.
+         */
         status = vector << VMX_GUEST_INTR_STATUS_SVI_OFFSET;
         rvi = vlapic_has_pending_irq(v);
         if ( rvi != -1 )
