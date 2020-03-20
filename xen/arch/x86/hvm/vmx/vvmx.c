@@ -1414,6 +1414,7 @@ static void nvmx_update_apicv(struct vcpu *v)
             status |= rvi & VMX_GUEST_INTR_STATUS_SUBFIELD_BITMASK;
 
         __vmwrite(GUEST_INTR_STATUS, status);
+        vmx_sync_exit_bitmap(v);
     }
 }
 
