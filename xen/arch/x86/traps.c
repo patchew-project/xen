@@ -1232,7 +1232,8 @@ enum pf_type {
 static enum pf_type __page_fault_type(unsigned long addr,
                                       const struct cpu_user_regs *regs)
 {
-    unsigned long mfn, cr3 = read_cr3();
+    mfn_t mfn;
+    unsigned long cr3 = read_cr3();
     l4_pgentry_t l4e, *l4t;
     l3_pgentry_t l3e, *l3t;
     l2_pgentry_t l2e, *l2t;
@@ -1264,20 +1265,20 @@ static enum pf_type __page_fault_type(unsigned long addr,
 
     page_user = _PAGE_USER;
 
-    mfn = cr3 >> PAGE_SHIFT;
+    mfn = cr3_to_mfn(cr3);
 
-    l4t = map_domain_page(_mfn(mfn));
+    l4t = map_domain_page(mfn);
     l4e = l4e_read_atomic(&l4t[l4_table_offset(addr)]);
-    mfn = l4e_get_pfn(l4e);
+    mfn = l4e_get_mfn(l4e);
     unmap_domain_page(l4t);
     if ( ((l4e_get_flags(l4e) & required_flags) != required_flags) ||
          (l4e_get_flags(l4e) & disallowed_flags) )
         return real_fault;
     page_user &= l4e_get_flags(l4e);
 
-    l3t  = map_domain_page(_mfn(mfn));
+    l3t  = map_domain_page(mfn);
     l3e = l3e_read_atomic(&l3t[l3_table_offset(addr)]);
-    mfn = l3e_get_pfn(l3e);
+    mfn = l3e_get_mfn(l3e);
     unmap_domain_page(l3t);
     if ( ((l3e_get_flags(l3e) & required_flags) != required_flags) ||
          (l3e_get_flags(l3e) & disallowed_flags) )
@@ -1286,9 +1287,9 @@ static enum pf_type __page_fault_type(unsigned long addr,
     if ( l3e_get_flags(l3e) & _PAGE_PSE )
         goto leaf;
 
-    l2t = map_domain_page(_mfn(mfn));
+    l2t = map_domain_page(mfn);
     l2e = l2e_read_atomic(&l2t[l2_table_offset(addr)]);
-    mfn = l2e_get_pfn(l2e);
+    mfn = l2e_get_mfn(l2e);
     unmap_domain_page(l2t);
     if ( ((l2e_get_flags(l2e) & required_flags) != required_flags) ||
          (l2e_get_flags(l2e) & disallowed_flags) )
@@ -1297,9 +1298,9 @@ static enum pf_type __page_fault_type(unsigned long addr,
     if ( l2e_get_flags(l2e) & _PAGE_PSE )
         goto leaf;
 
-    l1t = map_domain_page(_mfn(mfn));
+    l1t = map_domain_page(mfn);
     l1e = l1e_read_atomic(&l1t[l1_table_offset(addr)]);
-    mfn = l1e_get_pfn(l1e);
+    mfn = l1e_get_mfn(l1e);
     unmap_domain_page(l1t);
     if ( ((l1e_get_flags(l1e) & required_flags) != required_flags) ||
          (l1e_get_flags(l1e) & disallowed_flags) )
