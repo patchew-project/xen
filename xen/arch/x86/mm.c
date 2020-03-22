@@ -509,7 +509,7 @@ void make_cr3(struct vcpu *v, mfn_t mfn)
 {
     struct domain *d = v->domain;
 
-    v->arch.cr3 = mfn_x(mfn) << PAGE_SHIFT;
+    v->arch.cr3 = mfn_to_cr3(mfn);
     if ( is_pv_domain(d) && d->arch.pv.pcid )
         v->arch.cr3 |= get_pcid_bits(v, false);
 }

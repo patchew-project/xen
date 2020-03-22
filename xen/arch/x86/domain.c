@@ -1096,7 +1096,7 @@ int arch_set_info_guest(
     set_bit(_VPF_in_reset, &v->pause_flags);
 
     if ( !compat )
-        cr3_mfn = _mfn(xen_cr3_to_pfn(c.nat->ctrlreg[3]));
+        cr3_mfn = cr3_to_mfn(c.nat->ctrlreg[3]);
     else
         cr3_mfn = _mfn(compat_cr3_to_pfn(c.cmp->ctrlreg[3]));
     cr3_page = get_page_from_mfn(cr3_mfn, d);
@@ -1142,7 +1142,7 @@ int arch_set_info_guest(
         v->arch.guest_table = pagetable_from_page(cr3_page);
         if ( c.nat->ctrlreg[1] )
         {
-            cr3_mfn = _mfn(xen_cr3_to_pfn(c.nat->ctrlreg[1]));
+            cr3_mfn = cr3_to_mfn(c.nat->ctrlreg[1]);
             cr3_page = get_page_from_mfn(cr3_mfn, d);
 
             if ( !cr3_page )
