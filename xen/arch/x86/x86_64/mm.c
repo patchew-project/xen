@@ -46,7 +46,7 @@ l2_pgentry_t *compat_idle_pg_table_l2;
 
 void *do_page_walk(struct vcpu *v, unsigned long addr)
 {
-    unsigned long mfn = pagetable_get_pfn(v->arch.guest_table);
+    mfn_t mfn = pagetable_get_mfn(v->arch.guest_table);
     l4_pgentry_t l4e, *l4t;
     l3_pgentry_t l3e, *l3t;
     l2_pgentry_t l2e, *l2t;
@@ -55,7 +55,7 @@ void *do_page_walk(struct vcpu *v, unsigned long addr)
     if ( !is_pv_vcpu(v) || !is_canonical_address(addr) )
         return NULL;
 
-    l4t = map_domain_page(_mfn(mfn));
+    l4t = map_domain_page(mfn);
     l4e = l4t[l4_table_offset(addr)];
     unmap_domain_page(l4t);
     if ( !(l4e_get_flags(l4e) & _PAGE_PRESENT) )
@@ -64,36 +64,36 @@ void *do_page_walk(struct vcpu *v, unsigned long addr)
     l3t = map_l3t_from_l4e(l4e);
     l3e = l3t[l3_table_offset(addr)];
     unmap_domain_page(l3t);
-    mfn = l3e_get_pfn(l3e);
-    if ( !(l3e_get_flags(l3e) & _PAGE_PRESENT) || !mfn_valid(_mfn(mfn)) )
+    mfn = l3e_get_mfn(l3e);
+    if ( !(l3e_get_flags(l3e) & _PAGE_PRESENT) || !mfn_valid(mfn) )
         return NULL;
     if ( (l3e_get_flags(l3e) & _PAGE_PSE) )
     {
-        mfn += PFN_DOWN(addr & ((1UL << L3_PAGETABLE_SHIFT) - 1));
+        mfn = mfn_add(mfn, PFN_DOWN(addr & ((1UL << L3_PAGETABLE_SHIFT) - 1)));
         goto ret;
     }
 
-    l2t = map_domain_page(_mfn(mfn));
+    l2t = map_domain_page(mfn);
     l2e = l2t[l2_table_offset(addr)];
     unmap_domain_page(l2t);
-    mfn = l2e_get_pfn(l2e);
-    if ( !(l2e_get_flags(l2e) & _PAGE_PRESENT) || !mfn_valid(_mfn(mfn)) )
+    mfn = l2e_get_mfn(l2e);
+    if ( !(l2e_get_flags(l2e) & _PAGE_PRESENT) || !mfn_valid(mfn) )
         return NULL;
     if ( (l2e_get_flags(l2e) & _PAGE_PSE) )
     {
-        mfn += PFN_DOWN(addr & ((1UL << L2_PAGETABLE_SHIFT) - 1));
+        mfn = mfn_add(mfn, PFN_DOWN(addr & ((1UL << L2_PAGETABLE_SHIFT) - 1)));
         goto ret;
     }
 
-    l1t = map_domain_page(_mfn(mfn));
+    l1t = map_domain_page(mfn);
     l1e = l1t[l1_table_offset(addr)];
     unmap_domain_page(l1t);
-    mfn = l1e_get_pfn(l1e);
-    if ( !(l1e_get_flags(l1e) & _PAGE_PRESENT) || !mfn_valid(_mfn(mfn)) )
+    mfn = l1e_get_mfn(l1e);
+    if ( !(l1e_get_flags(l1e) & _PAGE_PRESENT) || !mfn_valid(mfn) )
         return NULL;
 
  ret:
-    return map_domain_page(_mfn(mfn)) + (addr & ~PAGE_MASK);
+    return map_domain_page(mfn) + (addr & ~PAGE_MASK);
 }
 
 /*
