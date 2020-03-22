@@ -39,7 +39,7 @@ void __init dom0_update_physmap(struct domain *d, unsigned long pfn,
     else
         ((unsigned int *)vphysmap_s)[pfn] = mfn;
 
-    set_gpfn_from_mfn(mfn, pfn);
+    set_pfn_from_mfn(_mfn(mfn), pfn);
 }
 
 static __init void mark_pv_pt_pages_rdonly(struct domain *d,
@@ -789,8 +789,8 @@ int __init dom0_construct_pv(struct domain *d,
     page_list_for_each ( page, &d->page_list )
     {
         mfn = mfn_x(page_to_mfn(page));
-        BUG_ON(SHARED_M2P(get_gpfn_from_mfn(mfn)));
-        if ( get_gpfn_from_mfn(mfn) >= count )
+        BUG_ON(SHARED_M2P(get_pfn_from_mfn(_mfn(mfn))));
+        if ( get_pfn_from_mfn(_mfn(mfn)) >= count )
         {
             BUG_ON(is_pv_32bit_domain(d));
             if ( !page->u.inuse.type_info &&

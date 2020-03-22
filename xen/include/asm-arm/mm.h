@@ -319,7 +319,7 @@ struct page_info *get_page_from_gva(struct vcpu *v, vaddr_t va,
 #define SHARED_M2P(_e)           ((_e) == SHARED_M2P_ENTRY)
 
 /* Xen always owns P2M on ARM */
-#define set_gpfn_from_mfn(mfn, pfn) do { (void) (mfn), (void)(pfn); } while (0)
+static inline void set_pfn_from_mfn(mfn_t mfn, unsigned long pfn) {}
 #define mfn_to_gmfn(_d, mfn)  (mfn)
 
 

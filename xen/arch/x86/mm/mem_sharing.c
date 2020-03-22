@@ -426,15 +426,15 @@ static void mem_sharing_gfn_destroy(struct page_info *page, struct domain *d,
     xfree(gfn_info);
 }
 
-static struct page_info *mem_sharing_lookup(unsigned long mfn)
+static struct page_info *mem_sharing_lookup(mfn_t mfn)
 {
     struct page_info *page;
     unsigned long t;
 
-    if ( !mfn_valid(_mfn(mfn)) )
+    if ( !mfn_valid(mfn) )
         return NULL;
 
-    page = mfn_to_page(_mfn(mfn));
+    page = mfn_to_page(mfn);
     if ( page_get_owner(page) != dom_cow )
         return NULL;
 
@@ -446,7 +446,7 @@ static struct page_info *mem_sharing_lookup(unsigned long mfn)
     t = read_atomic(&page->u.inuse.type_info);
     ASSERT((t & PGT_type_mask) == PGT_shared_page);
     ASSERT((t & PGT_count_mask) >= 2);
-    ASSERT(SHARED_M2P(get_gpfn_from_mfn(mfn)));
+    ASSERT(SHARED_M2P(get_pfn_from_mfn(mfn)));
 
     return page;
 }
@@ -505,10 +505,10 @@ static int audit(void)
         }
 
         /* Check the m2p entry */
-        if ( !SHARED_M2P(get_gpfn_from_mfn(mfn_x(mfn))) )
+        if ( !SHARED_M2P(get_pfn_from_mfn(mfn)) )
         {
-            gdprintk(XENLOG_ERR, "mfn %lx shared, but wrong m2p entry (%lx)!\n",
-                     mfn_x(mfn), get_gpfn_from_mfn(mfn_x(mfn)));
+            gdprintk(XENLOG_ERR, "mfn %"PRI_mfn" shared, but wrong m2p entry (%lx)!\n",
+                     mfn_x(mfn), get_pfn_from_mfn(mfn));
             errors++;
         }
 
@@ -736,7 +736,7 @@ static struct page_info *__grab_shared_page(mfn_t mfn)
     if ( !mem_sharing_page_lock(pg) )
         return NULL;
 
-    if ( mem_sharing_lookup(mfn_x(mfn)) == NULL )
+    if ( mem_sharing_lookup(mfn) == NULL )
     {
         mem_sharing_page_unlock(pg);
         return NULL;
@@ -918,7 +918,7 @@ static int nominate_page(struct domain *d, gfn_t gfn,
     atomic_inc(&nr_shared_mfns);
 
     /* Update m2p entry to SHARED_M2P_ENTRY */
-    set_gpfn_from_mfn(mfn_x(mfn), SHARED_M2P_ENTRY);
+    set_pfn_from_mfn(mfn, SHARED_M2P_ENTRY);
 
     *phandle = page->sharing->handle;
     audit_add_list(page);
@@ -1306,7 +1306,7 @@ int __mem_sharing_unshare_page(struct domain *d,
     }
 
     /* Update m2p entry */
-    set_gpfn_from_mfn(mfn_x(page_to_mfn(page)), gfn);
+    set_pfn_from_mfn(page_to_mfn(page), gfn);
 
     /*
      * Now that the gfn<->mfn map is properly established,

@@ -476,7 +476,7 @@ void share_xen_page_with_guest(struct page_info *page, struct domain *d,
     if ( page_get_owner(page) == d )
         return;
 
-    set_gpfn_from_mfn(mfn_x(page_to_mfn(page)), INVALID_M2P_ENTRY);
+    set_pfn_from_mfn(page_to_mfn(page), INVALID_M2P_ENTRY);
 
     spin_lock(&d->page_alloc_lock);
 
@@ -1040,7 +1040,7 @@ get_page_from_l1e(
 
             gdprintk(XENLOG_WARNING, "Error updating mappings for mfn %" PRI_mfn
                      " (pfn %" PRI_pfn ", from L1 entry %" PRIpte ") for d%d\n",
-                     mfn, get_gpfn_from_mfn(mfn),
+                     mfn, get_pfn_from_mfn(_mfn(mfn)),
                      l1e_get_intpte(l1e), l1e_owner->domain_id);
             return err;
         }
@@ -1051,7 +1051,7 @@ get_page_from_l1e(
  could_not_pin:
     gdprintk(XENLOG_WARNING, "Error getting mfn %" PRI_mfn " (pfn %" PRI_pfn
              ") from L1 entry %" PRIpte " for l1e_owner d%d, pg_owner d%d\n",
-             mfn, get_gpfn_from_mfn(mfn),
+             mfn, get_pfn_from_mfn(_mfn(mfn)),
              l1e_get_intpte(l1e), l1e_owner->domain_id, pg_owner->domain_id);
     if ( real_pg_owner != NULL )
         put_page(page);
@@ -2636,7 +2636,7 @@ static int validate_page(struct page_info *page, unsigned long type,
                  " (pfn %" PRI_pfn ") for type %" PRtype_info
                  ": caf=%08lx taf=%" PRtype_info "\n",
                  mfn_x(page_to_mfn(page)),
-                 get_gpfn_from_mfn(mfn_x(page_to_mfn(page))),
+                 get_pfn_from_mfn(page_to_mfn(page)),
                  type, page->count_info, page->u.inuse.type_info);
         if ( page != current->arch.old_guest_table )
             page->u.inuse.type_info = 0;
@@ -2946,7 +2946,7 @@ static int _get_page_type(struct page_info *page, unsigned long type,
                      "Bad type (saw %" PRtype_info " != exp %" PRtype_info ") "
                      "for mfn %" PRI_mfn " (pfn %" PRI_pfn ")\n",
                      x, type, mfn_x(page_to_mfn(page)),
-                     get_gpfn_from_mfn(mfn_x(page_to_mfn(page))));
+                     get_pfn_from_mfn(page_to_mfn(page)));
             return -EINVAL;
         }
         else if ( unlikely(!(x & PGT_validated)) )
@@ -4106,7 +4106,7 @@ long do_mmu_update(
                 break;
             }
 
-            set_gpfn_from_mfn(mfn_x(mfn), gpfn);
+            set_pfn_from_mfn(mfn, gpfn);
             paging_mark_pfn_dirty(pg_owner, _pfn(gpfn));
 
             put_page(page);
@@ -4590,7 +4590,7 @@ int xenmem_add_to_physmap_one(
         goto put_both;
 
     /* Unmap from old location, if any. */
-    old_gpfn = get_gpfn_from_mfn(mfn_x(mfn));
+    old_gpfn = get_pfn_from_mfn(mfn);
     ASSERT(!SHARED_M2P(old_gpfn));
     if ( space == XENMAPSPACE_gmfn && old_gpfn != gfn )
     {

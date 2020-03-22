@@ -769,7 +769,7 @@ void p2m_final_teardown(struct domain *d)
 
 
 static int
-p2m_remove_page(struct p2m_domain *p2m, unsigned long gfn_l, unsigned long mfn,
+p2m_remove_page(struct p2m_domain *p2m, unsigned long gfn_l, mfn_t mfn,
                 unsigned int page_order)
 {
     unsigned long i;
@@ -783,17 +783,17 @@ p2m_remove_page(struct p2m_domain *p2m, unsigned long gfn_l, unsigned long mfn,
         return 0;
 
     ASSERT(gfn_locked_by_me(p2m, gfn));
-    P2M_DEBUG("removing gfn=%#lx mfn=%#lx\n", gfn_l, mfn);
+    P2M_DEBUG("removing gfn=%#lx mfn=%"PRI_mfn"\n", gfn_l, mfn_x(mfn));
 
-    if ( mfn_valid(_mfn(mfn)) )
+    if ( mfn_valid(mfn) )
     {
         for ( i = 0; i < (1UL << page_order); i++ )
         {
             mfn_return = p2m->get_entry(p2m, gfn_add(gfn, i), &t, &a, 0,
                                         NULL, NULL);
             if ( !p2m_is_grant(t) && !p2m_is_shared(t) && !p2m_is_foreign(t) )
-                set_gpfn_from_mfn(mfn+i, INVALID_M2P_ENTRY);
-            ASSERT( !p2m_is_valid(t) || mfn + i == mfn_x(mfn_return) );
+                set_pfn_from_mfn(mfn_add(mfn, i), INVALID_M2P_ENTRY);
+            ASSERT( !p2m_is_valid(t) || mfn_eq(mfn_add(mfn, i), mfn_return) );
         }
     }
     return p2m_set_entry(p2m, gfn, INVALID_MFN, page_order, p2m_invalid,
@@ -807,7 +807,7 @@ guest_physmap_remove_page(struct domain *d, gfn_t gfn,
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
     int rc;
     gfn_lock(p2m, gfn, page_order);
-    rc = p2m_remove_page(p2m, gfn_x(gfn), mfn_x(mfn), page_order);
+    rc = p2m_remove_page(p2m, gfn_x(gfn), mfn, page_order);
     gfn_unlock(p2m, gfn, page_order);
     return rc;
 }
@@ -842,7 +842,7 @@ guest_physmap_add_page(struct domain *d, gfn_t gfn, mfn_t mfn,
             else
                 return -EINVAL;
 
-            set_gpfn_from_mfn(mfn_x(mfn) + i, gfn_x(gfn) + i);
+            set_pfn_from_mfn(mfn_add(mfn, i), gfn_x(gfn) + i);
         }
 
         return 0;
@@ -930,7 +930,7 @@ guest_physmap_add_entry(struct domain *d, gfn_t gfn, mfn_t mfn,
         else if ( p2m_is_ram(ot) && !p2m_is_paged(ot) )
         {
             ASSERT(mfn_valid(omfn));
-            set_gpfn_from_mfn(mfn_x(omfn), INVALID_M2P_ENTRY);
+            set_pfn_from_mfn(omfn, INVALID_M2P_ENTRY);
         }
         else if ( ot == p2m_populate_on_demand )
         {
@@ -974,7 +974,7 @@ guest_physmap_add_entry(struct domain *d, gfn_t gfn, mfn_t mfn,
                 P2M_DEBUG("old gfn=%#lx -> mfn %#lx\n",
                           gfn_x(ogfn) , mfn_x(omfn));
                 if ( mfn_eq(omfn, mfn_add(mfn, i)) )
-                    p2m_remove_page(p2m, gfn_x(ogfn), mfn_x(mfn_add(mfn, i)),
+                    p2m_remove_page(p2m, gfn_x(ogfn), mfn_add(mfn, i),
                                     0);
             }
         }
@@ -992,8 +992,8 @@ guest_physmap_add_entry(struct domain *d, gfn_t gfn, mfn_t mfn,
         if ( !p2m_is_grant(t) )
         {
             for ( i = 0; i < (1UL << page_order); i++ )
-                set_gpfn_from_mfn(mfn_x(mfn_add(mfn, i)),
-                                  gfn_x(gfn_add(gfn, i)));
+                set_pfn_from_mfn(mfn_add(mfn, i),
+                                 gfn_x(gfn_add(gfn, i)));
         }
     }
 
@@ -1279,7 +1279,7 @@ static int set_typed_p2m_entry(struct domain *d, unsigned long gfn_l,
         for ( i = 0; i < (1UL << order); ++i )
         {
             ASSERT(mfn_valid(mfn_add(omfn, i)));
-            set_gpfn_from_mfn(mfn_x(omfn) + i, INVALID_M2P_ENTRY);
+            set_pfn_from_mfn(mfn_add(omfn, i), INVALID_M2P_ENTRY);
         }
     }
 
@@ -1475,7 +1475,7 @@ int set_shared_p2m_entry(struct domain *d, unsigned long gfn_l, mfn_t mfn)
     pg_type = read_atomic(&(mfn_to_page(omfn)->u.inuse.type_info));
     if ( (pg_type & PGT_count_mask) == 0
          || (pg_type & PGT_type_mask) != PGT_shared_page )
-        set_gpfn_from_mfn(mfn_x(omfn), INVALID_M2P_ENTRY);
+        set_pfn_from_mfn(omfn, INVALID_M2P_ENTRY);
 
     P2M_DEBUG("set shared %lx %lx\n", gfn_l, mfn_x(mfn));
     rc = p2m_set_entry(p2m, gfn, mfn, PAGE_ORDER_4K, p2m_ram_shared,
@@ -1829,7 +1829,7 @@ int p2m_mem_paging_prep(struct domain *d, unsigned long gfn_l, uint64_t buffer)
     ret = p2m_set_entry(p2m, gfn, mfn, PAGE_ORDER_4K,
                         paging_mode_log_dirty(d) ? p2m_ram_logdirty
                                                  : p2m_ram_rw, a);
-    set_gpfn_from_mfn(mfn_x(mfn), gfn_l);
+    set_pfn_from_mfn(mfn, gfn_l);
 
     if ( !page_extant )
         atomic_dec(&d->paged_pages);
@@ -1880,7 +1880,7 @@ void p2m_mem_paging_resume(struct domain *d, vm_event_response_t *rsp)
                                    p2m_ram_rw, a);
 
             if ( !rc )
-                set_gpfn_from_mfn(mfn_x(mfn), gfn_x(gfn));
+                set_pfn_from_mfn(mfn, gfn_x(gfn));
         }
         gfn_unlock(p2m, gfn, 0);
     }
@@ -2706,7 +2706,7 @@ int p2m_change_altp2m_gfn(struct domain *d, unsigned int idx,
     {
         mfn = ap2m->get_entry(ap2m, old_gfn, &t, &a, 0, NULL, NULL);
         if ( mfn_valid(mfn) )
-            p2m_remove_page(ap2m, gfn_x(old_gfn), mfn_x(mfn), PAGE_ORDER_4K);
+            p2m_remove_page(ap2m, gfn_x(old_gfn), mfn, PAGE_ORDER_4K);
         rc = 0;
         goto out;
     }
@@ -2820,8 +2820,8 @@ void audit_p2m(struct domain *d,
 {
     struct page_info *page;
     struct domain *od;
-    unsigned long mfn, gfn;
-    mfn_t p2mfn;
+    unsigned long gfn;
+    mfn_t p2mfn, mfn;
     unsigned long orphans_count = 0, mpbad = 0, pmbad = 0;
     p2m_access_t p2ma;
     p2m_type_t type;
@@ -2843,53 +2843,53 @@ void audit_p2m(struct domain *d,
     spin_lock(&d->page_alloc_lock);
     page_list_for_each ( page, &d->page_list )
     {
-        mfn = mfn_x(page_to_mfn(page));
+        mfn = page_to_mfn(page);
 
-        P2M_PRINTK("auditing guest page, mfn=%#lx\n", mfn);
+        P2M_PRINTK("auditing guest page, mfn=%"PRI_mfn"\n", mfn_x(mfn));
 
         od = page_get_owner(page);
 
         if ( od != d )
         {
-            P2M_PRINTK("mfn %"PRI_mfn" owner %pd != %pd\n", mfn, od, d);
+            P2M_PRINTK("mfn %"PRI_mfn" owner %pd != %pd\n", mfn_x(mfn), od, d);
             continue;
         }
 
-        gfn = get_gpfn_from_mfn(mfn);
+        gfn = get_pfn_from_mfn(mfn);
         if ( gfn == INVALID_M2P_ENTRY )
         {
             orphans_count++;
-            P2M_PRINTK("orphaned guest page: mfn=%#lx has invalid gfn\n",
-                           mfn);
+            P2M_PRINTK("orphaned guest page: mfn=%"PRI_mfn" has invalid gfn\n",
+                       mfn_x(mfn));
             continue;
         }
 
         if ( SHARED_M2P(gfn) )
         {
-            P2M_PRINTK("shared mfn (%lx) on domain page list!\n",
-                    mfn);
+            P2M_PRINTK("shared mfn (%"PRI_mfn") on domain page list!\n",
+                       mfn_x(mfn));
             continue;
         }
 
         p2mfn = get_gfn_type_access(p2m, gfn, &type, &p2ma, 0, NULL);
-        if ( mfn_x(p2mfn) != mfn )
+        if ( !mfn_eq(p2mfn, mfn) )
         {
             mpbad++;
-            P2M_PRINTK("map mismatch mfn %#lx -> gfn %#lx -> mfn %#lx"
+            P2M_PRINTK("map mismatch mfn %"PRI_mfn" -> gfn %#lx -> mfn %"PRI_mfn""
                        " (-> gfn %#lx)\n",
-                       mfn, gfn, mfn_x(p2mfn),
+                       mfn_x(mfn), gfn, mfn_x(p2mfn),
                        (mfn_valid(p2mfn)
-                        ? get_gpfn_from_mfn(mfn_x(p2mfn))
+                        ? get_pfn_from_mfn(p2mfn)
                         : -1u));
             /* This m2p entry is stale: the domain has another frame in
              * this physical slot.  No great disaster, but for neatness,
              * blow away the m2p entry. */
-            set_gpfn_from_mfn(mfn, INVALID_M2P_ENTRY);
+            set_pfn_from_mfn(mfn, INVALID_M2P_ENTRY);
         }
         __put_gfn(p2m, gfn);
 
-        P2M_PRINTK("OK: mfn=%#lx, gfn=%#lx, p2mfn=%#lx\n",
-                       mfn, gfn, mfn_x(p2mfn));
+        P2M_PRINTK("OK: mfn=%"PRI_mfn", gfn=%#lx, p2mfn=%"PRI_mfn"\n",
+                   mfn_x(mfn), gfn, mfn_x(p2mfn));
     }
     spin_unlock(&d->page_alloc_lock);
 

@@ -500,9 +500,10 @@ extern paddr_t mem_hotplug;
  */
 extern bool machine_to_phys_mapping_valid;
 
-static inline void set_gpfn_from_mfn(unsigned long mfn, unsigned long pfn)
+static inline void set_pfn_from_mfn(mfn_t mfn_, unsigned long pfn)
 {
-    const struct domain *d = page_get_owner(mfn_to_page(_mfn(mfn)));
+    const unsigned long mfn = mfn_x(mfn_);
+    const struct domain *d = page_get_owner(mfn_to_page(mfn_));
     unsigned long entry = (d && (d == dom_cow)) ? SHARED_M2P_ENTRY : pfn;
 
     if ( !machine_to_phys_mapping_valid )
@@ -515,11 +516,14 @@ static inline void set_gpfn_from_mfn(unsigned long mfn, unsigned long pfn)
 
 extern struct rangeset *mmio_ro_ranges;
 
-#define get_gpfn_from_mfn(mfn)      (machine_to_phys_mapping[(mfn)])
+static inline unsigned long get_pfn_from_mfn(mfn_t mfn)
+{
+    return machine_to_phys_mapping[mfn_x(mfn)];
+}
 
 #define mfn_to_gmfn(_d, mfn)                            \
     ( (paging_mode_translate(_d))                       \
-      ? get_gpfn_from_mfn(mfn)                          \
+      ? get_pfn_from_mfn(_mfn(mfn))                     \
       : (mfn) )
 
 #define compat_pfn_to_cr3(pfn) (((unsigned)(pfn) << 12) | ((unsigned)(pfn) >> 20))
