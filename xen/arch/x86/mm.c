@@ -1321,7 +1321,7 @@ static int put_data_pages(struct page_info *page, bool writeable, int pt_shift)
 }
 
 /*
- * NB. Virtual address 'l2e' maps to a machine address within frame 'pfn'.
+ * NB. Virtual address 'l2e' maps to a machine address within frame 'mfn'.
  * Note also that this automatically deals correctly with linear p.t.'s.
  */
 static int put_page_from_l2e(l2_pgentry_t l2e, mfn_t l2mfn, unsigned int flags)
