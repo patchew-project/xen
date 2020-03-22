@@ -867,7 +867,7 @@ static void p2m_pt_change_entry_type_global(struct p2m_domain *p2m,
     unsigned long gfn = 0;
     unsigned int i, changed;
 
-    if ( pagetable_get_pfn(p2m_get_pagetable(p2m)) == 0 )
+    if ( pagetable_is_null(p2m_get_pagetable(p2m)) )
         return;
 
     ASSERT(hap_enabled(p2m->domain));
@@ -950,7 +950,7 @@ long p2m_pt_audit_p2m(struct p2m_domain *p2m)
     ASSERT(pod_locked_by_me(p2m));
 
     /* Audit part one: walk the domain's p2m table, checking the entries. */
-    if ( pagetable_get_pfn(p2m_get_pagetable(p2m)) != 0 )
+    if ( !pagetable_is_null(p2m_get_pagetable(p2m)) )
     {
         l2_pgentry_t *l2e;
         l1_pgentry_t *l1e;

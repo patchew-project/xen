@@ -1366,7 +1366,7 @@ void p2m_init_altp2m_ept(struct domain *d, unsigned int i)
 
     p2m->ept.ad = hostp2m->ept.ad;
     ept = &p2m->ept;
-    ept->mfn = pagetable_get_pfn(p2m_get_pagetable(p2m));
+    ept->mfn = mfn_x(pagetable_get_mfn(p2m_get_pagetable(p2m)));
     d->arch.altp2m_eptp[array_index_nospec(i, MAX_EPTP)] = ept->eptp;
 }
 

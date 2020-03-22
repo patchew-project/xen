@@ -702,7 +702,7 @@ int p2m_alloc_table(struct p2m_domain *p2m)
         return -EINVAL;
     }
 
-    if ( pagetable_get_pfn(p2m_get_pagetable(p2m)) != 0 )
+    if ( !pagetable_is_null(p2m_get_pagetable(p2m)) )
     {
         P2M_ERROR("p2m already allocated for this domain\n");
         p2m_unlock(p2m);

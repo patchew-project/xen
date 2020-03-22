@@ -18,6 +18,7 @@
 #ifndef __ASSEMBLY__
 # include <asm/types.h>
 # include <xen/lib.h>
+# include <xen/mm_types.h>
 #endif
 
 #include <asm/x86_64/page.h>
@@ -213,17 +214,17 @@ static inline l4_pgentry_t l4e_from_paddr(paddr_t pa, unsigned int flags)
 #ifndef __ASSEMBLY__
 
 /* Page-table type. */
-typedef struct { u64 pfn; } pagetable_t;
-#define pagetable_get_paddr(x)  ((paddr_t)(x).pfn << PAGE_SHIFT)
+typedef struct { mfn_t mfn; } pagetable_t;
+#define PAGETABLE_NULL_MFN      _mfn(0)
+
+#define pagetable_get_paddr(x)  mfn_to_maddr((x).mfn)
 #define pagetable_get_page(x)   mfn_to_page(pagetable_get_mfn(x))
-#define pagetable_get_pfn(x)    ((x).pfn)
-#define pagetable_get_mfn(x)    _mfn(((x).pfn))
-#define pagetable_is_null(x)    ((x).pfn == 0)
-#define pagetable_from_pfn(pfn) ((pagetable_t) { (pfn) })
-#define pagetable_from_mfn(mfn) ((pagetable_t) { mfn_x(mfn) })
+#define pagetable_get_mfn(x)    ((x).mfn)
+#define pagetable_is_null(x)    mfn_eq((x).mfn, PAGETABLE_NULL_MFN)
+#define pagetable_from_mfn(mfn) ((pagetable_t) { mfn })
 #define pagetable_from_page(pg) pagetable_from_mfn(page_to_mfn(pg))
-#define pagetable_from_paddr(p) pagetable_from_pfn((p)>>PAGE_SHIFT)
-#define pagetable_null()        pagetable_from_pfn(0)
+#define pagetable_from_paddr(p) pagetable_from_mfn(maddr_to_mfn(p))
+#define pagetable_null()        pagetable_from_mfn(PAGETABLE_NULL_MFN)
 
 void clear_page_sse2(void *);
 void copy_page_sse2(void *, const void *);

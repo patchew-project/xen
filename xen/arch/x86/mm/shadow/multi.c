@@ -1520,7 +1520,7 @@ sh_make_monitor_table(struct vcpu *v)
 {
     struct domain *d = v->domain;
 
-    ASSERT(pagetable_get_pfn(v->arch.monitor_table) == 0);
+    ASSERT(pagetable_is_null(v->arch.monitor_table));
 
     /* Guarantee we can get the memory we need */
     shadow_prealloc(d, SH_type_monitor_table, CONFIG_PAGING_LEVELS);
@@ -2351,11 +2351,11 @@ int sh_safe_not_to_sync(struct vcpu *v, mfn_t gl1mfn)
     ASSERT(mfn_valid(smfn));
 #endif
 
-    if ( pagetable_get_pfn(v->arch.shadow_table[0]) == mfn_x(smfn)
+    if ( mfn_eq(pagetable_get_mfn(v->arch.shadow_table[0]), smfn)
 #if (SHADOW_PAGING_LEVELS == 3)
-         || pagetable_get_pfn(v->arch.shadow_table[1]) == mfn_x(smfn)
-         || pagetable_get_pfn(v->arch.shadow_table[2]) == mfn_x(smfn)
-         || pagetable_get_pfn(v->arch.shadow_table[3]) == mfn_x(smfn)
+         || mfn_eq(pagetable_get_mfn(v->arch.shadow_table[1]), smfn)
+         || mfn_eq(pagetable_get_mfn(v->arch.shadow_table[2]), smfn)
+         || mfn_eq(pagetable_get_mfn(v->arch.shadow_table[3]), smfn)
 #endif
         )
         return 0;
@@ -3707,7 +3707,7 @@ sh_update_linear_entries(struct vcpu *v)
 
     /* Don't try to update the monitor table if it doesn't exist */
     if ( shadow_mode_external(d)
-         && pagetable_get_pfn(v->arch.monitor_table) == 0 )
+         && pagetable_is_null(v->arch.monitor_table) )
         return;
 
 #if SHADOW_PAGING_LEVELS == 4
@@ -3722,7 +3722,7 @@ sh_update_linear_entries(struct vcpu *v)
         if ( v == current )
         {
             __linear_l4_table[l4_linear_offset(SH_LINEAR_PT_VIRT_START)] =
-                l4e_from_pfn(pagetable_get_pfn(v->arch.shadow_table[0]),
+                l4e_from_mfn(pagetable_get_mfn(v->arch.shadow_table[0]),
                              __PAGE_HYPERVISOR_RW);
         }
         else
@@ -3730,7 +3730,7 @@ sh_update_linear_entries(struct vcpu *v)
             l4_pgentry_t *ml4e;
             ml4e = map_domain_page(pagetable_get_mfn(v->arch.monitor_table));
             ml4e[l4_table_offset(SH_LINEAR_PT_VIRT_START)] =
-                l4e_from_pfn(pagetable_get_pfn(v->arch.shadow_table[0]),
+                l4e_from_mfn(pagetable_get_mfn(v->arch.shadow_table[0]),
                              __PAGE_HYPERVISOR_RW);
             unmap_domain_page(ml4e);
         }
@@ -3964,15 +3964,15 @@ sh_update_cr3(struct vcpu *v, int do_locking, bool noflush)
     {
         ASSERT(shadow_mode_external(d));
         if ( hvm_paging_enabled(v) )
-            ASSERT(pagetable_get_pfn(v->arch.guest_table));
+            ASSERT(!pagetable_is_null(v->arch.guest_table));
         else
-            ASSERT(v->arch.guest_table.pfn
-                   == d->arch.paging.shadow.unpaged_pagetable.pfn);
+            ASSERT(mfn_eq(pagetable_get_mfn(v->arch.guest_table),
+                          pagetable_get_mfn(d->arch.paging.shadow.unpaged_pagetable)));
     }
 #endif
 
     SHADOW_PRINTK("%pv guest_table=%"PRI_mfn"\n",
-                  v, (unsigned long)pagetable_get_pfn(v->arch.guest_table));
+                  v, mfn_x(pagetable_get_mfn(v->arch.guest_table)));
 
 #if GUEST_PAGING_LEVELS == 4
     if ( !(v->arch.flags & TF_kernel_mode) )

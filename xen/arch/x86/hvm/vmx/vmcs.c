@@ -1290,7 +1290,7 @@ static int construct_vmcs(struct vcpu *v)
         struct p2m_domain *p2m = p2m_get_hostp2m(d);
         struct ept_data *ept = &p2m->ept;
 
-        ept->mfn = pagetable_get_pfn(p2m_get_pagetable(p2m));
+        ept->mfn = mfn_x(pagetable_get_mfn(p2m_get_pagetable(p2m)));
         __vmwrite(EPT_POINTER, ept->eptp);
 
         __vmwrite(HOST_PAT, XEN_MSR_PAT);

@@ -1149,7 +1149,7 @@ static uint64_t get_shadow_eptp(struct vcpu *v)
     struct p2m_domain *p2m = p2m_get_nestedp2m(v);
     struct ept_data *ept = &p2m->ept;
 
-    ept->mfn = pagetable_get_pfn(p2m_get_pagetable(p2m));
+    ept->mfn = mfn_x(pagetable_get_mfn(p2m_get_pagetable(p2m)));
     return ept->eptp;
 }
 

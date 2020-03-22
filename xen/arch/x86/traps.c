@@ -247,12 +247,12 @@ static void compat_show_guest_stack(struct vcpu *v,
     if ( v != current )
     {
         struct vcpu *vcpu;
-        unsigned long mfn;
+        mfn_t mfn;
 
         ASSERT(guest_kernel_mode(v, regs));
-        mfn = read_cr3() >> PAGE_SHIFT;
+        mfn = cr3_to_mfn(read_cr3());
         for_each_vcpu( v->domain, vcpu )
-            if ( pagetable_get_pfn(vcpu->arch.guest_table) == mfn )
+            if ( mfn_eq(pagetable_get_mfn(vcpu->arch.guest_table), mfn) )
                 break;
         if ( !vcpu )
         {

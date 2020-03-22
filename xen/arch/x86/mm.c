@@ -3085,7 +3085,7 @@ int put_old_guest_table(struct vcpu *v)
 
 int vcpu_destroy_pagetables(struct vcpu *v)
 {
-    unsigned long mfn = pagetable_get_pfn(v->arch.guest_table);
+    mfn_t mfn = pagetable_get_mfn(v->arch.guest_table);
     struct page_info *page = NULL;
     int rc = put_old_guest_table(v);
     bool put_guest_table_user = false;
@@ -3102,9 +3102,9 @@ int vcpu_destroy_pagetables(struct vcpu *v)
      */
     if ( is_pv_32bit_vcpu(v) )
     {
-        l4_pgentry_t *l4tab = map_domain_page(_mfn(mfn));
+        l4_pgentry_t *l4tab = map_domain_page(mfn);
 
-        mfn = l4e_get_pfn(*l4tab);
+        mfn = l4e_get_mfn(*l4tab);
         l4e_write(l4tab, l4e_empty());
         unmap_domain_page(l4tab);
     }
@@ -3116,24 +3116,24 @@ int vcpu_destroy_pagetables(struct vcpu *v)
 
     /* Free that page if non-zero */
     do {
-        if ( mfn )
+        if ( !mfn_eq(mfn, _mfn(0)) )
         {
-            page = mfn_to_page(_mfn(mfn));
+            page = mfn_to_page(mfn);
             if ( paging_mode_refcounts(v->domain) )
                 put_page(page);
             else
                 rc = put_page_and_type_preemptible(page);
-            mfn = 0;
+            mfn = _mfn(0);
         }
 
         if ( !rc && put_guest_table_user )
         {
             /* Drop ref to guest_table_user (from MMUEXT_NEW_USER_BASEPTR) */
-            mfn = pagetable_get_pfn(v->arch.guest_table_user);
+            mfn = pagetable_get_mfn(v->arch.guest_table_user);
             v->arch.guest_table_user = pagetable_null();
             put_guest_table_user = false;
         }
-    } while ( mfn );
+    } while ( !mfn_eq(mfn, _mfn(0)) );
 
     /*
      * If a "put" operation was interrupted, finish things off in
@@ -3551,7 +3551,8 @@ long do_mmuext_op(
             break;
 
         case MMUEXT_NEW_USER_BASEPTR: {
-            unsigned long old_mfn;
+            mfn_t old_mfn;
+            mfn_t new_mfn = _mfn(op.arg1.mfn);
 
             if ( unlikely(currd != pg_owner) )
                 rc = -EPERM;
@@ -3560,19 +3561,18 @@ long do_mmuext_op(
             if ( unlikely(rc) )
                 break;
 
-            old_mfn = pagetable_get_pfn(curr->arch.guest_table_user);
+            old_mfn = pagetable_get_mfn(curr->arch.guest_table_user);
             /*
              * This is particularly important when getting restarted after the
              * previous attempt got preempted in the put-old-MFN phase.
              */
-            if ( old_mfn == op.arg1.mfn )
+            if ( mfn_eq(old_mfn, new_mfn) )
                 break;
 
-            if ( op.arg1.mfn != 0 )
+            if ( !mfn_eq(new_mfn, _mfn(0)) )
             {
-                rc = get_page_and_type_from_mfn(
-                    _mfn(op.arg1.mfn), PGT_root_page_table, currd, PTF_preemptible);
-
+                rc = get_page_and_type_from_mfn(new_mfn, PGT_root_page_table,
+                                                currd, PTF_preemptible);
                 if ( unlikely(rc) )
                 {
                     if ( rc == -EINTR )
@@ -3580,19 +3580,19 @@ long do_mmuext_op(
                     else if ( rc != -ERESTART )
                         gdprintk(XENLOG_WARNING,
                                  "Error %d installing new mfn %" PRI_mfn "\n",
-                                 rc, op.arg1.mfn);
+                                 rc, mfn_x(new_mfn));
                     break;
                 }
 
                 if ( VM_ASSIST(currd, m2p_strict) )
-                    zap_ro_mpt(_mfn(op.arg1.mfn));
+                    zap_ro_mpt(new_mfn);
             }
 
-            curr->arch.guest_table_user = pagetable_from_pfn(op.arg1.mfn);
+            curr->arch.guest_table_user = pagetable_from_mfn(new_mfn);
 
-            if ( old_mfn != 0 )
+            if ( !mfn_eq(old_mfn, _mfn(0)) )
             {
-                page = mfn_to_page(_mfn(old_mfn));
+                page = mfn_to_page(old_mfn);
 
                 switch ( rc = put_page_and_type_preemptible(page) )
                 {

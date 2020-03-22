@@ -952,25 +952,27 @@ int arch_set_info_guest(
     }
     else
     {
-        unsigned long pfn = pagetable_get_pfn(v->arch.guest_table);
+        mfn_t mfn = pagetable_get_mfn(v->arch.guest_table);
         bool fail;
 
         if ( !compat )
         {
-            fail = xen_pfn_to_cr3(pfn) != c.nat->ctrlreg[3];
+            fail = mfn_to_cr3(mfn) != c.nat->ctrlreg[3];
             if ( pagetable_is_null(v->arch.guest_table_user) )
                 fail |= c.nat->ctrlreg[1] || !(flags & VGCF_in_kernel);
             else
             {
-                pfn = pagetable_get_pfn(v->arch.guest_table_user);
-                fail |= xen_pfn_to_cr3(pfn) != c.nat->ctrlreg[1];
+                mfn = pagetable_get_mfn(v->arch.guest_table_user);
+                fail |= mfn_to_cr3(mfn) != c.nat->ctrlreg[1];
             }
-        } else {
-            l4_pgentry_t *l4tab = map_domain_page(_mfn(pfn));
+        }
+        else
+        {
+            l4_pgentry_t *l4tab = map_domain_page(mfn);
 
-            pfn = l4e_get_pfn(*l4tab);
+            mfn = l4e_get_mfn(*l4tab);
             unmap_domain_page(l4tab);
-            fail = compat_pfn_to_cr3(pfn) != c.cmp->ctrlreg[3];
+            fail = compat_pfn_to_cr3(mfn_x(mfn)) != c.cmp->ctrlreg[3];
         }
 
         for ( i = 0; i < ARRAY_SIZE(v->arch.pv.gdt_frames); ++i )

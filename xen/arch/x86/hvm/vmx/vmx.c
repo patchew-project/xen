@@ -2110,7 +2110,7 @@ static void vmx_vcpu_update_eptp(struct vcpu *v)
         p2m = p2m_get_hostp2m(d);
 
     ept = &p2m->ept;
-    ept->mfn = pagetable_get_pfn(p2m_get_pagetable(p2m));
+    ept->mfn = mfn_x(pagetable_get_mfn(p2m_get_pagetable(p2m)));
 
     vmx_vmcs_enter(v);
 

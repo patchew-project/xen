@@ -394,7 +394,7 @@ static mfn_t hap_make_monitor_table(struct vcpu *v)
     l4_pgentry_t *l4e;
     mfn_t m4mfn;
 
-    ASSERT(pagetable_get_pfn(v->arch.monitor_table) == 0);
+    ASSERT(pagetable_is_null(v->arch.monitor_table));
 
     if ( (pg = hap_alloc(d)) == NULL )
         goto oom;

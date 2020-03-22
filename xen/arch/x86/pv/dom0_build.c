@@ -93,14 +93,14 @@ static __init void mark_pv_pt_pages_rdonly(struct domain *d,
     }
 }
 
-static __init void setup_pv_physmap(struct domain *d, unsigned long pgtbl_pfn,
+static __init void setup_pv_physmap(struct domain *d, mfn_t pgtbl_mfn,
                                     unsigned long v_start, unsigned long v_end,
                                     unsigned long vphysmap_start,
                                     unsigned long vphysmap_end,
                                     unsigned long nr_pages)
 {
     struct page_info *page = NULL;
-    l4_pgentry_t *pl4e, *l4start = map_domain_page(_mfn(pgtbl_pfn));
+    l4_pgentry_t *pl4e, *l4start = map_domain_page(pgtbl_mfn);
     l3_pgentry_t *pl3e = NULL;
     l2_pgentry_t *pl2e = NULL;
     l1_pgentry_t *pl1e = NULL;
@@ -760,11 +760,9 @@ int __init dom0_construct_pv(struct domain *d,
 
     /* Set up the phys->machine table if not part of the initial mapping. */
     if ( parms.p2m_base != UNSET_ADDR )
-    {
-        pfn = pagetable_get_pfn(v->arch.guest_table);
-        setup_pv_physmap(d, pfn, v_start, v_end, vphysmap_start, vphysmap_end,
+        setup_pv_physmap(d, pagetable_get_mfn(v->arch.guest_table),
+                         v_start, v_end, vphysmap_start, vphysmap_end,
                          nr_pages);
-    }
 
     /* Write the phys->machine and machine->phys table entries. */
     for ( pfn = 0; pfn < count; pfn++ )
