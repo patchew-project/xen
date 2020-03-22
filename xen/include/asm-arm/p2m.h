@@ -304,7 +304,7 @@ struct page_info *p2m_get_page_from_gfn(struct domain *d, gfn_t gfn,
                                         p2m_type_t *t);
 
 static inline struct page_info *get_page_from_gfn(
-    struct domain *d, unsigned long gfn, p2m_type_t *t, p2m_query_t q)
+    struct domain *d, gfn_t gfn, p2m_type_t *t, p2m_query_t q)
 {
     mfn_t mfn;
     p2m_type_t _t;
@@ -315,7 +315,7 @@ static inline struct page_info *get_page_from_gfn(
      * not auto-translated.
      */
     if ( likely(d != dom_xen) )
-        return p2m_get_page_from_gfn(d, _gfn(gfn), t);
+        return p2m_get_page_from_gfn(d, gfn, t);
 
     if ( !t )
         t = &_t;
@@ -326,7 +326,7 @@ static inline struct page_info *get_page_from_gfn(
      * DOMID_XEN sees 1-1 RAM. The p2m_type is based on the type of the
      * page.
      */
-    mfn = _mfn(gfn);
+    mfn = _mfn(gfn_x(gfn));
     page = mfn_to_page(mfn);
 
     if ( !mfn_valid(mfn) || !get_page(page, d) )

@@ -110,7 +110,7 @@ bool pv_map_ldt_shadow_page(unsigned int offset)
     if ( unlikely(!(l1e_get_flags(gl1e) & _PAGE_PRESENT)) )
         return false;
 
-    page = get_page_from_gfn(currd, l1e_get_pfn(gl1e), NULL, P2M_ALLOC);
+    page = get_page_from_gfn(currd, _gfn(l1e_get_pfn(gl1e)), NULL, P2M_ALLOC);
     if ( unlikely(!page) )
         return false;
 

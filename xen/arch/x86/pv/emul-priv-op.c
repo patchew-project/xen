@@ -756,12 +756,12 @@ static int write_cr(unsigned int reg, unsigned long val,
     case 3: /* Write CR3 */
     {
         struct domain *currd = curr->domain;
-        unsigned long gfn;
+        gfn_t gfn;
         struct page_info *page;
         int rc;
 
-        gfn = !is_pv_32bit_domain(currd)
-              ? xen_cr3_to_pfn(val) : compat_cr3_to_pfn(val);
+        gfn = _gfn(!is_pv_32bit_domain(currd)
+                   ? xen_cr3_to_pfn(val) : compat_cr3_to_pfn(val));
         page = get_page_from_gfn(currd, gfn, NULL, P2M_ALLOC);
         if ( !page )
             break;

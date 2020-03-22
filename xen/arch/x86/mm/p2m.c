@@ -2967,7 +2967,7 @@ int p2m_add_foreign(struct domain *tdom, unsigned long fgfn,
      * Take a refcnt on the mfn. NB: following supported for foreign mapping:
      *     ram_rw | ram_logdirty | ram_ro | paging_out.
      */
-    page = get_page_from_gfn(fdom, fgfn, &p2mt, P2M_ALLOC);
+    page = get_page_from_gfn(fdom, _gfn(fgfn), &p2mt, P2M_ALLOC);
     if ( !page ||
          !p2m_is_ram(p2mt) || p2m_is_shared(p2mt) || p2m_is_hole(p2mt) )
     {

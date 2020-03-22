@@ -391,7 +391,7 @@ long arch_do_domctl(
                 break;
             }
 
-            page = get_page_from_gfn(d, gfn, &t, P2M_ALLOC);
+            page = get_page_from_gfn(d, _gfn(gfn), &t, P2M_ALLOC);
 
             if ( unlikely(!page) ||
                  unlikely(is_xen_heap_page(page)) )
@@ -461,11 +461,11 @@ long arch_do_domctl(
 
     case XEN_DOMCTL_hypercall_init:
     {
-        unsigned long gmfn = domctl->u.hypercall_init.gmfn;
+        gfn_t gfn = _gfn(domctl->u.hypercall_init.gmfn);
         struct page_info *page;
         void *hypercall_page;
 
-        page = get_page_from_gfn(d, gmfn, NULL, P2M_ALLOC);
+        page = get_page_from_gfn(d, gfn, NULL, P2M_ALLOC);
 
         if ( !page || !get_page_type(page, PGT_writable_page) )
         {

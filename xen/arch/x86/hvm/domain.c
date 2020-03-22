@@ -296,8 +296,10 @@ int arch_set_info_hvm_guest(struct vcpu *v, const vcpu_hvm_context_t *ctx)
     if ( hvm_paging_enabled(v) && !paging_mode_hap(v->domain) )
     {
         /* Shadow-mode CR3 change. Check PDBR and update refcounts. */
-        struct page_info *page = get_page_from_gfn(v->domain,
-                                 v->arch.hvm.guest_cr[3] >> PAGE_SHIFT,
+        struct page_info *page;
+
+        page = get_page_from_gfn(v->domain,
+                                 gaddr_to_gfn(v->arch.hvm.guest_cr[3]),
                                  NULL, P2M_ALLOC);
         if ( !page )
         {

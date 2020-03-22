@@ -37,7 +37,7 @@ static struct page_info *translate_get_page(copy_info_t info, uint64_t addr,
         return get_page_from_gva(info.gva.v, addr,
                                  write ? GV2M_WRITE : GV2M_READ);
 
-    page = get_page_from_gfn(info.gpa.d, paddr_to_pfn(addr), &p2mt, P2M_ALLOC);
+    page = get_page_from_gfn(info.gpa.d, gaddr_to_gfn(addr), &p2mt, P2M_ALLOC);
 
     if ( !page )
         return NULL;

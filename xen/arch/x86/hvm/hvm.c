@@ -2216,7 +2216,7 @@ int hvm_set_cr0(unsigned long value, bool may_defer)
 {
     struct vcpu *v = current;
     struct domain *d = v->domain;
-    unsigned long gfn, old_value = v->arch.hvm.guest_cr[0];
+    unsigned long old_value = v->arch.hvm.guest_cr[0];
     struct page_info *page;
 
     HVM_DBG_LOG(DBG_LEVEL_VMMU, "Update CR0 value = %lx", value);
@@ -2271,7 +2271,8 @@ int hvm_set_cr0(unsigned long value, bool may_defer)
         if ( !paging_mode_hap(d) )
         {
             /* The guest CR3 must be pointing to the guest physical. */
-            gfn = v->arch.hvm.guest_cr[3] >> PAGE_SHIFT;
+            gfn_t gfn = gaddr_to_gfn(v->arch.hvm.guest_cr[3]);
+
             page = get_page_from_gfn(d, gfn, NULL, P2M_ALLOC);
             if ( !page )
             {
@@ -2363,7 +2364,7 @@ int hvm_set_cr3(unsigned long value, bool may_defer)
     {
         /* Shadow-mode CR3 change. Check PDBR and update refcounts. */
         HVM_DBG_LOG(DBG_LEVEL_VMMU, "CR3 value = %lx", value);
-        page = get_page_from_gfn(v->domain, value >> PAGE_SHIFT,
+        page = get_page_from_gfn(v->domain, cr3_to_gfn(value),
                                  NULL, P2M_ALLOC);
         if ( !page )
             goto bad_cr3;
@@ -3191,7 +3192,7 @@ enum hvm_translation_result hvm_translate_get_page(
          && hvm_mmio_internal(gfn_to_gaddr(gfn)) )
         return HVMTRANS_bad_gfn_to_mfn;
 
-    page = get_page_from_gfn(v->domain, gfn_x(gfn), &p2mt, P2M_UNSHARE);
+    page = get_page_from_gfn(v->domain, gfn, &p2mt, P2M_UNSHARE);
 
     if ( !page )
         return HVMTRANS_bad_gfn_to_mfn;

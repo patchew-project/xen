@@ -299,7 +299,7 @@ static int svm_vmcb_restore(struct vcpu *v, struct hvm_hw_cpu *c)
     {
         if ( c->cr0 & X86_CR0_PG )
         {
-            page = get_page_from_gfn(v->domain, c->cr3 >> PAGE_SHIFT,
+            page = get_page_from_gfn(v->domain, cr3_to_gfn(c->cr3),
                                      NULL, P2M_ALLOC);
             if ( !page )
             {
@@ -2230,9 +2230,9 @@ nsvm_get_nvmcb_page(struct vcpu *v, uint64_t vmcbaddr)
         return NULL;
 
     /* Need to translate L1-GPA to MPA */
-    page = get_page_from_gfn(v->domain, 
-                            nv->nv_vvmcxaddr >> PAGE_SHIFT, 
-                            &p2mt, P2M_ALLOC | P2M_UNSHARE);
+    page = get_page_from_gfn(v->domain,
+                             gaddr_to_gfn(nv->nv_vvmcxaddr),
+                             &p2mt, P2M_ALLOC | P2M_UNSHARE);
     if ( !page )
         return NULL;
 

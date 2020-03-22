@@ -112,7 +112,7 @@ long pv_set_gdt(struct vcpu *v, unsigned long *frames, unsigned int entries)
     {
         struct page_info *page;
 
-        page = get_page_from_gfn(d, frames[i], NULL, P2M_ALLOC);
+        page = get_page_from_gfn(d, _gfn(frames[i]), NULL, P2M_ALLOC);
         if ( !page )
             goto fail;
         if ( !get_page_type(page, PGT_seg_desc_page) )
@@ -219,7 +219,7 @@ long do_update_descriptor(uint64_t gaddr, seg_desc_t d)
     if ( !IS_ALIGNED(gaddr, sizeof(d)) || !check_descriptor(currd, &d) )
         return -EINVAL;
 
-    page = get_page_from_gfn(currd, gfn_x(gfn), NULL, P2M_ALLOC);
+    page = get_page_from_gfn(currd, gfn, NULL, P2M_ALLOC);
     if ( !page )
         return -EINVAL;
 

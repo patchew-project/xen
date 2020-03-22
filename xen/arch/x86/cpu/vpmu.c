@@ -617,7 +617,7 @@ static int pvpmu_init(struct domain *d, xen_pmu_params_t *params)
     struct vcpu *v;
     struct vpmu_struct *vpmu;
     struct page_info *page;
-    uint64_t gfn = params->val;
+    gfn_t gfn = _gfn(params->val);
 
     if ( (params->vcpu >= d->max_vcpus) || (d->vcpu[params->vcpu] == NULL) )
         return -EINVAL;

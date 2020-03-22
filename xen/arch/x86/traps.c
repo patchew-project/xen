@@ -826,7 +826,7 @@ int guest_wrmsr_xen(struct vcpu *v, uint32_t idx, uint64_t val)
     case 0: /* Write hypercall page */
     {
         void *hypercall_page;
-        unsigned long gmfn = val >> PAGE_SHIFT;
+        gfn_t gfn = gaddr_to_gfn(val);
         unsigned int page_index = val & (PAGE_SIZE - 1);
         struct page_info *page;
         p2m_type_t t;
@@ -839,7 +839,7 @@ int guest_wrmsr_xen(struct vcpu *v, uint32_t idx, uint64_t val)
             return X86EMUL_EXCEPTION;
         }
 
-        page = get_page_from_gfn(d, gmfn, &t, P2M_ALLOC);
+        page = get_page_from_gfn(d, gfn, &t, P2M_ALLOC);
 
         if ( !page || !get_page_type(page, PGT_writable_page) )
         {
@@ -848,13 +848,14 @@ int guest_wrmsr_xen(struct vcpu *v, uint32_t idx, uint64_t val)
 
             if ( p2m_is_paging(t) )
             {
-                p2m_mem_paging_populate(d, gmfn);
+                p2m_mem_paging_populate(d, gfn_x(gfn));
                 return X86EMUL_RETRY;
             }
 
             gdprintk(XENLOG_WARNING,
-                     "Bad GMFN %lx (MFN %#"PRI_mfn") to MSR %08x\n",
-                     gmfn, mfn_x(page ? page_to_mfn(page) : INVALID_MFN), base);
+                     "Bad GFN %"PRI_gfn" (MFN %"PRI_mfn") to MSR %08x\n",
+                     gfn_x(gfn), mfn_x(page ? page_to_mfn(page) : INVALID_MFN),
+                     base);
             return X86EMUL_EXCEPTION;
         }
 

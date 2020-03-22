@@ -718,11 +718,11 @@ static void nvmx_update_apic_access_address(struct vcpu *v)
     if ( ctrl & SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES )
     {
         p2m_type_t p2mt;
-        unsigned long apic_gpfn;
+        gfn_t apic_gfn;
         struct page_info *apic_pg;
 
-        apic_gpfn = get_vvmcs(v, APIC_ACCESS_ADDR) >> PAGE_SHIFT;
-        apic_pg = get_page_from_gfn(v->domain, apic_gpfn, &p2mt, P2M_ALLOC);
+        apic_gfn = gaddr_to_gfn(get_vvmcs(v, APIC_ACCESS_ADDR));
+        apic_pg = get_page_from_gfn(v->domain, apic_gfn, &p2mt, P2M_ALLOC);
         ASSERT(apic_pg && !p2m_is_paging(p2mt));
         __vmwrite(APIC_ACCESS_ADDR, page_to_maddr(apic_pg));
         put_page(apic_pg);
@@ -739,11 +739,11 @@ static void nvmx_update_virtual_apic_address(struct vcpu *v)
     if ( ctrl & CPU_BASED_TPR_SHADOW )
     {
         p2m_type_t p2mt;
-        unsigned long vapic_gpfn;
+        gfn_t vapic_gfn;
         struct page_info *vapic_pg;
 
-        vapic_gpfn = get_vvmcs(v, VIRTUAL_APIC_PAGE_ADDR) >> PAGE_SHIFT;
-        vapic_pg = get_page_from_gfn(v->domain, vapic_gpfn, &p2mt, P2M_ALLOC);
+        vapic_gfn = gaddr_to_gfn(get_vvmcs(v, VIRTUAL_APIC_PAGE_ADDR));
+        vapic_pg = get_page_from_gfn(v->domain, vapic_gfn, &p2mt, P2M_ALLOC);
         ASSERT(vapic_pg && !p2m_is_paging(p2mt));
         __vmwrite(VIRTUAL_APIC_PAGE_ADDR, page_to_maddr(vapic_pg));
         put_page(vapic_pg);

@@ -398,15 +398,15 @@ void shadow_continue_emulation(struct sh_emulate_ctxt *sh_ctxt,
 static mfn_t emulate_gva_to_mfn(struct vcpu *v, unsigned long vaddr,
                                 struct sh_emulate_ctxt *sh_ctxt)
 {
-    unsigned long gfn;
+    gfn_t gfn;
     struct page_info *page;
     mfn_t mfn;
     p2m_type_t p2mt;
     uint32_t pfec = PFEC_page_present | PFEC_write_access;
 
     /* Translate the VA to a GFN. */
-    gfn = paging_get_hostmode(v)->gva_to_gfn(v, NULL, vaddr, &pfec);
-    if ( gfn == gfn_x(INVALID_GFN) )
+    gfn = _gfn(paging_get_hostmode(v)->gva_to_gfn(v, NULL, vaddr, &pfec));
+    if ( gfn_eq(gfn, INVALID_GFN) )
     {
         x86_emul_pagefault(pfec, vaddr, &sh_ctxt->ctxt);
 

@@ -2150,7 +2150,7 @@ static int mod_l1_entry(l1_pgentry_t *pl1e, l1_pgentry_t nl1e,
             p2m_query_t q = l1e_get_flags(nl1e) & _PAGE_RW ?
                             P2M_ALLOC | P2M_UNSHARE : P2M_ALLOC;
 
-            page = get_page_from_gfn(pg_dom, l1e_get_pfn(nl1e), &p2mt, q);
+            page = get_page_from_gfn(pg_dom, _gfn(l1e_get_pfn(nl1e)), &p2mt, q);
 
             if ( p2m_is_paged(p2mt) )
             {
@@ -3433,7 +3433,8 @@ long do_mmuext_op(
             if ( paging_mode_refcounts(pg_owner) )
                 break;
 
-            page = get_page_from_gfn(pg_owner, op.arg1.mfn, NULL, P2M_ALLOC);
+            page = get_page_from_gfn(pg_owner, _gfn(op.arg1.mfn), NULL,
+                                     P2M_ALLOC);
             if ( unlikely(!page) )
             {
                 rc = -EINVAL;
@@ -3499,7 +3500,8 @@ long do_mmuext_op(
             if ( paging_mode_refcounts(pg_owner) )
                 break;
 
-            page = get_page_from_gfn(pg_owner, op.arg1.mfn, NULL, P2M_ALLOC);
+            page = get_page_from_gfn(pg_owner, _gfn(op.arg1.mfn), NULL,
+                                     P2M_ALLOC);
             if ( unlikely(!page) )
             {
                 gdprintk(XENLOG_WARNING,
@@ -3724,7 +3726,8 @@ long do_mmuext_op(
         }
 
         case MMUEXT_CLEAR_PAGE:
-            page = get_page_from_gfn(pg_owner, op.arg1.mfn, &p2mt, P2M_ALLOC);
+            page = get_page_from_gfn(pg_owner, _gfn(op.arg1.mfn), &p2mt,
+                                     P2M_ALLOC);
             if ( unlikely(p2mt != p2m_ram_rw) && page )
             {
                 put_page(page);
@@ -3752,7 +3755,7 @@ long do_mmuext_op(
         {
             struct page_info *src_page, *dst_page;
 
-            src_page = get_page_from_gfn(pg_owner, op.arg2.src_mfn, &p2mt,
+            src_page = get_page_from_gfn(pg_owner, _gfn(op.arg2.src_mfn), &p2mt,
                                          P2M_ALLOC);
             if ( unlikely(p2mt != p2m_ram_rw) && src_page )
             {
@@ -3768,7 +3771,7 @@ long do_mmuext_op(
                 break;
             }
 
-            dst_page = get_page_from_gfn(pg_owner, op.arg1.mfn, &p2mt,
+            dst_page = get_page_from_gfn(pg_owner, _gfn(op.arg1.mfn), &p2mt,
                                          P2M_ALLOC);
             if ( unlikely(p2mt != p2m_ram_rw) && dst_page )
             {
@@ -3856,7 +3859,8 @@ long do_mmu_update(
 {
     struct mmu_update req;
     void *va = NULL;
-    unsigned long gpfn, gmfn;
+    unsigned long gpfn;
+    gfn_t gfn;
     struct page_info *page;
     unsigned int cmd, i = 0, done = 0, pt_dom;
     struct vcpu *curr = current, *v = curr;
@@ -3969,8 +3973,8 @@ long do_mmu_update(
             rc = -EINVAL;
 
             req.ptr -= cmd;
-            gmfn = req.ptr >> PAGE_SHIFT;
-            page = get_page_from_gfn(pt_owner, gmfn, &p2mt, P2M_ALLOC);
+            gfn = gaddr_to_gfn(req.ptr);
+            page = get_page_from_gfn(pt_owner, gfn, &p2mt, P2M_ALLOC);
 
             if ( unlikely(!page) || p2mt != p2m_ram_rw )
             {
@@ -3978,7 +3982,7 @@ long do_mmu_update(
                     put_page(page);
                 if ( p2m_is_paged(p2mt) )
                 {
-                    p2m_mem_paging_populate(pt_owner, gmfn);
+                    p2m_mem_paging_populate(pt_owner, gfn_x(gfn));
                     rc = -ENOENT;
                 }
                 else

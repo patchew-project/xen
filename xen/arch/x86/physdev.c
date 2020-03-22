@@ -229,7 +229,8 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
             break;
 
         ret = -EINVAL;
-        page = get_page_from_gfn(current->domain, info.gmfn, NULL, P2M_ALLOC);
+        page = get_page_from_gfn(current->domain, _gfn(info.gmfn),
+                                 NULL, P2M_ALLOC);
         if ( !page )
             break;
         if ( !get_page_type(page, PGT_writable_page) )

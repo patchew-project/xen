@@ -242,16 +242,16 @@ static void dump_hypercall(const struct domain *d)
 
 static void enable_hypercall_page(struct domain *d)
 {
-    unsigned long gmfn = d->arch.hvm.viridian->hypercall_gpa.pfn;
-    struct page_info *page = get_page_from_gfn(d, gmfn, NULL, P2M_ALLOC);
+    gfn_t gfn = _gfn(d->arch.hvm.viridian->hypercall_gpa.pfn);
+    struct page_info *page = get_page_from_gfn(d, gfn, NULL, P2M_ALLOC);
     uint8_t *p;
 
     if ( !page || !get_page_type(page, PGT_writable_page) )
     {
         if ( page )
             put_page(page);
-        gdprintk(XENLOG_WARNING, "Bad GMFN %#"PRI_gfn" (MFN %#"PRI_mfn")\n",
-                 gmfn, mfn_x(page ? page_to_mfn(page) : INVALID_MFN));
+        gdprintk(XENLOG_WARNING, "Bad GFN %#"PRI_gfn" (MFN %#"PRI_mfn")\n",
+                 gfn_x(gfn), mfn_x(page ? page_to_mfn(page) : INVALID_MFN));
         return;
     }
 
@@ -719,13 +719,13 @@ void viridian_dump_guest_page(const struct vcpu *v, const char *name,
 
 void viridian_map_guest_page(struct domain *d, struct viridian_page *vp)
 {
-    unsigned long gmfn = vp->msr.pfn;
+    gfn_t gfn = _gfn(vp->msr.pfn);
     struct page_info *page;
 
     if ( vp->ptr )
         return;
 
-    page = get_page_from_gfn(d, gmfn, NULL, P2M_ALLOC);
+    page = get_page_from_gfn(d, gfn, NULL, P2M_ALLOC);
     if ( !page )
         goto fail;
 
@@ -746,8 +746,8 @@ void viridian_map_guest_page(struct domain *d, struct viridian_page *vp)
     return;
 
  fail:
-    gdprintk(XENLOG_WARNING, "Bad GMFN %#"PRI_gfn" (MFN %#"PRI_mfn")\n",
-             gmfn, mfn_x(page ? page_to_mfn(page) : INVALID_MFN));
+    gdprintk(XENLOG_WARNING, "Bad GFN %#"PRI_gfn" (MFN %#"PRI_mfn")\n",
+             gfn_x(gfn), mfn_x(page ? page_to_mfn(page) : INVALID_MFN));
 }
 
 void viridian_unmap_guest_page(struct viridian_page *vp)

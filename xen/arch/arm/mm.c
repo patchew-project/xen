@@ -1446,7 +1446,7 @@ int xenmem_add_to_physmap_one(
 
         /* Take reference to the foreign domain page.
          * Reference will be released in XENMEM_remove_from_physmap */
-        page = get_page_from_gfn(od, idx, &p2mt, P2M_ALLOC);
+        page = get_page_from_gfn(od, _gfn(idx), &p2mt, P2M_ALLOC);
         if ( !page )
         {
             put_pg_owner(od);

@@ -1388,7 +1388,7 @@ long do_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
             return rc;
         }
 
-        page = get_page_from_gfn(d, xrfp.gpfn, NULL, P2M_ALLOC);
+        page = get_page_from_gfn(d, _gfn(xrfp.gpfn), NULL, P2M_ALLOC);
         if ( page )
         {
             rc = guest_physmap_remove_page(d, _gfn(xrfp.gpfn),
@@ -1659,7 +1659,7 @@ int check_get_page_from_gfn(struct domain *d, gfn_t gfn, bool readonly,
     p2m_type_t p2mt;
     struct page_info *page;
 
-    page = get_page_from_gfn(d, gfn_x(gfn), &p2mt, q);
+    page = get_page_from_gfn(d, gfn, &p2mt, q);
 
 #ifdef CONFIG_HAS_MEM_PAGING
     if ( p2m_is_paging(p2mt) )

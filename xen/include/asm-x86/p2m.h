@@ -487,18 +487,22 @@ struct page_info *p2m_get_page_from_gfn(struct p2m_domain *p2m, gfn_t gfn,
                                         p2m_query_t q);
 
 static inline struct page_info *get_page_from_gfn(
-    struct domain *d, unsigned long gfn, p2m_type_t *t, p2m_query_t q)
+    struct domain *d, gfn_t gfn, p2m_type_t *t, p2m_query_t q)
 {
     struct page_info *page;
+    mfn_t mfn;
 
     if ( paging_mode_translate(d) )
-        return p2m_get_page_from_gfn(p2m_get_hostp2m(d), _gfn(gfn), t, NULL, q);
+        return p2m_get_page_from_gfn(p2m_get_hostp2m(d), gfn, t, NULL, q);
 
     /* Non-translated guests see 1-1 RAM / MMIO mappings everywhere */
     if ( t )
         *t = likely(d != dom_io) ? p2m_ram_rw : p2m_mmio_direct;
-    page = mfn_to_page(_mfn(gfn));
-    return mfn_valid(_mfn(gfn)) && get_page(page, d) ? page : NULL;
+
+    mfn = _mfn(gfn_x(gfn));
+
+    page = mfn_to_page(mfn);
+    return mfn_valid(mfn) && get_page(page, d) ? page : NULL;
 }
 
 /* General conversion function from mfn to gfn */

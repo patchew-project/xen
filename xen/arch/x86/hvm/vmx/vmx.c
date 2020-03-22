@@ -681,7 +681,7 @@ static int vmx_restore_cr0_cr3(
     {
         if ( cr0 & X86_CR0_PG )
         {
-            page = get_page_from_gfn(v->domain, cr3 >> PAGE_SHIFT,
+            page = get_page_from_gfn(v->domain, gaddr_to_gfn(cr3),
                                      NULL, P2M_ALLOC);
             if ( !page )
             {
@@ -1321,7 +1321,7 @@ static void vmx_load_pdptrs(struct vcpu *v)
     if ( (cr3 & 0x1fUL) && !hvm_pcid_enabled(v) )
         goto crash;
 
-    page = get_page_from_gfn(v->domain, cr3 >> PAGE_SHIFT, &p2mt, P2M_UNSHARE);
+    page = get_page_from_gfn(v->domain, gaddr_to_gfn(cr3), &p2mt, P2M_UNSHARE);
     if ( !page )
     {
         /* Ideally you don't want to crash but rather go into a wait 

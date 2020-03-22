@@ -188,7 +188,7 @@ static int modified_memory(struct domain *d,
         {
             struct page_info *page;
 
-            page = get_page_from_gfn(d, pfn, NULL, P2M_UNSHARE);
+            page = get_page_from_gfn(d, _gfn(pfn), NULL, P2M_UNSHARE);
             if ( page )
             {
                 paging_mark_pfn_dirty(d, _pfn(pfn));

@@ -361,7 +361,7 @@ static const struct evtchn_port_ops evtchn_port_ops_fifo =
     .print_state   = evtchn_fifo_print_state,
 };
 
-static int map_guest_page(struct domain *d, uint64_t gfn, void **virt)
+static int map_guest_page(struct domain *d, gfn_t gfn, void **virt)
 {
     struct page_info *p;
 
@@ -422,7 +422,7 @@ static int setup_control_block(struct vcpu *v)
     return 0;
 }
 
-static int map_control_block(struct vcpu *v, uint64_t gfn, uint32_t offset)
+static int map_control_block(struct vcpu *v, gfn_t gfn, uint32_t offset)
 {
     void *virt;
     unsigned int i;
@@ -508,7 +508,7 @@ int evtchn_fifo_init_control(struct evtchn_init_control *init_control)
 {
     struct domain *d = current->domain;
     uint32_t vcpu_id;
-    uint64_t gfn;
+    gfn_t gfn;
     uint32_t offset;
     struct vcpu *v;
     int rc;
@@ -516,7 +516,7 @@ int evtchn_fifo_init_control(struct evtchn_init_control *init_control)
     init_control->link_bits = EVTCHN_FIFO_LINK_BITS;
 
     vcpu_id = init_control->vcpu;
-    gfn     = init_control->control_gfn;
+    gfn     = _gfn(init_control->control_gfn);
     offset  = init_control->offset;
 
     if ( (v = domain_vcpu(d, vcpu_id)) == NULL )
@@ -578,7 +578,7 @@ int evtchn_fifo_init_control(struct evtchn_init_control *init_control)
     return rc;
 }
 
-static int add_page_to_event_array(struct domain *d, unsigned long gfn)
+static int add_page_to_event_array(struct domain *d, gfn_t gfn)
 {
     void *virt;
     unsigned int slot;
@@ -628,7 +628,7 @@ int evtchn_fifo_expand_array(const struct evtchn_expand_array *expand_array)
         return -EOPNOTSUPP;
 
     spin_lock(&d->event_lock);
-    rc = add_page_to_event_array(d, expand_array->array_gfn);
+    rc = add_page_to_event_array(d, _gfn(expand_array->array_gfn));
     spin_unlock(&d->event_lock);
 
     return rc;
