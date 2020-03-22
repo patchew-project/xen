@@ -255,7 +255,7 @@ int nept_translate_l2ga(struct vcpu *v, paddr_t l2ga,
         }
         else
         {
-            gdprintk(XENLOG_ERR, "Uncorrect l1 entry!\n");
+            gdprintk(XENLOG_ERR, "Incorrect l1 entry!\n");
             BUG();
         }
         if ( nept_permission_check(rwx_acc, rwx_bits) )
