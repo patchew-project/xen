@@ -444,31 +444,32 @@ static int __init pvh_populate_p2m(struct domain *d)
     /* Populate memory map. */
     for ( i = 0; i < d->arch.nr_e820; i++ )
     {
-        unsigned long addr, size;
+        mfn_t mfn;
+        unsigned long size;
 
         if ( d->arch.e820[i].type != E820_RAM )
             continue;
 
-        addr = PFN_DOWN(d->arch.e820[i].addr);
+        mfn = maddr_to_mfn(d->arch.e820[i].addr);
         size = PFN_DOWN(d->arch.e820[i].size);
 
-        rc = pvh_populate_memory_range(d, addr, size);
+        rc = pvh_populate_memory_range(d, mfn_x(mfn), size);
         if ( rc )
             return rc;
 
-        if ( addr < MB1_PAGES )
+        if ( mfn_x(mfn) < MB1_PAGES )
         {
             uint64_t end = min_t(uint64_t, MB(1),
                                  d->arch.e820[i].addr + d->arch.e820[i].size);
             enum hvm_translation_result res =
-                 hvm_copy_to_guest_phys(mfn_to_maddr(_mfn(addr)),
-                                        mfn_to_virt(addr),
+                 hvm_copy_to_guest_phys(mfn_to_maddr(mfn),
+                                        mfn_to_virt(mfn),
                                         d->arch.e820[i].addr - end,
                                         v);
 
             if ( res != HVMTRANS_okay )
-                printk("Failed to copy [%#lx, %#lx): %d\n",
-                       addr, addr + size, res);
+                printk("Failed to copy [%"PRI_mfn", %"PRI_mfn"): %d\n",
+                       mfn_x(mfn), mfn_x(mfn_add(mfn, size)), res);
         }
     }
 
@@ -607,7 +608,8 @@ static int __init pvh_load_kernel(struct domain *d, const module_t *image,
 
     if ( initrd != NULL )
     {
-        rc = hvm_copy_to_guest_phys(last_addr, mfn_to_virt(initrd->mod_start),
+        rc = hvm_copy_to_guest_phys(last_addr,
+                                    mfn_to_virt(_mfn(initrd->mod_start)),
                                     initrd->mod_end, v);
         if ( rc )
         {

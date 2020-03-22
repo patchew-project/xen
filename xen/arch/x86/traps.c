@@ -2029,9 +2029,9 @@ void __init trap_init(void)
 
     /* Cache {,compat_}gdt_l1e now that physically relocation is done. */
     this_cpu(gdt_l1e) =
-        l1e_from_pfn(virt_to_mfn(boot_gdt), __PAGE_HYPERVISOR_RW);
+        l1e_from_mfn(virt_to_mfn(boot_gdt), __PAGE_HYPERVISOR_RW);
     this_cpu(compat_gdt_l1e) =
-        l1e_from_pfn(virt_to_mfn(boot_compat_gdt), __PAGE_HYPERVISOR_RW);
+        l1e_from_mfn(virt_to_mfn(boot_compat_gdt), __PAGE_HYPERVISOR_RW);
 
     percpu_traps_init();
 

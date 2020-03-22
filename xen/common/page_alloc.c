@@ -565,7 +565,7 @@ static unsigned int __read_mostly xenheap_bits;
 #define xenheap_bits 0
 #endif
 
-static unsigned long init_node_heap(int node, unsigned long mfn,
+static unsigned long init_node_heap(int node, mfn_t mfn,
                                     unsigned long nr, bool *use_tail)
 {
     /* First node to be discovered has its heap metadata statically alloced. */
@@ -584,21 +584,21 @@ static unsigned long init_node_heap(int node, unsigned long mfn,
         needed = 0;
     }
     else if ( *use_tail && nr >= needed &&
-              arch_mfn_in_directmap(mfn + nr) &&
+              arch_mfn_in_directmap(mfn_x(mfn_add(mfn, nr))) &&
               (!xenheap_bits ||
-               !((mfn + nr - 1) >> (xenheap_bits - PAGE_SHIFT))) )
+               !((mfn_x(mfn) + nr - 1) >> (xenheap_bits - PAGE_SHIFT))) )
     {
-        _heap[node] = mfn_to_virt(mfn + nr - needed);
-        avail[node] = mfn_to_virt(mfn + nr - 1) +
+        _heap[node] = mfn_to_virt(mfn_add(mfn, nr - needed));
+        avail[node] = mfn_to_virt(mfn_add(mfn, nr - 1)) +
                       PAGE_SIZE - sizeof(**avail) * NR_ZONES;
     }
     else if ( nr >= needed &&
-              arch_mfn_in_directmap(mfn + needed) &&
+              arch_mfn_in_directmap(mfn_x(mfn_add(mfn, needed))) &&
               (!xenheap_bits ||
-               !((mfn + needed - 1) >> (xenheap_bits - PAGE_SHIFT))) )
+               !((mfn_x(mfn) + needed - 1) >> (xenheap_bits - PAGE_SHIFT))) )
     {
         _heap[node] = mfn_to_virt(mfn);
-        avail[node] = mfn_to_virt(mfn + needed - 1) +
+        avail[node] = mfn_to_virt(mfn_add(mfn, needed - 1)) +
                       PAGE_SIZE - sizeof(**avail) * NR_ZONES;
         *use_tail = false;
     }
@@ -1809,7 +1809,7 @@ static void init_heap_pages(
                             (find_first_set_bit(e) <= find_first_set_bit(s));
             unsigned long n;
 
-            n = init_node_heap(nid, mfn_x(page_to_mfn(pg + i)), nr_pages - i,
+            n = init_node_heap(nid, page_to_mfn(pg + i), nr_pages - i,
                                &use_tail);
             BUG_ON(i + n > nr_pages);
             if ( n && !use_tail )

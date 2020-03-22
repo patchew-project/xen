@@ -3935,8 +3935,8 @@ static int gnttab_get_status_frame_mfn(struct domain *d,
     }
 
     /* Make sure idx is bounded wrt nr_status_frames */
-    *mfn = _mfn(virt_to_mfn(
-                gt->status[array_index_nospec(idx, nr_status_frames(gt))]));
+    *mfn = virt_to_mfn(
+                gt->status[array_index_nospec(idx, nr_status_frames(gt))]);
     return 0;
 }
 
@@ -3966,8 +3966,8 @@ static int gnttab_get_shared_frame_mfn(struct domain *d,
     }
 
     /* Make sure idx is bounded wrt nr_status_frames */
-    *mfn = _mfn(virt_to_mfn(
-                gt->shared_raw[array_index_nospec(idx, nr_grant_frames(gt))]));
+    *mfn = virt_to_mfn(
+                gt->shared_raw[array_index_nospec(idx, nr_grant_frames(gt))]);
     return 0;
 }
 

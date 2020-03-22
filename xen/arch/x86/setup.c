@@ -340,7 +340,7 @@ void *__init bootstrap_map(const module_t *mod)
     void *ret;
 
     if ( system_state != SYS_STATE_early_boot )
-        return mod ? mfn_to_virt(mod->mod_start) : NULL;
+        return mod ? mfn_to_virt(_mfn(mod->mod_start)) : NULL;
 
     if ( !mod )
     {
@@ -1005,7 +1005,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
          * This needs to remain in sync with xen_in_range() and the
          * respective reserve_e820_ram() invocation below.
          */
-        mod[mbi->mods_count].mod_start = virt_to_mfn(_stext);
+        mod[mbi->mods_count].mod_start = mfn_x(virt_to_mfn(_stext));
         mod[mbi->mods_count].mod_end = __2M_rwdata_end - _stext;
     }
 
@@ -1404,7 +1404,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
     {
         set_pdx_range(mod[i].mod_start,
                       mod[i].mod_start + PFN_UP(mod[i].mod_end));
-        map_pages_to_xen((unsigned long)mfn_to_virt(mod[i].mod_start),
+        map_pages_to_xen((unsigned long)mfn_to_virt(_mfn(mod[i].mod_start)),
                          _mfn(mod[i].mod_start),
                          PFN_UP(mod[i].mod_end), PAGE_HYPERVISOR);
     }
@@ -1494,9 +1494,9 @@ void __init noreturn __start_xen(unsigned long mbi_p)
 
     numa_initmem_init(0, raw_max_page);
 
-    if ( max_page - 1 > virt_to_mfn(HYPERVISOR_VIRT_END - 1) )
+    if ( max_page - 1 > mfn_x(virt_to_mfn(HYPERVISOR_VIRT_END - 1)) )
     {
-        unsigned long limit = virt_to_mfn(HYPERVISOR_VIRT_END - 1);
+        unsigned long limit = mfn_x(virt_to_mfn(HYPERVISOR_VIRT_END - 1));
         uint64_t mask = PAGE_SIZE - 1;
 
         if ( !highmem_start )

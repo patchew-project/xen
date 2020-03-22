@@ -78,17 +78,17 @@ void *map_domain_page(mfn_t mfn)
 
 #ifdef NDEBUG
     if ( mfn_x(mfn) <= PFN_DOWN(__pa(HYPERVISOR_VIRT_END - 1)) )
-        return mfn_to_virt(mfn_x(mfn));
+        return mfn_to_virt(mfn);
 #endif
 
     v = mapcache_current_vcpu();
     if ( !v || !is_pv_vcpu(v) )
-        return mfn_to_virt(mfn_x(mfn));
+        return mfn_to_virt(mfn);
 
     dcache = &v->domain->arch.pv.mapcache;
     vcache = &v->arch.pv.mapcache;
     if ( !dcache->inuse )
-        return mfn_to_virt(mfn_x(mfn));
+        return mfn_to_virt(mfn);
 
     perfc_incr(map_domain_page_count);
 
@@ -311,7 +311,7 @@ void *map_domain_page_global(mfn_t mfn)
 
 #ifdef NDEBUG
     if ( mfn_x(mfn) <= PFN_DOWN(__pa(HYPERVISOR_VIRT_END - 1)) )
-        return mfn_to_virt(mfn_x(mfn));
+        return mfn_to_virt(mfn);
 #endif
 
     return vmap(&mfn, 1);
@@ -336,7 +336,7 @@ mfn_t domain_page_map_to_mfn(const void *ptr)
     const l1_pgentry_t *pl1e;
 
     if ( va >= DIRECTMAP_VIRT_START )
-        return _mfn(virt_to_mfn(ptr));
+        return virt_to_mfn(ptr);
 
     if ( va >= VMAP_VIRT_START && va < VMAP_VIRT_END )
     {

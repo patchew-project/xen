@@ -667,7 +667,7 @@ static inline bool arch_mfn_in_directmap(unsigned long mfn)
 {
     unsigned long eva = min(DIRECTMAP_VIRT_END, HYPERVISOR_VIRT_END);
 
-    return mfn <= (virt_to_mfn(eva - 1) + 1);
+    return mfn <= mfn_x(mfn_add(virt_to_mfn(eva - 1),  1));
 }
 
 int arch_acquire_resource(struct domain *d, unsigned int type,

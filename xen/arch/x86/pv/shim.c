@@ -39,9 +39,6 @@
 
 #include <compat/grant_table.h>
 
-#undef virt_to_mfn
-#define virt_to_mfn(va) _mfn(__virt_to_mfn(va))
-
 #ifdef CONFIG_PV_SHIM_EXCLUSIVE
 /* Tolerate "pv-shim" being passed to a CONFIG_PV_SHIM_EXCLUSIVE hypervisor. */
 ignore_param("pv-shim");

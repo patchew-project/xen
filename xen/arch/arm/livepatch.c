@@ -12,10 +12,6 @@
 #include <asm/livepatch.h>
 #include <asm/mm.h>
 
-/* Override macros from asm/page.h to make them work with mfn_t */
-#undef virt_to_mfn
-#define virt_to_mfn(va) _mfn(__virt_to_mfn(va))
-
 void *vmap_of_xen_text;
 
 int arch_livepatch_safety_check(void)

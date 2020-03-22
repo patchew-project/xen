@@ -1447,7 +1447,7 @@ static __init void copy_mapping(unsigned long mfn, unsigned long end,
     {
         l4_pgentry_t l4e = efi_l4_pgtable[l4_table_offset(mfn << PAGE_SHIFT)];
         l3_pgentry_t *l3src, *l3dst;
-        unsigned long va = (unsigned long)mfn_to_virt(mfn);
+        unsigned long va = (unsigned long)mfn_to_virt(_mfn(mfn));
 
         next = mfn + (1UL << (L3_PAGETABLE_SHIFT - PAGE_SHIFT));
         if ( !is_valid(mfn, min(next, end)) )
@@ -1562,9 +1562,10 @@ void __init efi_init_memory(void)
              !(smfn & pfn_hole_mask) &&
              !((smfn ^ (emfn - 1)) & ~pfn_pdx_bottom_mask) )
         {
-            if ( (unsigned long)mfn_to_virt(emfn - 1) >= HYPERVISOR_VIRT_END )
+            if ( (unsigned long)mfn_to_virt(_mfn(emfn - 1)) >=
+                 HYPERVISOR_VIRT_END )
                 prot &= ~_PAGE_GLOBAL;
-            if ( map_pages_to_xen((unsigned long)mfn_to_virt(smfn),
+            if ( map_pages_to_xen((unsigned long)mfn_to_virt(_mfn(smfn)),
                                   _mfn(smfn), emfn - smfn, prot) == 0 )
                 desc->VirtualStart =
                     (unsigned long)maddr_to_virt(desc->PhysicalStart);

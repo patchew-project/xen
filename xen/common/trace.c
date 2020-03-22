@@ -218,7 +218,7 @@ static int alloc_trace_bufs(unsigned int pages)
                 t_info_mfn_list[offset + i] = 0;
                 goto out_dealloc;
             }
-            t_info_mfn_list[offset + i] = virt_to_mfn(p);
+            t_info_mfn_list[offset + i] = mfn_x(virt_to_mfn(p));
         }
     }
 
@@ -234,7 +234,8 @@ static int alloc_trace_bufs(unsigned int pages)
         offset = t_info->mfn_offset[cpu];
 
         /* Initialize the buffer metadata */
-        per_cpu(t_bufs, cpu) = buf = mfn_to_virt(t_info_mfn_list[offset]);
+        buf = mfn_to_virt(_mfn(t_info_mfn_list[offset]));
+        per_cpu(t_bufs, cpu) = buf;
         buf->cons = buf->prod = 0;
 
         printk(XENLOG_INFO "xentrace: p%d mfn %x offset %u\n",
@@ -269,10 +270,10 @@ out_dealloc:
             continue;
         for ( i = 0; i < pages; i++ )
         {
-            uint32_t mfn = t_info_mfn_list[offset + i];
-            if ( !mfn )
+            mfn_t mfn = _mfn(t_info_mfn_list[offset + i]);
+            if ( mfn_eq(mfn, _mfn(0)) )
                 break;
-            ASSERT(!(mfn_to_page(_mfn(mfn))->count_info & PGC_allocated));
+            ASSERT(!(mfn_to_page(mfn)->count_info & PGC_allocated));
             free_xenheap_pages(mfn_to_virt(mfn), 0);
         }
     }
@@ -378,7 +379,7 @@ int tb_control(struct xen_sysctl_tbuf_op *tbc)
     {
     case XEN_SYSCTL_TBUFOP_get_info:
         tbc->evt_mask   = tb_event_mask;
-        tbc->buffer_mfn = t_info ? virt_to_mfn(t_info) : 0;
+        tbc->buffer_mfn = t_info ? mfn_x(virt_to_mfn(t_info)) : 0;
         tbc->size = t_info_pages * PAGE_SIZE;
         break;
     case XEN_SYSCTL_TBUFOP_set_cpu_mask:
@@ -512,7 +513,7 @@ static unsigned char *next_record(const struct t_buf *buf, uint32_t *next,
     uint16_t per_cpu_mfn_offset;
     uint32_t per_cpu_mfn_nr;
     uint32_t *mfn_list;
-    uint32_t mfn;
+    mfn_t mfn;
     unsigned char *this_page;
 
     barrier(); /* must read buf->prod and buf->cons only once */
@@ -533,7 +534,7 @@ static unsigned char *next_record(const struct t_buf *buf, uint32_t *next,
     per_cpu_mfn_nr = x >> PAGE_SHIFT;
     per_cpu_mfn_offset = t_info->mfn_offset[smp_processor_id()];
     mfn_list = (uint32_t *)t_info;
-    mfn = mfn_list[per_cpu_mfn_offset + per_cpu_mfn_nr];
+    mfn = _mfn(mfn_list[per_cpu_mfn_offset + per_cpu_mfn_nr]);
     this_page = mfn_to_virt(mfn);
     if (per_cpu_mfn_nr + 1 >= opt_tbuf_size)
     {
@@ -542,7 +543,7 @@ static unsigned char *next_record(const struct t_buf *buf, uint32_t *next,
     }
     else
     {
-        mfn = mfn_list[per_cpu_mfn_offset + per_cpu_mfn_nr + 1];
+        mfn = _mfn(mfn_list[per_cpu_mfn_offset + per_cpu_mfn_nr + 1]);
         *next_page = mfn_to_virt(mfn);
     }
     return this_page;

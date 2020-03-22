@@ -14,10 +14,6 @@
 #include <asm/insn.h>
 #include <asm/psci.h>
 
-/* Override macros from asm/page.h to make them work with mfn_t */
-#undef virt_to_mfn
-#define virt_to_mfn(va) _mfn(__virt_to_mfn(va))
-
 /* Hardening Branch predictor code for Arm64 */
 #ifdef CONFIG_ARM64_HARDEN_BRANCH_PREDICTOR
 

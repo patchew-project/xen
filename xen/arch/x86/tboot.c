@@ -260,7 +260,7 @@ static int mfn_in_guarded_stack(unsigned long mfn)
             continue;
         p = (void *)((unsigned long)stack_base[i] + STACK_SIZE -
                      PRIMARY_STACK_SIZE - PAGE_SIZE);
-        if ( mfn == virt_to_mfn(p) )
+        if ( mfn_eq(_mfn(mfn), virt_to_mfn(p)) )
             return -1;
     }
 
@@ -296,7 +296,7 @@ static void tboot_gen_xenheap_integrity(const uint8_t key[TB_KEY_SIZE],
             if ( mfn_in_guarded_stack(mfn) )
                 continue; /* skip guard stack, see memguard_guard_stack() in mm.c */
 
-            pg = mfn_to_virt(mfn);
+            pg = mfn_to_virt(_mfn(mfn));
             vmac_update((uint8_t *)pg, PAGE_SIZE, &ctx);
         }
     }

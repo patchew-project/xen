@@ -45,11 +45,11 @@ static inline int replace_grant_host_mapping(uint64_t addr, mfn_t frame,
     VALID_M2P(gpfn_) ? _gfn(gpfn_) : INVALID_GFN;                        \
 })
 
-#define gnttab_shared_mfn(t, i) _mfn(__virt_to_mfn((t)->shared_raw[i]))
+#define gnttab_shared_mfn(t, i) virt_to_mfn((t)->shared_raw[i])
 
 #define gnttab_shared_gfn(d, t, i) mfn_to_gfn(d, gnttab_shared_mfn(t, i))
 
-#define gnttab_status_mfn(t, i) _mfn(__virt_to_mfn((t)->status[i]))
+#define gnttab_status_mfn(t, i) virt_to_mfn((t)->status[i])
 
 #define gnttab_status_gfn(d, t, i) mfn_to_gfn(d, gnttab_status_mfn(t, i))
 

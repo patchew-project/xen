@@ -152,10 +152,6 @@
 #include "pv/mm.h"
 #endif
 
-/* Override macros from asm/page.h to make them work with mfn_t */
-#undef virt_to_mfn
-#define virt_to_mfn(v) _mfn(__virt_to_mfn(v))
-
 /* Mapping of the fixmap space needed early. */
 l1_pgentry_t __section(".bss.page_aligned") __aligned(PAGE_SIZE)
     l1_fixmap[L1_PAGETABLE_ENTRIES];
@@ -323,8 +319,8 @@ void __init arch_init_memory(void)
         iostart_pfn = max_t(unsigned long, pfn, 1UL << (20 - PAGE_SHIFT));
         ioend_pfn = min(rstart_pfn, 16UL << (20 - PAGE_SHIFT));
         if ( iostart_pfn < ioend_pfn )
-            destroy_xen_mappings((unsigned long)mfn_to_virt(iostart_pfn),
-                                 (unsigned long)mfn_to_virt(ioend_pfn));
+            destroy_xen_mappings((unsigned long)mfn_to_virt(_mfn(iostart_pfn)),
+                                 (unsigned long)mfn_to_virt(_mfn(ioend_pfn)));
 
         /* Mark as I/O up to next RAM region. */
         for ( ; pfn < rstart_pfn; pfn++ )
@@ -785,21 +781,21 @@ bool is_iomem_page(mfn_t mfn)
     return (page_get_owner(page) == dom_io);
 }
 
-static int update_xen_mappings(unsigned long mfn, unsigned int cacheattr)
+static int update_xen_mappings(mfn_t mfn, unsigned int cacheattr)
 {
     int err = 0;
-    bool alias = mfn >= PFN_DOWN(xen_phys_start) &&
-         mfn < PFN_UP(xen_phys_start + xen_virt_end - XEN_VIRT_START);
+    bool alias = mfn_x(mfn) >= PFN_DOWN(xen_phys_start) &&
+         mfn_x(mfn) < PFN_UP(xen_phys_start + xen_virt_end - XEN_VIRT_START);
     unsigned long xen_va =
-        XEN_VIRT_START + ((mfn - PFN_DOWN(xen_phys_start)) << PAGE_SHIFT);
+        XEN_VIRT_START + mfn_to_maddr(mfn_add(mfn, -PFN_DOWN(xen_phys_start)));
 
     if ( unlikely(alias) && cacheattr )
-        err = map_pages_to_xen(xen_va, _mfn(mfn), 1, 0);
+        err = map_pages_to_xen(xen_va, mfn, 1, 0);
     if ( !err )
-        err = map_pages_to_xen((unsigned long)mfn_to_virt(mfn), _mfn(mfn), 1,
+        err = map_pages_to_xen((unsigned long)mfn_to_virt(mfn), mfn, 1,
                      PAGE_HYPERVISOR | cacheattr_to_pte_flags(cacheattr));
     if ( unlikely(alias) && !cacheattr && !err )
-        err = map_pages_to_xen(xen_va, _mfn(mfn), 1, PAGE_HYPERVISOR);
+        err = map_pages_to_xen(xen_va, mfn, 1, PAGE_HYPERVISOR);
     return err;
 }
 
@@ -1029,7 +1025,7 @@ get_page_from_l1e(
             nx = (x & ~PGC_cacheattr_mask) | (cacheattr << PGC_cacheattr_base);
         } while ( (y = cmpxchg(&page->count_info, x, nx)) != x );
 
-        err = update_xen_mappings(mfn, cacheattr);
+        err = update_xen_mappings(_mfn(mfn), cacheattr);
         if ( unlikely(err) )
         {
             cacheattr = y & PGC_cacheattr_mask;
@@ -2449,7 +2445,7 @@ static int cleanup_page_mappings(struct page_info *page)
 
         BUG_ON(is_xen_heap_page(page));
 
-        rc = update_xen_mappings(mfn, 0);
+        rc = update_xen_mappings(_mfn(mfn), 0);
     }
 
     /*
@@ -4950,7 +4946,7 @@ void *alloc_xen_pagetable(void)
 {
     mfn_t mfn = alloc_xen_pagetable_new();
 
-    return mfn_eq(mfn, INVALID_MFN) ? NULL : mfn_to_virt(mfn_x(mfn));
+    return mfn_eq(mfn, INVALID_MFN) ? NULL : mfn_to_virt(mfn);
 }
 
 void free_xen_pagetable(void *v)
@@ -4983,7 +4979,7 @@ mfn_t alloc_xen_pagetable_new(void)
 void free_xen_pagetable_new(mfn_t mfn)
 {
     if ( system_state != SYS_STATE_early_boot && !mfn_eq(mfn, INVALID_MFN) )
-        free_xenheap_page(mfn_to_virt(mfn_x(mfn)));
+        free_xenheap_page(mfn_to_virt(mfn));
 }
 
 static DEFINE_SPINLOCK(map_pgdir_lock);

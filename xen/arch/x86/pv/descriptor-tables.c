@@ -76,7 +76,7 @@ bool pv_destroy_ldt(struct vcpu *v)
 void pv_destroy_gdt(struct vcpu *v)
 {
     l1_pgentry_t *pl1e = pv_gdt_ptes(v);
-    mfn_t zero_mfn = _mfn(virt_to_mfn(zero_page));
+    mfn_t zero_mfn = virt_to_mfn(zero_page);
     l1_pgentry_t zero_l1e = l1e_from_mfn(zero_mfn, __PAGE_HYPERVISOR_RO);
     unsigned int i;
 

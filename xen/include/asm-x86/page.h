@@ -236,8 +236,8 @@ void copy_page_sse2(void *, const void *);
 #define __va(x)             (maddr_to_virt(x))
 
 /* Convert between Xen-heap virtual addresses and machine frame numbers. */
-#define __virt_to_mfn(va)   (virt_to_maddr(va) >> PAGE_SHIFT)
-#define __mfn_to_virt(mfn)  (maddr_to_virt((paddr_t)(mfn) << PAGE_SHIFT))
+#define virt_to_mfn(va)     maddr_to_mfn(virt_to_maddr(va))
+#define mfn_to_virt(mfn)    maddr_to_virt(mfn_to_maddr(mfn))
 
 /* Convert between machine frame numbers and page-info structures. */
 #define mfn_to_page(mfn)    (frame_table + mfn_to_pdx(mfn))
@@ -260,8 +260,6 @@ void copy_page_sse2(void *, const void *);
  * overridden in various source files while underscored versions remain intact.
  */
 #define mfn_valid(mfn)      __mfn_valid(mfn_x(mfn))
-#define virt_to_mfn(va)     __virt_to_mfn(va)
-#define mfn_to_virt(mfn)    __mfn_to_virt(mfn)
 #define virt_to_maddr(va)   __virt_to_maddr((unsigned long)(va))
 #define maddr_to_virt(ma)   __maddr_to_virt((unsigned long)(ma))
 #define maddr_to_page(ma)   __maddr_to_page(ma)

@@ -43,12 +43,6 @@
 
 #include <asm/setup.h>
 
-/* Override macros from asm/page.h to make them work with mfn_t */
-#undef virt_to_mfn
-#define virt_to_mfn(va) _mfn(__virt_to_mfn(va))
-#undef mfn_to_virt
-#define mfn_to_virt(mfn) __mfn_to_virt(mfn_x(mfn))
-
 #ifdef NDEBUG
 static inline void
 __attribute__ ((__format__ (__printf__, 1, 2)))
@@ -835,7 +829,7 @@ void __init setup_xenheap_mappings(unsigned long base_mfn,
      * Virtual address aligned to previous 1GB to match physical
      * address alignment done above.
      */
-    vaddr = (vaddr_t)__mfn_to_virt(base_mfn) & FIRST_MASK;
+    vaddr = (vaddr_t)mfn_to_virt(_mfn(base_mfn)) & FIRST_MASK;
 
     while ( mfn < end_mfn )
     {
