@@ -72,7 +72,7 @@ int create_grant_pv_mapping(uint64_t addr, mfn_t frame,
             goto out;
         }
 
-        gl1mfn = _mfn(addr >> PAGE_SHIFT);
+        gl1mfn = maddr_to_mfn(addr);
 
         page = get_page_from_mfn(gl1mfn, currd);
         if ( !page )
@@ -228,7 +228,7 @@ int replace_grant_pv_mapping(uint64_t addr, mfn_t frame,
             goto out;
         }
 
-        gl1mfn = _mfn(addr >> PAGE_SHIFT);
+        gl1mfn = maddr_to_mfn(addr);
 
         page = get_page_from_mfn(gl1mfn, currd);
         if ( !page )
