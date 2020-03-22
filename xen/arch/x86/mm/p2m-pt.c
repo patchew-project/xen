@@ -1061,8 +1061,6 @@ long p2m_pt_audit_p2m(struct p2m_domain *p2m)
                              !p2m_is_shared(type) )
                         {
                             pmbad++;
-                            printk("mismatch: gfn %#lx -> mfn %#lx"
-                                   " -> gfn %#lx\n", gfn, mfn, m2pfn);
                             P2M_PRINTK("mismatch: gfn %#lx -> mfn %#lx"
                                        " -> gfn %#lx\n", gfn, mfn, m2pfn);
                             BUG();
