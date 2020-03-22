@@ -994,9 +994,8 @@ long p2m_pt_audit_p2m(struct p2m_domain *p2m)
                         if ( m2pfn != (gfn + i2) )
                         {
                             pmbad++;
-                            P2M_PRINTK("mismatch: gfn %#lx -> mfn %#lx"
-                                       " -> gfn %#lx\n", gfn+i2, mfn+i2,
-                                       m2pfn);
+                            P2M_PRINTK("mismatch: gfn %#lx -> mfn %#lx -> gfn %#lx\n",
+                                       gfn + i2, mfn + i2, m2pfn);
                             BUG();
                         }
                         gfn += 1 << (L3_PAGETABLE_SHIFT - PAGE_SHIFT);
@@ -1029,9 +1028,8 @@ long p2m_pt_audit_p2m(struct p2m_domain *p2m)
                             if ( (m2pfn != (gfn + i1)) && !SHARED_M2P(m2pfn) )
                             {
                                 pmbad++;
-                                P2M_PRINTK("mismatch: gfn %#lx -> mfn %#lx"
-                                           " -> gfn %#lx\n", gfn+i1, mfn+i1,
-                                           m2pfn);
+                                P2M_PRINTK("mismatch: gfn %#lx -> mfn %#lx -> gfn %#lx\n",
+                                           gfn + i1, mfn + i1, m2pfn);
                                 BUG();
                             }
                         }
@@ -1061,8 +1059,8 @@ long p2m_pt_audit_p2m(struct p2m_domain *p2m)
                              !p2m_is_shared(type) )
                         {
                             pmbad++;
-                            P2M_PRINTK("mismatch: gfn %#lx -> mfn %#lx"
-                                       " -> gfn %#lx\n", gfn, mfn, m2pfn);
+                            P2M_PRINTK("mismatch: gfn %#lx -> mfn %#lx -> gfn %#lx\n",
+                                       gfn, mfn, m2pfn);
                             BUG();
                         }
                     }
