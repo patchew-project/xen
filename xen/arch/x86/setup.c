@@ -1147,7 +1147,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
             BUG_ON(using_2M_mapping() &&
                    l2_table_offset((unsigned long)_erodata) ==
                    l2_table_offset((unsigned long)_stext));
-            *pl2e++ = l2e_from_pfn(xen_phys_start >> PAGE_SHIFT,
+            *pl2e++ = l2e_from_mfn(maddr_to_mfn(xen_phys_start),
                                    PAGE_HYPERVISOR_RX | _PAGE_PSE);
             for ( i = 1; i < L2_PAGETABLE_ENTRIES; i++, pl2e++ )
             {

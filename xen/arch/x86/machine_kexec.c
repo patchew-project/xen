@@ -86,7 +86,7 @@ int machine_kexec_add_page(struct kexec_image *image, unsigned long vaddr,
 
     l1 = __map_domain_page(l1_page);
     l1 += l1_table_offset(vaddr);
-    l1e_write(l1, l1e_from_pfn(maddr >> PAGE_SHIFT, __PAGE_HYPERVISOR));
+    l1e_write(l1, l1e_from_mfn(maddr_to_mfn(maddr), __PAGE_HYPERVISOR));
 
     ret = 0;
 out:

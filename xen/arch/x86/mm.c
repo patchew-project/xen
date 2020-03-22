@@ -1138,7 +1138,7 @@ static int
 get_page_from_l2e(
     l2_pgentry_t l2e, mfn_t l2mfn, struct domain *d, unsigned int flags)
 {
-    unsigned long mfn = l2e_get_pfn(l2e);
+    mfn_t mfn = l2e_get_mfn(l2e);
     int rc;
 
     if ( unlikely((l2e_get_flags(l2e) & L2_DISALLOW_MASK)) )
@@ -1150,7 +1150,7 @@ get_page_from_l2e(
 
     ASSERT(!(flags & PTF_preemptible));
 
-    rc = get_page_and_type_from_mfn(_mfn(mfn), PGT_l1_page_table, d, flags);
+    rc = get_page_and_type_from_mfn(mfn, PGT_l1_page_table, d, flags);
     if ( unlikely(rc == -EINVAL) && get_l2_linear_pagetable(l2e, l2mfn, d) )
         rc = 0;
 
@@ -1209,14 +1209,14 @@ static int _put_page_type(struct page_info *page, unsigned int flags,
 
 void put_page_from_l1e(l1_pgentry_t l1e, struct domain *l1e_owner)
 {
-    unsigned long     pfn = l1e_get_pfn(l1e);
+    mfn_t mfn = l1e_get_mfn(l1e);
     struct page_info *page;
     struct domain    *pg_owner;
 
-    if ( !(l1e_get_flags(l1e) & _PAGE_PRESENT) || is_iomem_page(_mfn(pfn)) )
+    if ( !(l1e_get_flags(l1e) & _PAGE_PRESENT) || is_iomem_page(mfn) )
         return;
 
-    page = mfn_to_page(_mfn(pfn));
+    page = mfn_to_page(mfn);
     pg_owner = page_get_owner(page);
 
     /*
@@ -5219,8 +5219,8 @@ int map_pages_to_xen(
 
             for ( i = 0; i < L2_PAGETABLE_ENTRIES; i++ )
                 l2e_write(l2t + i,
-                          l2e_from_pfn(l3e_get_pfn(ol3e) +
-                                       (i << PAGETABLE_ORDER),
+                          l2e_from_mfn(mfn_add(l3e_get_mfn(ol3e),
+                                               (i << PAGETABLE_ORDER)),
                                        l3e_get_flags(ol3e)));
 
             if ( l3e_get_flags(ol3e) & _PAGE_GLOBAL )
@@ -5320,7 +5320,7 @@ int map_pages_to_xen(
 
                 for ( i = 0; i < L1_PAGETABLE_ENTRIES; i++ )
                     l1e_write(&l1t[i],
-                              l1e_from_pfn(l2e_get_pfn(*pl2e) + i,
+                              l1e_from_mfn(mfn_add(l2e_get_mfn(*pl2e), i),
                                            lNf_to_l1f(l2e_get_flags(*pl2e))));
 
                 if ( l2e_get_flags(*pl2e) & _PAGE_GLOBAL )
@@ -5391,7 +5391,7 @@ int map_pages_to_xen(
                 l1t = l2e_to_l1e(ol2e);
                 base_mfn = l1e_get_pfn(l1t[0]) & ~(L1_PAGETABLE_ENTRIES - 1);
                 for ( i = 0; i < L1_PAGETABLE_ENTRIES; i++ )
-                    if ( (l1e_get_pfn(l1t[i]) != (base_mfn + i)) ||
+                    if ( !mfn_eq(l1e_get_mfn(l1t[i]), _mfn(base_mfn + i)) ||
                          (l1e_get_flags(l1t[i]) != flags) )
                         break;
                 if ( i == L1_PAGETABLE_ENTRIES )
@@ -5521,7 +5521,7 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
             {
                 /* PAGE1GB: whole superpage is modified. */
                 l3_pgentry_t nl3e = !(nf & _PAGE_PRESENT) ? l3e_empty()
-                    : l3e_from_pfn(l3e_get_pfn(*pl3e),
+                    : l3e_from_mfn(l3e_get_mfn(*pl3e),
                                    (l3e_get_flags(*pl3e) & ~FLAGS_MASK) | nf);
 
                 l3e_write_atomic(pl3e, nl3e);
@@ -5535,8 +5535,8 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
                 return -ENOMEM;
             for ( i = 0; i < L2_PAGETABLE_ENTRIES; i++ )
                 l2e_write(l2t + i,
-                          l2e_from_pfn(l3e_get_pfn(*pl3e) +
-                                       (i << PAGETABLE_ORDER),
+                          l2e_from_mfn(mfn_add(l3e_get_mfn(*pl3e),
+                                               (i << PAGETABLE_ORDER)),
                                        l3e_get_flags(*pl3e)));
             if ( locking )
                 spin_lock(&map_pgdir_lock);
@@ -5576,7 +5576,7 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
             {
                 /* PSE: whole superpage is modified. */
                 l2_pgentry_t nl2e = !(nf & _PAGE_PRESENT) ? l2e_empty()
-                    : l2e_from_pfn(l2e_get_pfn(*pl2e),
+                    : l2e_from_mfn(l2e_get_mfn(*pl2e),
                                    (l2e_get_flags(*pl2e) & ~FLAGS_MASK) | nf);
 
                 l2e_write_atomic(pl2e, nl2e);
@@ -5592,7 +5592,7 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
                     return -ENOMEM;
                 for ( i = 0; i < L1_PAGETABLE_ENTRIES; i++ )
                     l1e_write(&l1t[i],
-                              l1e_from_pfn(l2e_get_pfn(*pl2e) + i,
+                              l1e_from_mfn(mfn_add(l2e_get_mfn(*pl2e), i),
                                            l2e_get_flags(*pl2e) & ~_PAGE_PSE));
                 if ( locking )
                     spin_lock(&map_pgdir_lock);
@@ -5625,7 +5625,7 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
                 ASSERT(!(nf & _PAGE_PRESENT));
 
             nl1e = !(nf & _PAGE_PRESENT) ? l1e_empty()
-                : l1e_from_pfn(l1e_get_pfn(*pl1e),
+                : l1e_from_mfn(l1e_get_mfn(*pl1e),
                                (l1e_get_flags(*pl1e) & ~FLAGS_MASK) | nf);
 
             l1e_write_atomic(pl1e, nl1e);
