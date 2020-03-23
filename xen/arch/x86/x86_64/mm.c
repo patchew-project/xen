@@ -131,27 +131,33 @@ static int m2p_mapped(unsigned long spfn)
     unsigned long va;
     l3_pgentry_t *l3_ro_mpt;
     l2_pgentry_t *l2_ro_mpt;
+    int rc = M2P_NO_MAPPED;
 
     va = RO_MPT_VIRT_START + spfn * sizeof(*machine_to_phys_mapping);
-    l3_ro_mpt = l4e_to_l3e(idle_pg_table[l4_table_offset(va)]);
+    l3_ro_mpt = map_l3t_from_l4e(idle_pg_table[l4_table_offset(va)]);
 
     switch ( l3e_get_flags(l3_ro_mpt[l3_table_offset(va)]) &
              (_PAGE_PRESENT |_PAGE_PSE))
     {
         case _PAGE_PSE|_PAGE_PRESENT:
-            return M2P_1G_MAPPED;
+            rc = M2P_1G_MAPPED;
+            goto out;
         /* Check for next level */
         case _PAGE_PRESENT:
             break;
         default:
-            return M2P_NO_MAPPED;
+            rc = M2P_NO_MAPPED;
+            goto out;
     }
-    l2_ro_mpt = l3e_to_l2e(l3_ro_mpt[l3_table_offset(va)]);
+    l2_ro_mpt = map_l2t_from_l3e(l3_ro_mpt[l3_table_offset(va)]);
 
     if (l2e_get_flags(l2_ro_mpt[l2_table_offset(va)]) & _PAGE_PRESENT)
-        return M2P_2M_MAPPED;
+        rc = M2P_2M_MAPPED;
+    UNMAP_DOMAIN_PAGE(l2_ro_mpt);
 
-    return M2P_NO_MAPPED;
+ out:
+    UNMAP_DOMAIN_PAGE(l3_ro_mpt);
+    return rc;
 }
 
 static int share_hotadd_m2p_table(struct mem_hotadd_info *info)
