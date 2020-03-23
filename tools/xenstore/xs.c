@@ -524,12 +524,14 @@ static void *xs_talkv(struct xs_handle *h, xs_transaction_t t,
 			goto fail;
 
 	ret = read_reply(h, &msg.type, len);
-	if (!ret)
-		goto fail;
 
 	mutex_unlock(&h->request_mutex);
 
 	sigaction(SIGPIPE, &oldact, NULL);
+
+	if (!ret)
+		return NULL;
+
 	if (msg.type == XS_ERROR) {
 		saved_errno = get_error(ret);
 		free(ret);
@@ -539,19 +541,15 @@ static void *xs_talkv(struct xs_handle *h, xs_transaction_t t,
 
 	if (msg.type != type) {
 		free(ret);
-		saved_errno = EBADF;
-		goto close_fd;
+		errno = EBADF;
+		return NULL;
 	}
 	return ret;
 
 fail:
-	/* We're in a bad state, so close fd. */
 	saved_errno = errno;
 	mutex_unlock(&h->request_mutex);
 	sigaction(SIGPIPE, &oldact, NULL);
-close_fd:
-	close(h->fd);
-	h->fd = -1;
 	errno = saved_errno;
 	return NULL;
 }
