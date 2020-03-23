@@ -247,6 +247,9 @@ struct vcpu
 
     /* Guest-specified relocation of vcpu_info. */
     mfn_t            vcpu_info_mfn;
+#ifdef CONFIG_MEM_SHARING
+    unsigned short   vcpu_info_offset;
+#endif
 
     struct evtchn_fifo_vcpu *evtchn_fifo;
 
@@ -480,6 +483,8 @@ struct domain
     /* Memory sharing support */
 #ifdef CONFIG_MEM_SHARING
     struct vm_event_domain *vm_event_share;
+    struct domain *parent; /* VM fork parent */
+    bool parent_paused;
 #endif
     /* Memory paging support */
 #ifdef CONFIG_HAS_MEM_PAGING

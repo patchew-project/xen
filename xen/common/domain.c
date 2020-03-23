@@ -1270,6 +1270,9 @@ int map_vcpu_info(struct vcpu *v, unsigned long gfn, unsigned offset)
 
     v->vcpu_info = new_info;
     v->vcpu_info_mfn = page_to_mfn(page);
+#ifdef CONFIG_MEM_SHARING
+    v->vcpu_info_offset = offset;
+#endif
 
     /* Set new vcpu_info pointer /before/ setting pending flags. */
     smp_wmb();
