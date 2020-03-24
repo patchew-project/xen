@@ -508,7 +508,7 @@ static int nsvm_vmcb_prepare4vmrun(struct vcpu *v, struct cpu_user_regs *regs)
     }
 
     /* Shadow Mode */
-    n2vmcb->interrupt_shadow = ns_vmcb->interrupt_shadow;
+    n2vmcb->int_stat.intr_shadow = ns_vmcb->int_stat.intr_shadow;
 
     /* Exit codes */
     n2vmcb->exitcode = ns_vmcb->exitcode;
@@ -1058,7 +1058,7 @@ nsvm_vmcb_prepare4vmexit(struct vcpu *v, struct cpu_user_regs *regs)
         ns_vmcb->_vintr.fields.intr_masking = 0;
 
     /* Shadow mode */
-    ns_vmcb->interrupt_shadow = n2vmcb->interrupt_shadow;
+    ns_vmcb->int_stat.intr_shadow = n2vmcb->int_stat.intr_shadow;
 
     /* Exit codes */
     ns_vmcb->exitcode = n2vmcb->exitcode;
