@@ -2387,6 +2387,13 @@ csched2_res_pick(const struct scheduler *ops, const struct sched_unit *unit)
         goto out_up;
     }
 
+    /*
+     * If we're here, min_rqd must be valid. In fact, either we picked a
+     * runqueue in the "list_for_each" (as min_avgload is initialized to
+     * MAX_LOAD) or we just did that (in the "else" branch) above.
+     */
+    ASSERT(min_rqd);
+
     new_cpu = cpumask_cycle(min_rqd->pick_bias, cpumask_scratch_cpu(cpu));
     min_rqd->pick_bias = new_cpu;
     BUG_ON(new_cpu >= nr_cpu_ids);
