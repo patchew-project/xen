@@ -54,8 +54,8 @@ RUN zypper install -y --no-recommends \
         pandoc \
         patch \
         pkg-config \
-        python \
-        python-devel \
+        python3 \
+        python3-devel \
         systemd-devel \
         tar \
         transfig \
