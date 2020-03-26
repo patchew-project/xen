@@ -4,6 +4,8 @@
 #
 mainmenu "Xen/$(SRCARCH) $(XEN_FULLVERSION) Configuration"
 
+comment "Compiler: $(CC_VERSION_TEXT)"
+
 source "scripts/Kconfig.include"
 
 config BROKEN

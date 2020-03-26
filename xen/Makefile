@@ -277,6 +277,10 @@ $(foreach base,arch/x86/mm/guest_walk_% \
                arch/x86/mm/shadow/guest_%, \
     $(foreach ext,o i s,$(call build-intermediate,$(base).$(ext))))
 
+# CC_VERSION_TEXT is referenced from Kconfig (so it needs export),
+# and from include/config/auto.conf.cmd to detect the compiler upgrade.
+export CC_VERSION_TEXT := $(shell $(CC) --version 2>/dev/null | head -n 1)
+
 kconfig := oldconfig config menuconfig defconfig allyesconfig allnoconfig \
 	nconfig xconfig gconfig savedefconfig listnewconfig olddefconfig \
 	randconfig $(notdir $(wildcard arch/$(SRCARCH)/configs/*_defconfig))
