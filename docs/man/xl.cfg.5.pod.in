@@ -1332,11 +1332,9 @@ L</vuart="uart"> to know how to enable vuart console.
 Limit the guest to using at most N event channels (PV interrupts).
 Guests use hypervisor resources for each event channel they use.
 
-The default of 1023 should be sufficient for typical guests.  The
-maximum value depends on what the guest supports.  Guests supporting the
-FIFO-based event channel ABI support up to 131,071 event channels.
-Other guests are limited to 4095 (64-bit x86 and ARM) or 1023 (32-bit
-x86).
+The maximum value depends on what the guest supports.  Guests supporting the
+FIFO-based event channel ABI support up to 131,071 event channels.  Other
+guests are limited to 4095 (64-bit x86 and ARM) or 1023 (32-bit x86).
 
 =item B<vdispl=[ "VDISPL_SPEC_STRING", "VDISPL_SPEC_STRING", ...]>
 

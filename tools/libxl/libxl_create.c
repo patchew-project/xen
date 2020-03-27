@@ -226,7 +226,7 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
             b_info->iomem[i].gfn = b_info->iomem[i].start;
 
     if (!b_info->event_channels)
-        b_info->event_channels = 1023;
+        b_info->event_channels = -1U;
 
     libxl__arch_domain_build_info_setdefault(gc, b_info);
     libxl_defbool_setdefault(&b_info->dm_restrict, false);
