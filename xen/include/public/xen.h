@@ -37,6 +37,9 @@
 #error "Unsupported architecture"
 #endif
 
+/* The Xen ABI assumes a page size of 4k. */
+#define XEN_PAGE_SIZE 4096
+
 #ifndef __ASSEMBLY__
 /* Guest handles for primitive C types. */
 DEFINE_XEN_GUEST_HANDLE(char);

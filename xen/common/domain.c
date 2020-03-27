@@ -33,6 +33,7 @@
 #include <xen/xenoprof.h>
 #include <xen/irq.h>
 #include <xen/argo.h>
+#include <xen/save.h>
 #include <asm/debugger.h>
 #include <asm/p2m.h>
 #include <asm/processor.h>
@@ -1644,6 +1645,60 @@ int continue_hypercall_on_cpu(
     /* Dummy return value will be overwritten by tasklet. */
     return 0;
 }
+
+static int save_shared_info(const struct vcpu *v, struct domain_context *c,
+                            bool dry_run)
+{
+    struct domain *d = v->domain;
+    struct domain_shared_info_context ctxt = {};
+
+    if ( !dry_run )
+    {
+        memcpy(ctxt.buffer, d->shared_info, PAGE_SIZE);
+        ctxt.field_width = has_32bit_shinfo(d) ? 4 : 8;
+    }
+
+    return DOMAIN_SAVE_ENTRY(SHARED_INFO, c, v, &ctxt, sizeof(ctxt));
+}
+
+static int load_shared_info(struct vcpu *v, struct domain_context *c)
+{
+    struct domain *d = v->domain;
+    struct domain_shared_info_context ctxt;
+    unsigned int i;
+    int rc;
+
+    rc = DOMAIN_LOAD_ENTRY(SHARED_INFO, c, v, &ctxt, sizeof(ctxt), true);
+    if ( rc )
+        return rc;
+
+    for ( i = 0; i < ARRAY_SIZE(ctxt.pad); i++ )
+        if ( ctxt.pad[i] )
+            return -EINVAL;
+
+    switch ( ctxt.field_width )
+    {
+    case 4:
+        d->arch.has_32bit_shinfo = 1;
+        break;
+
+    case 8:
+        d->arch.has_32bit_shinfo = 0;
+        break;
+
+    default:
+        rc = -EINVAL;
+        break;
+    }
+
+    if ( !rc )
+        memcpy(d->shared_info, ctxt.buffer, PAGE_SIZE);
+
+    return rc;
+}
+
+DOMAIN_REGISTER_SAVE_RESTORE(SHARED_INFO, false, save_shared_info,
+                             load_shared_info);
 
 /*
  * Local variables:

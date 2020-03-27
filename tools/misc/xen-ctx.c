@@ -57,6 +57,13 @@ static void dump_header(void)
            h.magic, h.version);
 }
 
+static void dump_shared_info(void)
+{
+    DOMAIN_SAVE_TYPE(SHARED_INFO) s;
+    READ(s);
+    printf("    SHARED_INFO: field_width %u\n", s.field_width);
+}
+
 static void dump_end(void)
 {
     DOMAIN_SAVE_TYPE(END) e;
@@ -124,6 +131,7 @@ int main(int argc, char **argv)
         switch (desc.typecode)
         {
         case DOMAIN_SAVE_CODE(HEADER): dump_header(); break;
+        case DOMAIN_SAVE_CODE(SHARED_INFO): dump_shared_info(); break;
         case DOMAIN_SAVE_CODE(END): dump_end(); return 0;
         default:
             printf("Unknown type %u: skipping\n", desc.typecode);
