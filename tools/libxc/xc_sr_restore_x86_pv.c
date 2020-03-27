@@ -864,8 +864,7 @@ static int handle_shared_info(struct xc_sr_context *ctx,
 {
     xc_interface *xch = ctx->xch;
     unsigned int i;
-    int rc = -1;
-    shared_info_any_t *guest_shinfo = NULL;
+    int rc;
     const shared_info_any_t *old_shinfo = rec->data;
 
     if ( !ctx->x86.pv.restore.seen_pv_info )
@@ -878,39 +877,30 @@ static int handle_shared_info(struct xc_sr_context *ctx,
     {
         ERROR("X86_PV_SHARED_INFO record wrong size: length %u"
               ", expected 4096", rec->length);
-        goto err;
+        return -1;
     }
 
-    guest_shinfo = xc_map_foreign_range(
-        xch, ctx->domid, PAGE_SIZE, PROT_READ | PROT_WRITE,
-        ctx->dominfo.shared_info_frame);
-    if ( !guest_shinfo )
-    {
-        PERROR("Failed to map Shared Info at mfn %#lx",
-               ctx->dominfo.shared_info_frame);
-        goto err;
-    }
+    rc = x86_pv_get_shinfo(ctx);
+    if ( rc )
+        return rc;
 
-    MEMCPY_FIELD(guest_shinfo, old_shinfo, vcpu_info, ctx->x86.pv.width);
-    MEMCPY_FIELD(guest_shinfo, old_shinfo, arch, ctx->x86.pv.width);
+    MEMCPY_FIELD(ctx->x86.pv.shinfo, old_shinfo, vcpu_info,
+                 ctx->x86.pv.width);
+    MEMCPY_FIELD(ctx->x86.pv.shinfo, old_shinfo, arch, ctx->x86.pv.width);
 
-    SET_FIELD(guest_shinfo, arch.pfn_to_mfn_frame_list_list,
+    SET_FIELD(ctx->x86.pv.shinfo, arch.pfn_to_mfn_frame_list_list,
               0, ctx->x86.pv.width);
 
-    MEMSET_ARRAY_FIELD(guest_shinfo, evtchn_pending, 0, ctx->x86.pv.width);
+    MEMSET_ARRAY_FIELD(ctx->x86.pv.shinfo, evtchn_pending, 0,
+                       ctx->x86.pv.width);
     for ( i = 0; i < XEN_LEGACY_MAX_VCPUS; i++ )
-        SET_FIELD(guest_shinfo, vcpu_info[i].evtchn_pending_sel,
+        SET_FIELD(ctx->x86.pv.shinfo, vcpu_info[i].evtchn_pending_sel,
                   0, ctx->x86.pv.width);
 
-    MEMSET_ARRAY_FIELD(guest_shinfo, evtchn_mask, 0xff, ctx->x86.pv.width);
+    MEMSET_ARRAY_FIELD(ctx->x86.pv.shinfo, evtchn_mask, 0xff,
+                       ctx->x86.pv.width);
 
-    rc = 0;
-
- err:
-    if ( guest_shinfo )
-        munmap(guest_shinfo, PAGE_SIZE);
-
-    return rc;
+    return x86_pv_set_shinfo(ctx);
 }
 
 /* restore_ops function. */

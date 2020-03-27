@@ -182,6 +182,58 @@ int x86_pv_map_m2p(struct xc_sr_context *ctx)
     return rc;
 }
 
+int x86_pv_get_shinfo(struct xc_sr_context *ctx)
+{
+    unsigned int off = 0;
+    struct domain_save_descriptor *desc;
+    int rc;
+
+    rc = x86_get_context(ctx, DOMAIN_SAVE_MASK(SHARED_INFO));
+    if ( rc )
+        return rc;
+
+    do {
+        if ( ctx->x86.domain_context.len - off < sizeof(*desc) )
+        {
+            return -1;
+        }
+        desc = ctx->x86.domain_context.buffer + off;
+        off += sizeof(*desc);
+
+        switch (desc->typecode)
+        {
+        case DOMAIN_SAVE_CODE(SHARED_INFO):
+        {
+            DOMAIN_SAVE_TYPE(SHARED_INFO) *s;
+
+            if ( ctx->x86.domain_context.len - off < sizeof(*s) )
+                return -1;
+
+            s = ctx->x86.domain_context.buffer + off;
+            ctx->x86.pv.shinfo = (shared_info_any_t *)s->buffer;
+            /* fall through */
+        }
+        default:
+            off += (desc->length);
+            break;
+        }
+    } while ( desc->typecode != DOMAIN_SAVE_CODE(END) );
+
+    if ( !ctx->x86.pv.shinfo )
+        return -1;
+
+    return 0;
+}
+
+int x86_pv_set_shinfo(struct xc_sr_context *ctx)
+{
+    if ( !ctx->x86.pv.shinfo )
+        return -1;
+
+    return ctx->x86.pv.shinfo ?
+        x86_set_context(ctx, DOMAIN_SAVE_MASK(SHARED_INFO)) : -1;
+}
+
 /*
  * Local variables:
  * mode: C

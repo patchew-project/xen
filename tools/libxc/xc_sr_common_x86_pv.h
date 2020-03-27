@@ -97,6 +97,9 @@ int x86_pv_domain_info(struct xc_sr_context *ctx);
  */
 int x86_pv_map_m2p(struct xc_sr_context *ctx);
 
+int x86_pv_get_shinfo(struct xc_sr_context *ctx);
+int x86_pv_set_shinfo(struct xc_sr_context *ctx);
+
 #endif
 /*
  * Local variables:

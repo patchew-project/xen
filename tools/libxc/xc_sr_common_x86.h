@@ -14,6 +14,10 @@ int write_x86_tsc_info(struct xc_sr_context *ctx);
  */
 int handle_x86_tsc_info(struct xc_sr_context *ctx, struct xc_sr_record *rec);
 
+int x86_get_context(struct xc_sr_context *ctx, uint32_t mask);
+int x86_set_context(struct xc_sr_context *ctx, uint32_t mask);
+void x86_cleanup(struct xc_sr_context *ctx);
+
 #endif
 /*
  * Local variables:
