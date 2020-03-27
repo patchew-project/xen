@@ -2537,34 +2537,25 @@ static __init bool bad_ioapic_register(unsigned int idx)
     return false;
 }
 
-void __init init_ioapic(void)
+static void __init init_ioapic_mappings(void)
 {
-    unsigned long ioapic_phys;
     unsigned int i, idx = FIX_IO_APIC_BASE_0;
-    union IO_APIC_reg_01 reg_01;
 
-    if ( smp_found_config )
-        nr_irqs_gsi = 0;
     for ( i = 0; i < nr_ioapics; i++ )
     {
-        if ( smp_found_config )
+        union IO_APIC_reg_01 reg_01;
+        unsigned long ioapic_phys = mp_ioapics[i].mpc_apicaddr;
+
+        ioapic_phys = mp_ioapics[i].mpc_apicaddr;
+        if ( !ioapic_phys )
         {
-            ioapic_phys = mp_ioapics[i].mpc_apicaddr;
-            if ( !ioapic_phys )
-            {
-                printk(KERN_ERR "WARNING: bogus zero IO-APIC address "
-                       "found in MPTABLE, disabling IO/APIC support!\n");
-                smp_found_config = false;
-                skip_ioapic_setup = true;
-                goto fake_ioapic_page;
-            }
+            printk(KERN_ERR
+                   "WARNING: bogus zero IO-APIC address found in MPTABLE, disabling IO/APIC support!\n");
+            smp_found_config = false;
+            skip_ioapic_setup = true;
+            break;
         }
-        else
-        {
- fake_ioapic_page:
-            ioapic_phys = __pa(alloc_xenheap_page());
-            clear_page(__va(ioapic_phys));
-        }
+
         set_fixmap_nocache(idx, ioapic_phys);
         apic_printk(APIC_VERBOSE, "mapped IOAPIC to %08Lx (%08lx)\n",
                     __fix_to_virt(idx), ioapic_phys);
@@ -2576,18 +2567,24 @@ void __init init_ioapic(void)
             continue;
         }
 
-        if ( smp_found_config )
-        {
-            /* The number of IO-APIC IRQ registers (== #pins): */
-            reg_01.raw = io_apic_read(i, 1);
-            nr_ioapic_entries[i] = reg_01.bits.entries + 1;
-            nr_irqs_gsi += nr_ioapic_entries[i];
+        /* The number of IO-APIC IRQ registers (== #pins): */
+        reg_01.raw = io_apic_read(i, 1);
+        nr_ioapic_entries[i] = reg_01.bits.entries + 1;
+        nr_irqs_gsi += nr_ioapic_entries[i];
 
-            if ( rangeset_add_singleton(mmio_ro_ranges,
-                                        ioapic_phys >> PAGE_SHIFT) )
-                printk(KERN_ERR "Failed to mark IO-APIC page %lx read-only\n",
-                       ioapic_phys);
-        }
+        if ( rangeset_add_singleton(mmio_ro_ranges,
+                                    ioapic_phys >> PAGE_SHIFT) )
+            printk(KERN_ERR "Failed to mark IO-APIC page %lx read-only\n",
+                   ioapic_phys);
+    }
+}
+
+void __init init_ioapic(void)
+{
+    if ( smp_found_config )
+    {
+        nr_irqs_gsi = 0;
+        init_ioapic_mappings();
     }
 
     nr_irqs_gsi = max(nr_irqs_gsi, highest_gsi() + 1);
