@@ -127,7 +127,7 @@ p2m_find_entry(void *table, unsigned long *gfn_remainder,
         return NULL;
     }
     *gfn_remainder &= (1 << shift) - 1;
-    return (l1_pgentry_t *)table + index;
+    return table + index;
 }
 
 /* Free intermediate tables from a p2m sub-tree */

@@ -256,7 +256,7 @@ static int vvmcs_offset(u32 width, u32 type, u32 index)
 u64 get_vvmcs_virtual(void *vvmcs, u32 vmcs_encoding)
 {
     union vmcs_encoding enc;
-    u64 *content = (u64 *) vvmcs;
+    u64 *content = vvmcs;
     int offset;
     u64 res;
 
@@ -310,7 +310,7 @@ enum vmx_insn_errno get_vvmcs_real_safe(const struct vcpu *v, u32 encoding,
 void set_vvmcs_virtual(void *vvmcs, u32 vmcs_encoding, u64 val)
 {
     union vmcs_encoding enc;
-    u64 *content = (u64 *) vvmcs;
+    u64 *content = vvmcs;
     int offset;
     u64 res;
 
