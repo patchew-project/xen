@@ -1988,7 +1988,7 @@ static int demote_l3_table(struct page_info *page)
         page->partial_flags = partial_flags;
         rc = -ERESTART;
     }
-    return rc > 0 ? 0 : rc;
+    return min(0, rc);
 }
 
 static int demote_l4_table(struct page_info *page)

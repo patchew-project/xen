@@ -136,7 +136,7 @@ int __init bzimage_parse(void *image_base, void **image_start,
         *image_len = output_len;
     }
 
-    return err > 0 ? 0 : err;
+    return min(0, err);
 }
 
 /*

@@ -1069,7 +1069,7 @@ static int ept_change_entry_type_range(struct p2m_domain *p2m,
     if ( sync )
         ept_sync_domain(p2m);
 
-    return rc < 0 ? rc : 0;
+    return min(rc, 0);
 }
 
 static void ept_memory_type_changed(struct p2m_domain *p2m)
