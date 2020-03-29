@@ -343,9 +343,8 @@ static int athlon_check_ctrs(unsigned int const cpu,
 		}
 	}
 
-	ovf = handle_ibs(mode, regs);
 	/* See op_model_ppro.c */
-	return ovf;
+	return handle_ibs(mode, regs);
 }
 
 static inline void start_ibs(void)
