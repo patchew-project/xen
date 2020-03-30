@@ -2,6 +2,7 @@
 #include "libxl_arch.h"
 
 #include <xc_dom.h>
+#include <xen-xsm/flask/flask.h>
 
 int libxl__arch_domain_prepare_config(libxl__gc *gc,
                                       libxl_domain_config *d_config,
@@ -842,6 +843,46 @@ int libxl__arch_passthrough_mode_setdefault(libxl__gc *gc,
     return rc;
 }
 
+/*
+ * The parent domain is expected to be created with default settings for
+ * - max_evtch_port
+ * - max_grant_frames
+ * - max_maptrack_frames
+ */
+int libxl_domain_fork_vm(libxl_ctx *ctx, uint32_t pdomid, uint32_t max_vcpus, uint32_t *domid)
+{
+    int rc;
+    struct xen_domctl_createdomain create = {0};
+    create.flags |= XEN_DOMCTL_CDF_hvm;
+    create.flags |= XEN_DOMCTL_CDF_hap;
+    create.flags |= XEN_DOMCTL_CDF_oos_off;
+    create.arch.emulation_flags = (XEN_X86_EMU_ALL & ~XEN_X86_EMU_VPCI);
+    create.ssidref = SECINITSID_DOMU;
+    create.max_vcpus = max_vcpus;
+    create.max_evtchn_port = 1023;
+    create.max_grant_frames = LIBXL_MAX_GRANT_FRAMES_DEFAULT;
+    create.max_maptrack_frames = LIBXL_MAX_MAPTRACK_FRAMES_DEFAULT;
+
+    if ( (rc = xc_domain_create(ctx->xch, domid, &create)) )
+        return rc;
+
+    if ( (rc = xc_memshr_fork(ctx->xch, pdomid, *domid)) )
+        xc_domain_destroy(ctx->xch, *domid);
+
+    return rc;
+}
+
+int libxl_domain_fork_launch_dm(libxl_ctx *ctx, libxl_domain_config *d_config,
+                                uint32_t domid,
+                                const libxl_asyncprogress_how *aop_console_how)
+{
+    return libxl__do_domain_create(ctx, d_config, &domid, -1, -1, 0, 0, aop_console_how);
+}
+
+int libxl_domain_fork_reset(libxl_ctx *ctx, uint32_t domid)
+{
+    return xc_memshr_fork_reset(ctx->xch, domid);
+}
 
 /*
  * Local variables:
