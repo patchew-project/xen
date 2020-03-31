@@ -50,6 +50,8 @@ public-$(CONFIG_ARM) := $(wildcard public/arch-arm/*.h public/arch-arm/*/*.h)
 .PHONY: all
 all: $(headers-y)
 
+xlat_lst = xlat.lst
+
 compat/%.h: compat/%.i Makefile $(BASEDIR)/tools/compat-build-header.py
 	set -e; id=_$$(echo $@ | tr '[:lower:]-/.' '[:upper:]___'); \
 	echo "#ifndef $$id" >$@.new; \
@@ -66,10 +68,9 @@ compat/%.h: compat/%.i Makefile $(BASEDIR)/tools/compat-build-header.py
 compat/%.i: compat/%.c Makefile
 	$(CPP) $(filter-out -Wa$(comma)% -include %/include/xen/config.h,$(XEN_CFLAGS)) $(cppflags-y) -o $@ $<
 
-compat/%.c: public/%.h xlat.lst Makefile $(BASEDIR)/tools/compat-build-source.py
+compat/%.c: public/%.h $(xlat_lst) Makefile $(BASEDIR)/tools/compat-build-source.py
 	mkdir -p $(@D)
-	grep -v 'DEFINE_XEN_GUEST_HANDLE(long)' $< | \
-	$(PYTHON) $(BASEDIR)/tools/compat-build-source.py >$@.new
+	$(PYTHON) $(BASEDIR)/tools/compat-build-source.py $(xlat_lst) <$< >$@.new
 	mv -f $@.new $@
 
 compat/.xlat/%.h: compat/%.h compat/.xlat/%.lst $(BASEDIR)/tools/get-fields.sh Makefile
@@ -80,12 +81,12 @@ compat/.xlat/%.h: compat/%.h compat/.xlat/%.lst $(BASEDIR)/tools/get-fields.sh M
 	mv -f $@.new $@
 
 .PRECIOUS: compat/.xlat/%.lst
-compat/.xlat/%.lst: xlat.lst Makefile
+compat/.xlat/%.lst: $(xlat_lst) Makefile
 	mkdir -p $(@D)
 	grep -v '^[[:blank:]]*#' $< | sed -ne 's,@arch@,$(compat-arch-y),g' -re 's,[[:blank:]]+$*\.h[[:blank:]]*$$,,p' >$@.new
 	$(call move-if-changed,$@.new,$@)
 
-xlat-y := $(shell sed -ne 's,@arch@,$(compat-arch-y),g' -re 's,^[?!][[:blank:]]+[^[:blank:]]+[[:blank:]]+,,p' xlat.lst | uniq)
+xlat-y := $(shell sed -ne 's,@arch@,$(compat-arch-y),g' -re 's,^[?!][[:blank:]]+[^[:blank:]]+[[:blank:]]+,,p' $(xlat_lst) | uniq)
 xlat-y := $(filter $(patsubst compat/%,%,$(headers-y)),$(xlat-y))
 
 compat/xlat.h: $(addprefix compat/.xlat/,$(xlat-y)) Makefile
