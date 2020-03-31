@@ -2,6 +2,12 @@
 
 import re,sys
 
+try:
+    type(str.maketrans)
+except AttributeError:
+    # For python2
+    import string as str
+
 pats = [
  [ r"__InClUdE__(.*)", r"#include\1\n#pragma pack(4)" ],
  [ r"__IfDeF__ (XEN_HAVE.*)", r"#ifdef \1" ],
@@ -20,7 +26,33 @@ pats = [
  [ r"(^|[^\w])long([^\w]|$$)", r"\1int\2" ]
 ];
 
+output_filename = sys.argv[1]
+
+# tr '[:lower:]-/.' '[:upper:]___'
+header_id = '_' + \
+    output_filename.upper().translate(str.maketrans('-/.','___'))
+
+header = """#ifndef {0}
+#define {0}
+#include <xen/compat.h>""".format(header_id)
+
+print(header)
+
+if not re.match("compat/arch-.*.h$", output_filename):
+    x = output_filename.replace("compat/","public/")
+    print('#include <%s>' % x)
+
+def print_if_nonempty(s):
+    if len(s):
+        print(s)
+
+print_if_nonempty(sys.argv[2])
+
 for line in sys.stdin.readlines():
     for pat in pats:
-        line = re.subn(pat[0], pat[1], line)[0]
-    print(line.rstrip())
+        line = re.sub(pat[0], pat[1], line.rstrip())
+    print_if_nonempty(line)
+
+print_if_nonempty(sys.argv[3])
+
+print("#endif /* %s */" % header_id)
