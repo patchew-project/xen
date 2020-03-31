@@ -32,3 +32,8 @@ cc-ifversion = $(shell [ $(CONFIG_GCC_VERSION)0 $(1) $(2)000 ] && echo $(3) || e
 # Usage:
 # $(MAKE) $(clean) dir
 clean := -f $(BASEDIR)/scripts/Makefile.clean clean -C
+
+# Shorthand for kconfig
+# Usage:
+# $(MAKE) $(kconfig) target
+kconfig = -f $(BASEDIR)/tools/kconfig/Makefile.kconfig ARCH=$(ARCH) SRCARCH=$(SRCARCH) HOSTCC="$(HOSTCC)" HOSTCXX="$(HOSTCXX)"
