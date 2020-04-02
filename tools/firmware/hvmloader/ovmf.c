@@ -106,7 +106,8 @@ static void ovmf_load(const struct bios_config *config,
     {
         mfn = (uint32_t) (addr >> PAGE_SHIFT);
         addr += PAGE_SIZE;
-        mem_hole_populate_ram(mfn, 1);
+        if ( !mem_probe_ram(mfn) )
+            mem_hole_populate_ram(mfn, 1);
     }
 
     /* Check that source and destination does not overlaps. */

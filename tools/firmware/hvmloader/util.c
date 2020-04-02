@@ -398,6 +398,20 @@ int get_mem_mapping_layout(struct e820entry entries[], uint32_t *max_entries)
     return rc;
 }
 
+bool mem_probe_ram(xen_pfn_t mfn)
+{
+    uint32_t tmp, magic = 0xdeadbeef;
+    volatile uint32_t *addr = (volatile uint32_t *)(mfn << PAGE_SHIFT);
+
+    tmp = *addr;
+    *addr = magic;
+    if ( *addr != magic )
+        return 0;
+
+    *addr = tmp;
+    return 1;
+}
+
 void mem_hole_populate_ram(xen_pfn_t mfn, uint32_t nr_mfns)
 {
     static int over_allocated;

@@ -194,6 +194,9 @@ int vprintf(const char *fmt, va_list ap);
 /* Buffer output */
 int snprintf(char *buf, size_t size, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
+/* Probe whether a page is populated with RAM. */
+bool mem_probe_ram(xen_pfn_t mfn);
+
 /* Populate specified memory hole with RAM. */
 void mem_hole_populate_ram(xen_pfn_t mfn, uint32_t nr_mfns);
 
