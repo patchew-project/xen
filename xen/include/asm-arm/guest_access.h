@@ -74,10 +74,14 @@ int access_guest_memory_by_ipa(struct domain *d, paddr_t ipa, void *buf,
 /*
  * Copy an array of objects to guest context via a guest handle,
  * specifying an offset into the guest array.
+ *
+ * The variable _t is only here to catch at build time whether we are
+ * copying back to a const guest handle.
  */
 #define copy_to_guest_offset(hnd, off, ptr, nr) ({      \
     const typeof(*(ptr)) *_s = (ptr);                   \
     char (*_d)[sizeof(*_s)] = (void *)(hnd).p;          \
+    void *__maybe_unused _t = (hnd).p;                  \
     ((void)((hnd).p == (ptr)));                         \
     raw_copy_to_guest(_d+(off), _s, sizeof(*_s)*(nr));  \
 })
@@ -124,9 +128,14 @@ int access_guest_memory_by_ipa(struct domain *d, paddr_t ipa, void *buf,
 #define guest_handle_okay(hnd, nr) (1)
 #define guest_handle_subrange_okay(hnd, first, last) (1)
 
+/*
+ * The variable _t is only here to catch at build time whether we are
+ * copying back to a const guest handle.
+ */
 #define __copy_to_guest_offset(hnd, off, ptr, nr) ({    \
     const typeof(*(ptr)) *_s = (ptr);                   \
     char (*_d)[sizeof(*_s)] = (void *)(hnd).p;          \
+    void *__maybe_unused _t = (hnd).p;                  \
     ((void)((hnd).p == (ptr)));                         \
     __raw_copy_to_guest(_d+(off), _s, sizeof(*_s)*(nr));\
 })
