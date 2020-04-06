@@ -47,4 +47,9 @@ unsigned long hap_p2m_ga_to_gfn_4_levels(struct vcpu *v,
     struct p2m_domain *p2m, unsigned long cr3,
     paddr_t ga, uint32_t *pfec, unsigned int *page_order);
 
+static inline void hap_flush_tlb_mask(const cpumask_t *mask)
+{
+    flush_mask(mask, FLUSH_HVM_ASID_CORE);
+}
+
 #endif /* __HAP_PRIVATE_H__ */
