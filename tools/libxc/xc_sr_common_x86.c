@@ -42,6 +42,65 @@ int handle_x86_tsc_info(struct xc_sr_context *ctx, struct xc_sr_record *rec)
     return 0;
 }
 
+int x86_get_context(struct xc_sr_context *ctx)
+{
+    xc_interface *xch = ctx->xch;
+    size_t len = 0;
+    int rc;
+
+    if ( ctx->x86.domain_context.buffer )
+    {
+        ERROR("Domain context already present");
+        return -1;
+    }
+
+    rc = xc_domain_getcontext(xch, ctx->domid, NULL, &len);
+    if ( rc < 0 )
+    {
+        PERROR("Unable to get size of domain context");
+        return -1;
+    }
+
+    ctx->x86.domain_context.buffer = malloc(len);
+    if ( ctx->x86.domain_context.buffer == NULL )
+    {
+        PERROR("Unable to allocate memory for domain context");
+        return -1;
+    }
+
+    rc = xc_domain_getcontext(xch, ctx->domid,
+                              ctx->x86.domain_context.buffer, &len);
+    if ( rc < 0 )
+    {
+        PERROR("Unable to get domain context");
+        return -1;
+    }
+
+    ctx->x86.domain_context.len = len;
+
+    return 0;
+}
+
+int x86_set_context(struct xc_sr_context *ctx)
+{
+    xc_interface *xch = ctx->xch;
+
+    if ( !ctx->x86.domain_context.buffer )
+    {
+        ERROR("Domain context not present");
+        return -1;
+    }
+
+    return xc_domain_setcontext(xch, ctx->domid,
+                                ctx->x86.domain_context.buffer,
+                                ctx->x86.domain_context.len);
+}
+
+void x86_cleanup(struct xc_sr_context *ctx)
+{
+    free(ctx->x86.domain_context.buffer);
+}
+
 /*
  * Local variables:
  * mode: C

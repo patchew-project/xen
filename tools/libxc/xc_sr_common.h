@@ -287,6 +287,11 @@ struct xc_sr_context
     {
         struct /* x86 */
         {
+            struct {
+                void *buffer;
+                unsigned int len;
+            } domain_context;
+
             struct /* x86 PV guest. */
             {
                 /* 4 or 8; 32 or 64 bit domain */
@@ -314,7 +319,7 @@ struct xc_sr_context
                 /* The guest pfns containing the p2m leaves */
                 xen_pfn_t *p2m_pfns;
 
-                /* Read-only mapping of guests shared info page */
+                /* Pointer to shared_info (located in context buffer) */
                 shared_info_any_t *shinfo;
 
                 /* p2m generation count for verifying validity of local p2m. */
