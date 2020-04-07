@@ -867,6 +867,11 @@ int xc_domain_hvm_setcontext(xc_interface *xch,
                              uint8_t *hvm_ctxt,
                              uint32_t size);
 
+int xc_domain_getcontext(xc_interface *xch, uint32_t domid,
+                         void *ctxt_buf, size_t *size);
+int xc_domain_setcontext(xc_interface *xch, uint32_t domid,
+                         const void *ctxt_buf, size_t size);
+
 /**
  * This function will return guest IO ABI protocol
  *

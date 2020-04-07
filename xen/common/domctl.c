@@ -25,6 +25,7 @@
 #include <xen/hypercall.h>
 #include <xen/vm_event.h>
 #include <xen/monitor.h>
+#include <xen/save.h>
 #include <asm/current.h>
 #include <asm/irq.h>
 #include <asm/page.h>
@@ -356,6 +357,113 @@ static struct vnuma_info *vnuma_init(const struct xen_domctl_vnuma *uinfo,
  vnuma_fail:
     vnuma_destroy(info);
     return ERR_PTR(ret);
+}
+
+struct domctl_context
+{
+    void *buffer;
+    size_t len;
+    size_t cur;
+};
+
+static int accumulate_size(void *priv, const void *data, size_t len)
+{
+    struct domctl_context *c = priv;
+
+    if ( c->len + len < c->len )
+        return -EOVERFLOW;
+
+    c->len += len;
+
+    return 0;
+}
+
+static int save_data(void *priv, const void *data, size_t len)
+{
+    struct domctl_context *c = priv;
+
+    if ( c->len - c->cur < len )
+        return -ENOSPC;
+
+    memcpy(c->buffer + c->cur, data, len);
+    c->cur += len;
+
+    return 0;
+}
+
+static int getdomaincontext(struct domain *d,
+                            struct xen_domctl_getdomaincontext *gdc)
+{
+    struct domctl_context c = { };
+    int rc;
+
+    if ( d == current->domain )
+        return -EPERM;
+
+    if ( guest_handle_is_null(gdc->buffer) ) /* query for buffer size */
+    {
+        if ( gdc->size )
+            return -EINVAL;
+
+        /* dry run to acquire buffer size */
+        rc = domain_save(d, accumulate_size, &c, true);
+        if ( rc )
+            return rc;
+
+        gdc->size = c.len;
+        return 0;
+    }
+
+    c.len = gdc->size;
+    c.buffer = xmalloc_bytes(c.len);
+    if ( !c.buffer )
+        return -ENOMEM;
+
+    rc = domain_save(d, save_data, &c, false);
+
+    gdc->size = c.cur;
+    if ( !rc && copy_to_guest(gdc->buffer, c.buffer, gdc->size) )
+        rc = -EFAULT;
+
+    xfree(c.buffer);
+
+    return rc;
+}
+
+static int load_data(void *priv, void *data, size_t len)
+{
+    struct domctl_context *c = priv;
+
+    if ( c->len - c->cur < len )
+        return -ENODATA;
+
+    if ( data )
+        memcpy(data, c->buffer + c->cur, len);
+
+    c->cur += len;
+
+    return 0;
+}
+
+static int setdomaincontext(struct domain *d,
+                            const struct xen_domctl_setdomaincontext *sdc)
+{
+    struct domctl_context c = { .len = sdc->size };
+    int rc;
+
+    if ( d == current->domain )
+        return -EPERM;
+
+    c.buffer = xmalloc_bytes(c.len);
+    if ( !c.buffer )
+        return -ENOMEM;
+
+    rc = !copy_from_guest(c.buffer, sdc->buffer, c.len) ?
+        domain_load(d, load_data, &c) : -EFAULT;
+
+    xfree(c.buffer);
+
+    return rc;
 }
 
 long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
@@ -940,6 +1048,15 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
         ret = monitor_domctl(d, &op->u.monitor_op);
         if ( !ret )
             copyback = 1;
+        break;
+
+    case XEN_DOMCTL_getdomaincontext:
+        ret = getdomaincontext(d, &op->u.getdomaincontext);
+        copyback = !ret;
+        break;
+
+    case XEN_DOMCTL_setdomaincontext:
+        ret = setdomaincontext(d, &op->u.setdomaincontext);
         break;
 
     default:
