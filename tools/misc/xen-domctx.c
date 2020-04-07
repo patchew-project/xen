@@ -59,6 +59,16 @@ static void dump_header(struct domain_save_descriptor *desc)
     off += desc->length;
 }
 
+static void dump_shared_info(struct domain_save_descriptor *desc)
+{
+    DOMAIN_SAVE_TYPE(SHARED_INFO) s;
+    READ(s);
+    printf("    SHARED_INFO: field_width %u buffer size: %lu\n",
+           s.field_width, desc->length - sizeof(s));
+
+    off += desc->length;
+}
+
 static void dump_end(struct domain_save_descriptor *desc)
 {
     DOMAIN_SAVE_TYPE(END) e;
@@ -125,6 +135,7 @@ int main(int argc, char **argv)
         switch (desc.typecode)
         {
         case DOMAIN_SAVE_CODE(HEADER): dump_header(&desc); break;
+        case DOMAIN_SAVE_CODE(SHARED_INFO): dump_shared_info(&desc); break;
         case DOMAIN_SAVE_CODE(END): dump_end(&desc); return 0;
         default:
             printf("Unknown type %u: skipping\n", desc.typecode);
