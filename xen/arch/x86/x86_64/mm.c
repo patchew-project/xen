@@ -220,7 +220,7 @@ static void destroy_compat_m2p_mapping(struct mem_hotadd_info *info)
     unsigned long i, va, rwva, pt_pfn;
     unsigned long smap = info->spfn, emap = info->spfn;
 
-    l3_pgentry_t *l3_ro_mpt;
+    l3_pgentry_t l3e_ro_mpt;
     l2_pgentry_t *l2_ro_mpt;
 
     if ( smap > ((RDWR_COMPAT_MPT_VIRT_END - RDWR_COMPAT_MPT_VIRT_START) >> 2) )
@@ -229,11 +229,13 @@ static void destroy_compat_m2p_mapping(struct mem_hotadd_info *info)
     if ( emap > ((RDWR_COMPAT_MPT_VIRT_END - RDWR_COMPAT_MPT_VIRT_START) >> 2) )
         emap = (RDWR_COMPAT_MPT_VIRT_END - RDWR_COMPAT_MPT_VIRT_START) >> 2;
 
-    l3_ro_mpt = l4e_to_l3e(idle_pg_table[l4_table_offset(HIRO_COMPAT_MPT_VIRT_START)]);
+    l3e_ro_mpt = l3e_from_l4e(idle_pg_table[
+                                  l4_table_offset(HIRO_COMPAT_MPT_VIRT_START)],
+                              l3_table_offset(HIRO_COMPAT_MPT_VIRT_START));
 
-    ASSERT(l3e_get_flags(l3_ro_mpt[l3_table_offset(HIRO_COMPAT_MPT_VIRT_START)]) & _PAGE_PRESENT);
+    ASSERT(l3e_get_flags(l3e_ro_mpt) & _PAGE_PRESENT);
 
-    l2_ro_mpt = l3e_to_l2e(l3_ro_mpt[l3_table_offset(HIRO_COMPAT_MPT_VIRT_START)]);
+    l2_ro_mpt = map_l2t_from_l3e(l3e_ro_mpt);
 
     for ( i = smap; i < emap; )
     {
@@ -254,6 +256,8 @@ static void destroy_compat_m2p_mapping(struct mem_hotadd_info *info)
 
         i += 1UL << (L2_PAGETABLE_SHIFT - 2);
     }
+
+    UNMAP_DOMAIN_PAGE(l2_ro_mpt);
 
     return;
 }
