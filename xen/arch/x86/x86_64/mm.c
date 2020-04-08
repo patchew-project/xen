@@ -268,7 +268,8 @@ static void destroy_m2p_mapping(struct mem_hotadd_info *info)
     unsigned long i, va, rwva;
     unsigned long smap = info->spfn, emap = info->epfn;
 
-    l3_ro_mpt = l4e_to_l3e(idle_pg_table[l4_table_offset(RO_MPT_VIRT_START)]);
+    l3_ro_mpt = map_l3t_from_l4e(
+                    idle_pg_table[l4_table_offset(RO_MPT_VIRT_START)]);
 
     /*
      * No need to clean m2p structure existing before the hotplug
@@ -290,25 +291,29 @@ static void destroy_m2p_mapping(struct mem_hotadd_info *info)
             continue;
         }
 
-        l2_ro_mpt = l3e_to_l2e(l3_ro_mpt[l3_table_offset(va)]);
-        if (!(l2e_get_flags(l2_ro_mpt[l2_table_offset(va)]) & _PAGE_PRESENT))
+        l2_ro_mpt = map_l2t_from_l3e(l3_ro_mpt[l3_table_offset(va)]) +
+                    l2_table_offset(va);
+        if ( !(l2e_get_flags(*l2_ro_mpt) & _PAGE_PRESENT) )
         {
             i = ( i & ~((1UL << (L2_PAGETABLE_SHIFT - 3)) - 1)) +
                     (1UL << (L2_PAGETABLE_SHIFT - 3)) ;
+            UNMAP_DOMAIN_PAGE(l2_ro_mpt);
             continue;
         }
 
-        pt_pfn = l2e_get_pfn(l2_ro_mpt[l2_table_offset(va)]);
+        pt_pfn = l2e_get_pfn(*l2_ro_mpt);
         if ( hotadd_mem_valid(pt_pfn, info) )
         {
             destroy_xen_mappings(rwva, rwva + (1UL << L2_PAGETABLE_SHIFT));
 
-            l2_ro_mpt = l3e_to_l2e(l3_ro_mpt[l3_table_offset(va)]);
-            l2e_write(&l2_ro_mpt[l2_table_offset(va)], l2e_empty());
+            l2e_write(l2_ro_mpt, l2e_empty());
         }
         i = ( i & ~((1UL << (L2_PAGETABLE_SHIFT - 3)) - 1)) +
               (1UL << (L2_PAGETABLE_SHIFT - 3));
+        UNMAP_DOMAIN_PAGE(l2_ro_mpt);
     }
+
+    UNMAP_DOMAIN_PAGE(l3_ro_mpt);
 
     destroy_compat_m2p_mapping(info);
 
