@@ -197,6 +197,19 @@ static inline l4_pgentry_t l4e_from_paddr(paddr_t pa, unsigned int flags)
 #define map_l2t_from_l3e(x)        (l2_pgentry_t *)map_domain_page(l3e_get_mfn(x))
 #define map_l3t_from_l4e(x)        (l3_pgentry_t *)map_domain_page(l4e_get_mfn(x))
 
+/* Unlike lYe_to_lXe(), lXe_from_lYe() do not rely on the direct map. */
+#define l2e_from_l3e(l3e, offset) ({                        \
+        const l2_pgentry_t *l2t = map_l2t_from_l3e(l3e);    \
+        l2_pgentry_t l2e = l2t[offset];                     \
+        UNMAP_DOMAIN_PAGE(l2t);                             \
+        l2e; })
+
+#define l3e_from_l4e(l4e, offset) ({                        \
+        const l3_pgentry_t *l3t = map_l3t_from_l4e(l4e);    \
+        l3_pgentry_t l3e = l3t[offset];                     \
+        UNMAP_DOMAIN_PAGE(l3t);                             \
+        l3e; })
+
 /* Given a virtual address, get an entry offset into a page table. */
 #define l1_table_offset(a)         \
     (((a) >> L1_PAGETABLE_SHIFT) & (L1_PAGETABLE_ENTRIES - 1))
