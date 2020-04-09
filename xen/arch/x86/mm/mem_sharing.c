@@ -38,6 +38,8 @@
 #include <asm/event.h>
 #include <xsm/xsm.h>
 
+#include <public/hvm/params.h>
+
 #include "mm-locks.h"
 
 static shr_handle_t next_handle = 1;
