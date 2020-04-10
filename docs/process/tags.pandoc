@@ -1,0 +1,23 @@
+Backport Tag
+------------
+
+A backport tag is an optional tag in the commit message to request a
+given commit to be backported to the stable trees:
+
+    Backport: all
+
+It marks a commit for being a candidate for backports to all relevant
+trees.
+
+    Backport: 4.9+
+
+It marks a commit for being a candidate for backports to all stable
+trees from 4.9 onward.
+
+Maintainers request the Backport tag to be added on commit.
+Contributors are also welcome to mark their patches with the Backport
+tag when they deem appropriate. Maintainers will request for it to be
+removed when that is not the case.
+
+Please note that the Backport tag is a **request** for backport, which
+will still need to be evaluated by the stable tree maintainers.
