@@ -9,6 +9,10 @@ records must include details of registered xenstore watches as well as
 content; information that cannot currently be recovered from `xenstored`,
 and hence some extension to the xenstore protocol[2] will also be required.
 
+As a similar set of data is needed for transferring xenstore data from
+one instance to another when live updating xenstored the same definitions
+are being used.
+
 The *libxenlight Domain Image Format* specification[3] already defines a
 record type `EMULATOR_XENSTORE_DATA` but this is not suitable for
 transferring xenstore data pertaining to the domain directly as it is
@@ -48,7 +52,10 @@ where type is one of the following values
 |        | 0x00000001: NODE_DATA                            |
 |        | 0x00000002: WATCH_DATA                           |
 |        | 0x00000003: TRANSACTION_DATA                     |
-|        | 0x00000004 - 0xFFFFFFFF: reserved for future use |
+|        | 0x00000004: TRANSACTION_NODE_DATA                |
+|        | 0x00000005: GUEST_RING_DATA                      |
+|        | 0x00000006: DOMAIN_START (live update only)      |
+|        | 0x00000007 - 0xFFFFFFFF: reserved for future use |
 
 
 and data is one of the record data formats described in the following
@@ -79,7 +86,7 @@ as follows:
 +-------------------------------+
 | perm count (N)                |
 +-------------------------------+
-| perm0                         |
+| perm1                         |
 +-------------------------------+
 ...
 +-------------------------------+
@@ -93,7 +100,7 @@ as follows:
 +-------------------------------+
 ```
 
-where perm0..N are formatted as follows:
+where perm1..N are formatted as follows:
 
 
 ```
@@ -162,6 +169,83 @@ as follows:
 ```
 
 where tx_id is the non-zero identifier values of an open transaction.
+
+
+**TRANSACTION_NODE_DATA**
+
+
+Each TRANSACTION_NODE_DATA record specifies a transaction local xenstore
+node. Its is similar to the NODE_DATA record with the addition of a
+transaction id:
+
+```
+    0       1       2       3     octet
++-------+-------+-------+-------+
+| TRANSACTION_NODE_DATA         |
++-------------------------------+
+| tx_id                         |
++-------------------------------+
+| path length                   |
++-------------------------------+
+| path data                     |
+...
+| pad (0 to 3 octets)           |
++-------------------------------+
+| perm count (N)                |
++-------------------------------+
+| perm1                         |
++-------------------------------+
+...
++-------------------------------+
+| permN                         |
++-------------------------------+
+| value length                  |
++-------------------------------+
+| value data                    |
+...
+| pad (0 to 3 octets)           |
++-------------------------------+
+```
+
+where perm1..N are formatted as specified in the NODE_DATA record. A perm
+count of 0 denotes a node having been deleted in the transaction.
+
+
+**GUEST_RING_DATA**
+
+
+The GUEST_RING_DATA record is used to transfer data which is pending to be
+written to the guest's xenstore ring buffer. It si formatted as follows:
+
+
+```
++-------+-------+-------+-------+
+| GUEST_RING_DATA               |
++-------------------------------+
+| value length                  |
++-------------------------------+
+| value data                    |
+...
+| pad (0 to 3 octets)           |
++-------------------------------+
+```
+
+**DOMAIN_START**
+
+
+For live updating xenstored data of multiple domains needs to be transferred.
+For this purpose the DOMAIN_START record is being used. All records of types
+other than NODE_DATA always relate to the last DOMAIN_START record in the
+stream. A DOMAIN_START record just contains a domain-id:
+
+
+```
++-------+-------+-------+-------+
+| DOMAIN_START                  |
++-------------------------------+
+| domid         | pad           |
++-------------------------------+
+```
 
 
 ### Protocol Extension
