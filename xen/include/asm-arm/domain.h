@@ -32,7 +32,7 @@ enum domain_type {
 #endif
 
 /* The hardware domain has always its memory direct mapped. */
-#define is_domain_direct_mapped(d) ((d) == hardware_domain)
+#define is_domain_direct_mapped(d) ((d)->arch.direct_map != false)
 
 struct vtimer {
     struct vcpu *v;
@@ -98,7 +98,14 @@ struct arch_domain
 #ifdef CONFIG_TEE
     void *tee;
 #endif
+
+    bool direct_map;
 }  __cacheline_aligned;
+
+struct arch_xen_dom_flags
+{
+    bool is_direct_map;
+};
 
 struct arch_vcpu
 {

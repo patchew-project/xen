@@ -2527,6 +2527,7 @@ int __init construct_dom0(struct domain *d)
 
     iommu_hwdom_init(d);
 
+    d->arch.direct_map = true;
     d->max_pages = ~0U;
 
     kinfo.unassigned_mem = dom0_mem;

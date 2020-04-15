@@ -682,6 +682,7 @@ int arch_domain_create(struct domain *d,
         return 0;
 
     ASSERT(config != NULL);
+    d->arch.direct_map = flags != NULL ? flags->arch.is_direct_map : false;
 
     /* p2m_init relies on some value initialized by the IOMMU subsystem */
     if ( (rc = iommu_domain_init(d, config->iommu_opts)) != 0 )

@@ -787,7 +787,7 @@ void __init start_xen(unsigned long boot_phys_offset,
         .max_maptrack_frames = -1,
     };
     int rc;
-    struct xen_dom_flags flags = { true };
+    struct xen_dom_flags flags = { true, .arch.is_direct_map = true };
 
     dcache_line_bytes = read_dcache_line_bytes();
 

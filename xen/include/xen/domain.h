@@ -65,6 +65,7 @@ void unmap_vcpu_info(struct vcpu *v);
 
 struct xen_dom_flags {
     bool is_priv;
+    struct arch_xen_dom_flags arch;
 };
 
 int arch_domain_create(struct domain *d,

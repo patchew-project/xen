@@ -419,6 +419,8 @@ struct arch_domain
     uint32_t emulation_flags;
 } __cacheline_aligned;
 
+struct arch_xen_dom_flags {};
+
 #ifdef CONFIG_HVM
 #define X86_EMU_LAPIC    XEN_X86_EMU_LAPIC
 #define X86_EMU_HPET     XEN_X86_EMU_HPET
