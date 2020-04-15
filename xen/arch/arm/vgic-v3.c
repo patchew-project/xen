@@ -1677,13 +1677,25 @@ static int vgic_v3_domain_init(struct domain *d)
      * Domain 0 gets the hardware address.
      * Guests get the virtual platform layout.
      */
-    if ( is_hardware_domain(d) )
+    if ( is_domain_direct_mapped(d) )
     {
         unsigned int first_cpu = 0;
+        unsigned int nr_rdist_regions;
 
         d->arch.vgic.dbase = vgic_v3_hw.dbase;
 
-        for ( i = 0; i < vgic_v3_hw.nr_rdist_regions; i++ )
+        if ( is_hardware_domain(d) )
+        {
+            nr_rdist_regions = vgic_v3_hw.nr_rdist_regions;
+            d->arch.vgic.intid_bits = vgic_v3_hw.intid_bits;
+        }
+        else
+        {
+            nr_rdist_regions = 1;
+            d->arch.vgic.intid_bits = 10;
+        }
+
+        for ( i = 0; i < nr_rdist_regions; i++ )
         {
             paddr_t size = vgic_v3_hw.regions[i].size;
 
@@ -1706,8 +1718,6 @@ static int vgic_v3_domain_init(struct domain *d)
          * exposing unused region as they will not get emulated.
          */
         d->arch.vgic.nr_regions = i + 1;
-
-        d->arch.vgic.intid_bits = vgic_v3_hw.intid_bits;
     }
     else
     {

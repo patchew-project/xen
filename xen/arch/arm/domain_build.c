@@ -1697,8 +1697,12 @@ static int __init make_gicv3_domU_node(struct kernel_info *kinfo)
     int res = 0;
     __be32 reg[(GUEST_ROOT_ADDRESS_CELLS + GUEST_ROOT_SIZE_CELLS) * 2];
     __be32 *cells;
+    struct domain *d = kinfo->d;
+    char buf[38];
 
-    res = fdt_begin_node(fdt, "interrupt-controller@"__stringify(GUEST_GICV3_GICD_BASE));
+    snprintf(buf, sizeof(buf), "interrupt-controller@%"PRIx64,
+             d->arch.vgic.dbase);
+    res = fdt_begin_node(fdt, buf);
     if ( res )
         return res;
 
@@ -1720,9 +1724,11 @@ static int __init make_gicv3_domU_node(struct kernel_info *kinfo)
 
     cells = &reg[0];
     dt_child_set_range(&cells, GUEST_ROOT_ADDRESS_CELLS, GUEST_ROOT_SIZE_CELLS,
-                       GUEST_GICV3_GICD_BASE, GUEST_GICV3_GICD_SIZE);
+                       d->arch.vgic.dbase, GUEST_GICV3_GICD_SIZE);
+#if defined(CONFIG_GICV3) && !defined(CONFIG_NEW_VGIC)
     dt_child_set_range(&cells, GUEST_ROOT_ADDRESS_CELLS, GUEST_ROOT_SIZE_CELLS,
-                       GUEST_GICV3_GICR0_BASE, GUEST_GICV3_GICR0_SIZE);
+                       d->arch.vgic.rdist_regions[0].base, GUEST_GICV3_GICR0_SIZE);
+#endif
 
     res = fdt_property(fdt, "reg", reg, sizeof(reg));
     if (res)
