@@ -198,6 +198,40 @@ fail:
     return false;
 }
 
+static void __init reserve_memory_11(struct domain *d,
+                                     struct kernel_info *kinfo,
+                                     struct membank *banks,
+                                     unsigned int nr_banks)
+{
+    unsigned int i, order;
+    struct page_info *pg;
+   
+    kinfo->mem.nr_banks = 0;
+
+    for ( i = 0; i < nr_banks; i++ )
+    {
+        order = get_order_from_bytes(banks[i].size);
+        pg = reserve_domheap_pages(d, banks[i].start, order, 0);
+        if ( pg == NULL || !insert_11_bank(d, kinfo, pg, order) )
+        {
+            printk(XENLOG_ERR
+                   "%pd: cannot reserve memory start=%#"PRIpaddr" size=%#"PRIpaddr"\n",
+                    d, banks[i].start, banks[i].size);
+            BUG();
+        }
+    }
+
+    for( i = 0; i < kinfo->mem.nr_banks; i++ )
+    {
+        printk("BANK[%d] %#"PRIpaddr"-%#"PRIpaddr" (%ldMB)\n",
+                i,
+                kinfo->mem.bank[i].start,
+                kinfo->mem.bank[i].start + kinfo->mem.bank[i].size,
+                /* Don't want format this as PRIpaddr (16 digit hex) */
+                (unsigned long)(kinfo->mem.bank[i].size >> 20));
+    }
+}
+
 /*
  * This is all pretty horrible.
  *
@@ -2477,8 +2511,7 @@ static int __init construct_domU(struct domain *d,
                    banks[i].start, banks[i].size);
         }
 
-        /* reserve_memory_11(d, &kinfo, &banks[0], i); */
-        BUG();
+        reserve_memory_11(d, &kinfo, &banks[0], i);
     }
 
     rc = prepare_dtb_domU(d, &kinfo);
