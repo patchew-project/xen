@@ -1,0 +1,35 @@
+Request Device Assignment without IOMMU support
+===============================================
+
+Add xen,force-assign-without-iommu; to the device tree snippet
+
+    ethernet: ethernet@ff0e0000 {
+        compatible = "cdns,zynqmp-gem";
+        xen,path = "/amba/ethernet@ff0e0000";
+        xen,reg = <0x0 0xff0e0000 0x1000 0x0 0xff0e0000>;
+        xen,force-assign-without-iommu;
+
+Optionally, if none of the domains require an IOMMU, then it could be
+disabled (not recommended). For instance by adding status = "disabled";
+under the smmu node:
+
+    smmu@fd800000 {
+        compatible = "arm,mmu-500";
+        status = "disabled";
+
+
+Request 1:1 memory mapping for the dom0-less domain
+===================================================
+
+Add a direct-map property under the appropriate /chosen/domU node with
+the memory ranges you want to assign to your domain. If you are using
+imagebuilder, you can add to boot.source something like the following:
+
+    fdt set /chosen/domU0 direct-map <0x0 0x10000000 0x0 0x10000000 0x0 0x60000000 0x0 0x10000000>
+
+Which will assign the ranges:
+
+    0x10000000 - 0x20000000
+    0x60000000 - 0x70000000
+
+to the first dom0less domU.

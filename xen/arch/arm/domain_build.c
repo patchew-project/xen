@@ -2435,7 +2435,51 @@ static int __init construct_domU(struct domain *d,
     /* type must be set before allocate memory */
     d->arch.type = kinfo.type;
 #endif
-    allocate_memory(d, &kinfo);
+
+    if ( !is_domain_direct_mapped(d) )
+        allocate_memory(d, &kinfo);
+    else
+    {
+        struct membank banks[NR_MEM_BANKS];
+        const struct dt_property *prop;
+        u32 direct_map_len, direct_map_addr_len = 2, direct_map_size_len = 2;
+        unsigned int i;
+        __be32 *p;
+
+        prop = dt_find_property(node, "direct-map", &direct_map_len);
+        BUG_ON(!prop);
+
+        dt_property_read_u32(node,
+                             "#direct-map-addr-cells",
+                             &direct_map_addr_len);
+        dt_property_read_u32(node,
+                             "#direct-map-size-cells",
+                             &direct_map_size_len);
+        BUG_ON(direct_map_size_len > 2 || direct_map_addr_len > 2);
+
+        for ( i = 0, p = prop->value;
+              i < direct_map_len /
+                  (4 * (direct_map_addr_len + direct_map_size_len));
+              i++)
+        {
+            int j;
+
+            banks[i].start = 0;
+            for ( j = 0; j < direct_map_addr_len; j++, p++ )
+                banks[i].start |= __be32_to_cpu(*p) << (32*j);
+
+            banks[i].size = 0;
+            for ( j = 0; j < direct_map_size_len; j++, p++ )
+                banks[i].size |= __be32_to_cpu(*p) << (32*j);
+
+            printk(XENLOG_DEBUG
+                   "direct_map start=%#"PRIpaddr" size=%#"PRIpaddr"\n",
+                   banks[i].start, banks[i].size);
+        }
+
+        /* reserve_memory_11(d, &kinfo, &banks[0], i); */
+        BUG();
+    }
 
     rc = prepare_dtb_domU(d, &kinfo);
     if ( rc < 0 )
@@ -2455,6 +2499,7 @@ void __init create_domUs(void)
 {
     struct dt_device_node *node;
     const struct dt_device_node *chosen = dt_find_node_by_path("/chosen");
+    u32 direct_map = 0;
 
     BUG_ON(chosen == NULL);
     dt_for_each_child_node(chosen, node)
@@ -2476,8 +2521,11 @@ void __init create_domUs(void)
             panic("Missing property 'cpus' for domain %s\n",
                   dt_node_name(node));
 
-        if ( dt_find_compatible_node(node, NULL, "multiboot,device-tree") )
+        dt_find_property(node, "direct-map", &direct_map);
+        if ( dt_find_compatible_node(node, NULL, "multiboot,device-tree") &&
+             !direct_map )
             d_cfg.flags |= XEN_DOMCTL_CDF_iommu;
+        flags.arch.is_direct_map = direct_map != 0;
 
         if ( !dt_property_read_u32(node, "nr_spis", &d_cfg.arch.nr_spis) )
         {
