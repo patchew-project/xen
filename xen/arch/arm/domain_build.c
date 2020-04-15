@@ -1884,12 +1884,14 @@ static int __init handle_passthrough_prop(struct kernel_info *kinfo,
     if ( res < 0 )
         return res;
 
+    if ( xen_force )
+        return 0;
+
     res = iommu_add_dt_device(node);
     if ( res < 0 )
         return res;
 
-    /* If xen_force, we allow assignment of devices without IOMMU protection. */
-    if ( xen_force && !dt_device_is_protected(node) )
+    if ( !dt_device_is_protected(node) )
         return 0;
 
     return iommu_assign_dt_device(kinfo->d, node);
