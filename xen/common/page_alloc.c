@@ -911,54 +911,18 @@ static struct page_info *get_free_buddy(unsigned int zone_lo,
     }
 }
 
-/* Allocate 2^@order contiguous pages. */
-static struct page_info *alloc_heap_pages(
-    unsigned int zone_lo, unsigned int zone_hi,
-    unsigned int order, unsigned int memflags,
-    struct domain *d)
+static void __alloc_heap_pages(struct page_info **pgo,
+                               unsigned int order,
+                               unsigned int memflags,
+                               struct domain *d)
 {
     nodeid_t node;
     unsigned int i, buddy_order, zone, first_dirty;
     unsigned long request = 1UL << order;
-    struct page_info *pg;
     bool need_tlbflush = false;
     uint32_t tlbflush_timestamp = 0;
     unsigned int dirty_cnt = 0;
-
-    /* Make sure there are enough bits in memflags for nodeID. */
-    BUILD_BUG_ON((_MEMF_bits - _MEMF_node) < (8 * sizeof(nodeid_t)));
-
-    ASSERT(zone_lo <= zone_hi);
-    ASSERT(zone_hi < NR_ZONES);
-
-    if ( unlikely(order > MAX_ORDER) )
-        return NULL;
-
-    spin_lock(&heap_lock);
-
-    /*
-     * Claimed memory is considered unavailable unless the request
-     * is made by a domain with sufficient unclaimed pages.
-     */
-    if ( (outstanding_claims + request > total_avail_pages) &&
-          ((memflags & MEMF_no_refcount) ||
-           !d || d->outstanding_pages < request) )
-    {
-        spin_unlock(&heap_lock);
-        return NULL;
-    }
-
-    pg = get_free_buddy(zone_lo, zone_hi, order, memflags, d);
-    /* Try getting a dirty buddy if we couldn't get a clean one. */
-    if ( !pg && !(memflags & MEMF_no_scrub) )
-        pg = get_free_buddy(zone_lo, zone_hi, order,
-                            memflags | MEMF_no_scrub, d);
-    if ( !pg )
-    {
-        /* No suitable memory blocks. Fail the request. */
-        spin_unlock(&heap_lock);
-        return NULL;
-    }
+    struct page_info *pg = *pgo;
 
     node = phys_to_nid(page_to_maddr(pg));
     zone = page_to_zone(pg);
@@ -984,6 +948,7 @@ static struct page_info *alloc_heap_pages(
                 first_dirty = 0; /* We've moved past original first_dirty */
         }
     }
+    *pgo = pg;
 
     ASSERT(avail[node][zone] >= request);
     avail[node][zone] -= request;
@@ -1062,6 +1027,53 @@ static struct page_info *alloc_heap_pages(
     if ( need_tlbflush )
         filtered_flush_tlb_mask(tlbflush_timestamp);
 
+}
+
+/* Allocate 2^@order contiguous pages. */
+static struct page_info *alloc_heap_pages(
+    unsigned int zone_lo, unsigned int zone_hi,
+    unsigned int order, unsigned int memflags,
+    struct domain *d)
+{
+    unsigned long request = 1UL << order;
+    struct page_info *pg;
+
+    /* Make sure there are enough bits in memflags for nodeID. */
+    BUILD_BUG_ON((_MEMF_bits - _MEMF_node) < (8 * sizeof(nodeid_t)));
+
+    ASSERT(zone_lo <= zone_hi);
+    ASSERT(zone_hi < NR_ZONES);
+
+    if ( unlikely(order > MAX_ORDER) )
+        return NULL;
+
+    spin_lock(&heap_lock);
+
+    /*
+     * Claimed memory is considered unavailable unless the request
+     * is made by a domain with sufficient unclaimed pages.
+     */
+    if ( (outstanding_claims + request > total_avail_pages) &&
+          ((memflags & MEMF_no_refcount) ||
+           !d || d->outstanding_pages < request) )
+    {
+        spin_unlock(&heap_lock);
+        return NULL;
+    }
+
+    pg = get_free_buddy(zone_lo, zone_hi, order, memflags, d);
+    /* Try getting a dirty buddy if we couldn't get a clean one. */
+    if ( !pg && !(memflags & MEMF_no_scrub) )
+        pg = get_free_buddy(zone_lo, zone_hi, order,
+                            memflags | MEMF_no_scrub, d);
+    if ( !pg )
+    {
+        /* No suitable memory blocks. Fail the request. */
+        spin_unlock(&heap_lock);
+        return NULL;
+    }
+
+    __alloc_heap_pages(&pg, order, memflags, d);
     return pg;
 }
 
