@@ -266,7 +266,7 @@ int vgic_v2_map_resources(struct domain *d)
      * The hardware domain gets the hardware address.
      * Guests get the virtual platform layout.
      */
-    if ( is_hardware_domain(d) )
+    if ( is_domain_direct_mapped(d) )
     {
         d->arch.vgic.dbase = gic_v2_hw_data.dbase;
         /*
