@@ -2467,6 +2467,7 @@ void __init create_domUs(void)
             .max_grant_frames = 64,
             .max_maptrack_frames = 1024,
         };
+        struct xen_dom_flags flags = { false };
 
         if ( !dt_device_is_compatible(node, "xen,domain") )
             continue;
@@ -2491,7 +2492,7 @@ void __init create_domUs(void)
                                          GUEST_VPL011_SPI - 32 + 1);
         }
 
-        d = domain_create(++max_init_domid, &d_cfg, false);
+        d = domain_create(++max_init_domid, &d_cfg, &flags);
         if ( IS_ERR(d) )
             panic("Error creating domain %s\n", dt_node_name(node));
 

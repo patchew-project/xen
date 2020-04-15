@@ -364,6 +364,7 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
     bool_t copyback = 0;
     struct xen_domctl curop, *op = &curop;
     struct domain *d;
+    struct xen_dom_flags flags ={ false };
 
     if ( copy_from_guest(op, u_domctl, 1) )
         return -EFAULT;
@@ -515,7 +516,7 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
             rover = dom;
         }
 
-        d = domain_create(dom, &op->u.createdomain, false);
+        d = domain_create(dom, &op->u.createdomain, &flags);
         if ( IS_ERR(d) )
         {
             ret = PTR_ERR(d);

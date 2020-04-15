@@ -2888,6 +2888,7 @@ void __init scheduler_init(void)
 {
     struct domain *idle_domain;
     int i;
+    struct xen_dom_flags flags = { false };
 
     scheduler_enable();
 
@@ -2957,7 +2958,7 @@ void __init scheduler_init(void)
         sched_ratelimit_us = SCHED_DEFAULT_RATELIMIT_US;
     }
 
-    idle_domain = domain_create(DOMID_IDLE, NULL, false);
+    idle_domain = domain_create(DOMID_IDLE, NULL, &flags);
     BUG_ON(IS_ERR(idle_domain));
     BUG_ON(nr_cpu_ids > ARRAY_SIZE(idle_vcpu));
     idle_domain->vcpu = idle_vcpu;

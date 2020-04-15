@@ -787,6 +787,7 @@ void __init start_xen(unsigned long boot_phys_offset,
         .max_maptrack_frames = -1,
     };
     int rc;
+    struct xen_dom_flags flags = { true };
 
     dcache_line_bytes = read_dcache_line_bytes();
 
@@ -955,7 +956,7 @@ void __init start_xen(unsigned long boot_phys_offset,
     if ( iommu_enabled )
         dom0_cfg.flags |= XEN_DOMCTL_CDF_iommu;
 
-    dom0 = domain_create(0, &dom0_cfg, true);
+    dom0 = domain_create(0, &dom0_cfg, &flags);
     if ( IS_ERR(dom0) || (alloc_dom0_vcpu0(dom0) == NULL) )
         panic("Error creating domain 0\n");
 

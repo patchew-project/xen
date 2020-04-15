@@ -706,6 +706,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
         .max_maptrack_frames = -1,
     };
     const char *hypervisor_name;
+    struct xen_dom_flags flags = { !pv_shim };
 
     /* Critical region without IDT or TSS.  Any fault is deadly! */
 
@@ -1761,7 +1762,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
         dom0_cfg.flags |= XEN_DOMCTL_CDF_iommu;
 
     /* Create initial domain 0. */
-    dom0 = domain_create(get_initial_domain_id(), &dom0_cfg, !pv_shim);
+    dom0 = domain_create(get_initial_domain_id(), &dom0_cfg, &flags);
     if ( IS_ERR(dom0) || (alloc_dom0_vcpu0(dom0) == NULL) )
         panic("Error creating domain 0\n");
 
