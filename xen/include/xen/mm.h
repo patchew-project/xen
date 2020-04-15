@@ -199,6 +199,8 @@ void get_outstanding_claims(uint64_t *free_pages, uint64_t *outstanding_pages);
 void init_domheap_pages(paddr_t ps, paddr_t pe);
 struct page_info *alloc_domheap_pages(
     struct domain *d, unsigned int order, unsigned int memflags);
+struct page_info *reserve_domheap_pages(
+    struct domain *d, paddr_t start, unsigned int order, unsigned int memflags);
 void free_domheap_pages(struct page_info *pg, unsigned int order);
 unsigned long avail_domheap_pages_region(
     unsigned int node, unsigned int min_width, unsigned int max_width);

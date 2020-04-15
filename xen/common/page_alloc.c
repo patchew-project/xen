@@ -911,7 +911,7 @@ static struct page_info *get_free_buddy(unsigned int zone_lo,
     }
 }
 
-static void __alloc_heap_pages(struct page_info **pgo,
+static void __alloc_heap_pages(struct page_info *pg,
                                unsigned int order,
                                unsigned int memflags,
                                struct domain *d)
@@ -922,7 +922,7 @@ static void __alloc_heap_pages(struct page_info **pgo,
     bool need_tlbflush = false;
     uint32_t tlbflush_timestamp = 0;
     unsigned int dirty_cnt = 0;
-    struct page_info *pg = *pgo;
+    struct page_info *pg_start = pg;
 
     node = phys_to_nid(page_to_maddr(pg));
     zone = page_to_zone(pg);
@@ -934,10 +934,10 @@ static void __alloc_heap_pages(struct page_info **pgo,
     while ( buddy_order != order )
     {
         buddy_order--;
+        pg = pg_start + (1U << buddy_order);
         page_list_add_scrub(pg, node, zone, buddy_order,
                             (1U << buddy_order) > first_dirty ?
                             first_dirty : INVALID_DIRTY_IDX);
-        pg += 1U << buddy_order;
 
         if ( first_dirty != INVALID_DIRTY_IDX )
         {
@@ -948,7 +948,7 @@ static void __alloc_heap_pages(struct page_info **pgo,
                 first_dirty = 0; /* We've moved past original first_dirty */
         }
     }
-    *pgo = pg;
+    pg = pg_start;
 
     ASSERT(avail[node][zone] >= request);
     avail[node][zone] -= request;
@@ -1073,7 +1073,42 @@ static struct page_info *alloc_heap_pages(
         return NULL;
     }
 
-    __alloc_heap_pages(&pg, order, memflags, d);
+    __alloc_heap_pages(pg, order, memflags, d);
+    return pg;
+}
+
+static struct page_info *reserve_heap_pages(struct domain *d,
+                                            paddr_t start,
+                                            unsigned int order,
+                                            unsigned int memflags)
+{
+    nodeid_t node;
+    unsigned int zone;
+    struct page_info *pg;
+
+    if ( unlikely(order > MAX_ORDER) )
+        return NULL;
+
+    spin_lock(&heap_lock);
+
+    /*
+     * Claimed memory is considered unavailable unless the request
+     * is made by a domain with sufficient unclaimed pages.
+     */
+    if ( (outstanding_claims + (1UL << order) > total_avail_pages) &&
+          ((memflags & MEMF_no_refcount) ||
+           !d || d->outstanding_pages < (1UL << order)) )
+    {
+        spin_unlock(&heap_lock);
+        return NULL;
+    }
+
+    pg = maddr_to_page(start);
+    node = phys_to_nid(start);
+    zone = page_to_zone(pg);
+    page_list_del(pg, &heap(node, zone, order));
+
+    __alloc_heap_pages(pg, order, memflags, d);
     return pg;
 }
 
@@ -2380,6 +2415,33 @@ struct page_info *alloc_domheap_pages(
             free_heap_pages(pg, order, memflags & MEMF_no_scrub);
             return NULL;
         }
+    }
+
+    return pg;
+}
+
+struct page_info *reserve_domheap_pages(
+    struct domain *d, paddr_t start, unsigned int order, unsigned int memflags)
+{
+    struct page_info *pg = NULL;
+
+    ASSERT(!in_irq());
+
+    if ( memflags & MEMF_no_owner )
+        memflags |= MEMF_no_refcount;
+    else if ( (memflags & MEMF_no_refcount) && d )
+    {
+        ASSERT(!(memflags & MEMF_no_refcount));
+        return NULL;
+    }
+
+    pg = reserve_heap_pages(d, start, order, memflags);
+
+    if ( d && !(memflags & MEMF_no_owner) &&
+         assign_pages(d, pg, order, memflags) )
+    {
+        free_heap_pages(pg, order, memflags & MEMF_no_scrub);
+        return NULL;
     }
 
     return pg;
