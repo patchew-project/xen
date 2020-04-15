@@ -677,10 +677,14 @@ handle_exception_saved:
 #endif /* CONFIG_PV */
         sti
 1:      movq  %rsp,%rdi
-        movzbl UREGS_entry_vector(%rsp),%eax
+        movzbl UREGS_entry_vector(%rsp), %ecx
         leaq  exception_table(%rip),%rdx
-        PERFC_INCR(exceptions, %rax, %rbx)
-        mov   (%rdx, %rax, 8), %rdx
+#ifdef CONFIG_PERF_COUNTERS
+        lea   per_cpu__perfcounters(%rip), %rax
+        add   STACK_CPUINFO_FIELD(per_cpu_offset)(%r14), %rax
+        incl  ASM_PERFC_exceptions * 4(%rax, %rcx, 4)
+#endif
+        mov   (%rdx, %rcx, 8), %rdx
         INDIRECT_CALL %rdx
         mov   %r15, STACK_CPUINFO_FIELD(xen_cr3)(%r14)
         mov   %r13b, STACK_CPUINFO_FIELD(use_pv_cr3)(%r14)
