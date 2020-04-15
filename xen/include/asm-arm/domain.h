@@ -100,6 +100,7 @@ struct arch_domain
 #endif
 
     bool direct_map;
+    paddr_t vpl011_addr;
 }  __cacheline_aligned;
 
 struct arch_xen_dom_flags

@@ -347,7 +347,7 @@ static int vpl011_mmio_read(struct vcpu *v,
                             void *priv)
 {
     struct hsr_dabt dabt = info->dabt;
-    uint32_t vpl011_reg = (uint32_t)(info->gpa - GUEST_PL011_BASE);
+    uint32_t vpl011_reg = (uint32_t)(info->gpa - v->domain->arch.vpl011_addr);
     struct vpl011 *vpl011 = &v->domain->arch.vpl011;
     struct domain *d = v->domain;
     unsigned long flags;
@@ -430,7 +430,7 @@ static int vpl011_mmio_write(struct vcpu *v,
                              void *priv)
 {
     struct hsr_dabt dabt = info->dabt;
-    uint32_t vpl011_reg = (uint32_t)(info->gpa - GUEST_PL011_BASE);
+    uint32_t vpl011_reg = (uint32_t)(info->gpa - v->domain->arch.vpl011_addr);
     struct vpl011 *vpl011 = &v->domain->arch.vpl011;
     struct domain *d = v->domain;
     unsigned long flags;
@@ -622,9 +622,15 @@ int domain_vpl011_init(struct domain *d, struct vpl011_init_info *info)
 {
     int rc;
     struct vpl011 *vpl011 = &d->arch.vpl011;
+    const struct vuart_info *uart = serial_vuart_info(SERHND_DTUART);
 
     if ( vpl011->backend.dom.ring_buf )
         return -EINVAL;
+
+    if ( is_domain_direct_mapped(d) && uart != NULL )
+        d->arch.vpl011_addr = uart->base_addr;
+    else
+        d->arch.vpl011_addr = GUEST_PL011_BASE;
 
     /*
      * info is NULL when the backend is in Xen.
@@ -673,7 +679,7 @@ int domain_vpl011_init(struct domain *d, struct vpl011_init_info *info)
     spin_lock_init(&vpl011->lock);
 
     register_mmio_handler(d, &vpl011_mmio_handler,
-                          GUEST_PL011_BASE, GUEST_PL011_SIZE, NULL);
+                          d->arch.vpl011_addr, GUEST_PL011_SIZE, NULL);
 
     return 0;
 
