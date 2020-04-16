@@ -2887,6 +2887,7 @@ void scheduler_enable(void)
 void __init scheduler_init(void)
 {
     struct domain *idle_domain;
+    char sched_gran[20];
     int i;
 
     scheduler_enable();
@@ -2941,7 +2942,9 @@ void __init scheduler_init(void)
         BUG();
     register_cpu_notifier(&cpu_schedule_nfb);
 
-    printk("Using scheduler: %s (%s)\n", ops.name, ops.opt_name);
+    printk("Using scheduler: %s (%s) in %s-scheduling mode\n",
+           ops.name, ops.opt_name,
+           sched_gran_str(sched_gran, sizeof(sched_gran)));
     if ( sched_init(&ops) )
         panic("scheduler returned error on init\n");
 
@@ -3271,6 +3274,7 @@ void schedule_dump(struct cpupool *c)
     unsigned int      i, j;
     struct scheduler *sched;
     cpumask_t        *cpus;
+    char              sched_gran[20];
 
     /* Locking, if necessary, must be handled withing each scheduler */
 
@@ -3280,7 +3284,9 @@ void schedule_dump(struct cpupool *c)
     {
         sched = c->sched;
         cpus = c->res_valid;
-        printk("Scheduler: %s (%s)\n", sched->name, sched->opt_name);
+        printk("Scheduler: %s (%s) in %s-scheduling mode\n",
+               sched->name, sched->opt_name,
+               sched_gran_str(sched_gran, sizeof(sched_gran)));
         sched_dump_settings(sched);
     }
     else

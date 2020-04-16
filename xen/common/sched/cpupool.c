@@ -38,7 +38,35 @@ static cpumask_t cpupool_locked_cpus;
 static DEFINE_SPINLOCK(cpupool_lock);
 
 static enum sched_gran __read_mostly opt_sched_granularity = SCHED_GRAN_cpu;
-static unsigned int __read_mostly sched_granularity = 1;
+static unsigned int __read_mostly sched_granularity;
+
+char *sched_gran_str(char *str, size_t size)
+{
+    char *mode = "";
+
+    switch ( opt_sched_granularity )
+    {
+    case SCHED_GRAN_cpu:
+        mode = "cpu";
+        break;
+    case SCHED_GRAN_core:
+        mode = "core";
+        break;
+    case SCHED_GRAN_socket:
+        mode = "socket";
+        break;
+    default:
+        ASSERT_UNREACHABLE();
+        break;
+    }
+
+    if ( sched_granularity )
+        snprintf(str, size, "%u-way %s", sched_granularity, mode);
+    else
+        snprintf(str, size, "%s", mode);
+
+    return str;
+}
 
 #ifdef CONFIG_HAS_SCHED_GRANULARITY
 static int __init sched_select_granularity(const char *str)
