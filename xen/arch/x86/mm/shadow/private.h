@@ -818,6 +818,12 @@ static inline int sh_check_page_has_no_refs(struct page_info *page)
 bool shadow_flush_tlb(bool (*flush_vcpu)(void *ctxt, struct vcpu *v),
                       void *ctxt);
 
+static inline void sh_flush_local(const struct domain *d)
+{
+    flush_local(FLUSH_TLB |
+                (is_hvm_domain(d) && cpu_has_svm ? FLUSH_HVM_ASID_CORE : 0));
+}
+
 #endif /* _XEN_SHADOW_PRIVATE_H */
 
 /*
