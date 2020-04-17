@@ -41,6 +41,8 @@
 #include "vtd.h"
 #include "../ats.h"
 
+#define IS_IGD(seg, id) (0 == seg && 0 == PCI_BUS(id) && 2 == PCI_SLOT(id) && 0 == PCI_FUNC(id))
+
 struct mapped_rmrr {
     struct list_head list;
     u64 base, end;
@@ -871,6 +873,13 @@ static int iommu_page_fault_do_one(struct vtd_iommu *iommu, int type,
 
     printk(XENLOG_G_WARNING VTDPREFIX "%s: reason %02x - %s\n",
            kind, fault_reason, reason);
+
+    if ( DMA_REMAP == fault_type && type && IS_IGD(seg, source_id) ) {
+        u32 fectl = dmar_readl(iommu->reg, DMAR_FECTL_REG);
+        fectl |= DMA_FECTL_IM;
+        dmar_writel(iommu->reg, DMAR_FECTL_REG, fectl);
+        printk(XENLOG_G_WARNING VTDPREFIX "Disabling DMAR faults for IGD\n");
+    }
 
     if ( iommu_verbose && fault_type == DMA_REMAP )
         print_vtd_entries(iommu, PCI_BUS(source_id), PCI_DEVFN2(source_id),
