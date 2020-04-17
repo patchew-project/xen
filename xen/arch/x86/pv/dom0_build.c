@@ -50,17 +50,17 @@ static __init void mark_pv_pt_pages_rdonly(struct domain *d,
     unsigned long count;
     struct page_info *page;
     l4_pgentry_t *pl4e;
-    l3_pgentry_t *pl3e;
-    l2_pgentry_t *pl2e;
-    l1_pgentry_t *pl1e;
+    l3_pgentry_t *pl3e, *l3t;
+    l2_pgentry_t *pl2e, *l2t;
+    l1_pgentry_t *pl1e, *l1t;
 
     pl4e = l4start + l4_table_offset(vpt_start);
-    pl3e = l4e_to_l3e(*pl4e);
-    pl3e += l3_table_offset(vpt_start);
-    pl2e = l3e_to_l2e(*pl3e);
-    pl2e += l2_table_offset(vpt_start);
-    pl1e = l2e_to_l1e(*pl2e);
-    pl1e += l1_table_offset(vpt_start);
+    l3t = map_l3t_from_l4e(*pl4e);
+    pl3e = l3t + l3_table_offset(vpt_start);
+    l2t = map_l2t_from_l3e(*pl3e);
+    pl2e = l2t + l2_table_offset(vpt_start);
+    l1t = map_l1t_from_l2e(*pl2e);
+    pl1e = l1t + l1_table_offset(vpt_start);
     for ( count = 0; count < nr_pt_pages; count++ )
     {
         l1e_remove_flags(*pl1e, _PAGE_RW);
@@ -85,12 +85,20 @@ static __init void mark_pv_pt_pages_rdonly(struct domain *d,
             if ( !((unsigned long)++pl2e & (PAGE_SIZE - 1)) )
             {
                 if ( !((unsigned long)++pl3e & (PAGE_SIZE - 1)) )
-                    pl3e = l4e_to_l3e(*++pl4e);
-                pl2e = l3e_to_l2e(*pl3e);
+                {
+                    unmap_domain_page(l3t);
+                    pl3e = l3t = map_l3t_from_l4e(*++pl4e);
+                }
+                unmap_domain_page(l2t);
+                pl2e = l2t = map_l2t_from_l3e(*pl3e);
             }
-            pl1e = l2e_to_l1e(*pl2e);
+            unmap_domain_page(l1t);
+            pl1e = l1t = map_l1t_from_l2e(*pl2e);
         }
     }
+    unmap_domain_page(l1t);
+    unmap_domain_page(l2t);
+    unmap_domain_page(l3t);
 }
 
 static __init void setup_pv_physmap(struct domain *d, unsigned long pgtbl_pfn,
