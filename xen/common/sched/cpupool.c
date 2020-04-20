@@ -40,6 +40,30 @@ static DEFINE_SPINLOCK(cpupool_lock);
 static enum sched_gran __read_mostly opt_sched_granularity = SCHED_GRAN_cpu;
 static unsigned int __read_mostly sched_granularity = 1;
 
+static void sched_gran_print(enum sched_gran mode, unsigned int gran)
+{
+    char *str = "";
+
+    switch ( mode )
+    {
+    case SCHED_GRAN_cpu:
+        str = "cpu";
+        break;
+    case SCHED_GRAN_core:
+        str = "core";
+        break;
+    case SCHED_GRAN_socket:
+        str = "socket";
+        break;
+    default:
+        ASSERT_UNREACHABLE();
+        break;
+    }
+
+    printk("Scheduling granularity: %s, %u CPU%s per sched-resource\n",
+           str, gran, gran == 1 ? "" : "s");
+}
+
 #ifdef CONFIG_HAS_SCHED_GRANULARITY
 static int __init sched_select_granularity(const char *str)
 {
@@ -115,6 +139,7 @@ static void __init cpupool_gran_init(void)
         warning_add(fallback);
 
     sched_granularity = gran;
+    sched_gran_print(opt_sched_granularity, sched_granularity);
 }
 
 unsigned int cpupool_get_granularity(const struct cpupool *c)
@@ -911,6 +936,7 @@ void dump_runq(unsigned char key)
     {
         printk("Cpupool %d:\n", (*c)->cpupool_id);
         printk("Cpus: %*pbl\n", CPUMASK_PR((*c)->cpu_valid));
+        sched_gran_print((*c)->gran, cpupool_get_granularity(*c));
         schedule_dump(*c);
     }
 
