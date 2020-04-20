@@ -441,12 +441,18 @@ struct tss_page {
 };
 DECLARE_PER_CPU(struct tss_page, tss_page);
 
+/*
+ * Interrupt Stack Tables.  Used to force a stack switch on a CPL0=>0
+ * interrupt/exception.  #DF uses IST all the time to detect stack overflows
+ * cleanly.  NMI/#MC/#DB only need IST to cover the SYSCALL gap, and therefore
+ * only necessary with PV guests.
+ */
 #define IST_NONE 0UL
 #define IST_DF   1UL
 #define IST_NMI  2UL
 #define IST_MCE  3UL
 #define IST_DB   4UL
-#define IST_MAX  4UL
+#define IST_MAX  (IS_ENABLED(CONFIG_PV) ? 4ul : 1ul)
 
 /* Set the Interrupt Stack Table used by a particular IDT entry. */
 static inline void set_ist(idt_entry_t *idt, unsigned int ist)
@@ -461,6 +467,8 @@ static inline void set_ist(idt_entry_t *idt, unsigned int ist)
 static inline void enable_each_ist(idt_entry_t *idt)
 {
     set_ist(&idt[TRAP_double_fault],  IST_DF);
+    if ( !IS_ENABLED(CONFIG_PV) )
+        return;
     set_ist(&idt[TRAP_nmi],           IST_NMI);
     set_ist(&idt[TRAP_machine_check], IST_MCE);
     set_ist(&idt[TRAP_debug],         IST_DB);
@@ -469,6 +477,8 @@ static inline void enable_each_ist(idt_entry_t *idt)
 static inline void disable_each_ist(idt_entry_t *idt)
 {
     set_ist(&idt[TRAP_double_fault],  IST_NONE);
+    if ( !IS_ENABLED(CONFIG_PV) )
+        return;
     set_ist(&idt[TRAP_nmi],           IST_NONE);
     set_ist(&idt[TRAP_machine_check], IST_NONE);
     set_ist(&idt[TRAP_debug],         IST_NONE);
