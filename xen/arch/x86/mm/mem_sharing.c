@@ -1445,7 +1445,8 @@ static int range_share(struct domain *d, struct domain *cd,
     return rc;
 }
 
-static inline int mem_sharing_control(struct domain *d, bool enable)
+static inline int mem_sharing_control(struct domain *d, bool enable,
+                                      uint16_t flags)
 {
     if ( enable )
     {
@@ -1455,7 +1456,8 @@ static inline int mem_sharing_control(struct domain *d, bool enable)
         if ( unlikely(!hap_enabled(d)) )
             return -ENODEV;
 
-        if ( unlikely(is_iommu_enabled(d)) )
+        if ( unlikely(is_iommu_enabled(d) &&
+                      !(flags & XENMEM_FORK_WITH_IOMMU_ALLOWED)) )
             return -EXDEV;
     }
 
@@ -1848,7 +1850,8 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
     if ( rc )
         goto out;
 
-    if ( !mem_sharing_enabled(d) && (rc = mem_sharing_control(d, true)) )
+    if ( !mem_sharing_enabled(d) &&
+         (rc = mem_sharing_control(d, true, 0)) )
         return rc;
 
     switch ( mso.op )
@@ -2086,7 +2089,9 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
         struct domain *pd;
 
         rc = -EINVAL;
-        if ( mso.u.fork.pad[0] || mso.u.fork.pad[1] || mso.u.fork.pad[2] )
+        if ( mso.u.fork.pad )
+            goto out;
+        if ( mso.u.fork.flags & ~XENMEM_FORK_WITH_IOMMU_ALLOWED )
             goto out;
 
         rc = rcu_lock_live_remote_domain_by_id(mso.u.fork.parent_domain,
@@ -2101,7 +2106,8 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
             goto out;
         }
 
-        if ( !mem_sharing_enabled(pd) && (rc = mem_sharing_control(pd, true)) )
+        if ( !mem_sharing_enabled(pd) &&
+             (rc = mem_sharing_control(pd, true, mso.u.fork.flags)) )
         {
             rcu_unlock_domain(pd);
             goto out;
@@ -2122,7 +2128,7 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
         struct domain *pd;
 
         rc = -EINVAL;
-        if ( mso.u.fork.pad[0] || mso.u.fork.pad[1] || mso.u.fork.pad[2] )
+        if ( mso.u.fork.pad || mso.u.fork.flags )
             goto out;
 
         rc = -ENOSYS;
@@ -2159,7 +2165,7 @@ int mem_sharing_domctl(struct domain *d, struct xen_domctl_mem_sharing_op *mec)
     switch ( mec->op )
     {
     case XEN_DOMCTL_MEM_SHARING_CONTROL:
-        rc = mem_sharing_control(d, mec->u.enable);
+        rc = mem_sharing_control(d, mec->u.enable, 0);
         break;
 
     default:
