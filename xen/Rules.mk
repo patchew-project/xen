@@ -123,6 +123,7 @@ $(obj-bin-y): XEN_CFLAGS := $(filter-out -flto,$(XEN_CFLAGS))
 
 c_flags = -MMD -MP -MF $(@D)/.$(@F).d $(XEN_CFLAGS) '-D__OBJECT_FILE__="$@"'
 a_flags = -MMD -MP -MF $(@D)/.$(@F).d $(XEN_AFLAGS)
+cpp_flags = $(filter-out -Wa$(comma)%,$(a_flags))
 
 include $(BASEDIR)/arch/$(TARGET_ARCH)/Rules.mk
 
@@ -207,7 +208,7 @@ quiet_cmd_cc_s_c = CC      $@
 cmd_cc_s_c = $(CC) $(filter-out -Wa$(comma)%,$(c_flags)) -S $< -o $@
 
 quiet_cmd_s_S = CPP     $@
-cmd_s_S = $(CPP) $(filter-out -Wa$(comma)%,$(a_flags)) $< -o $@
+cmd_s_S = $(CPP) $(cpp_flags) $< -o $@
 
 %.i: %.c FORCE
 	$(call if_changed,cpp_i_c)
