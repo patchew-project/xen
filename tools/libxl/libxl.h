@@ -2666,6 +2666,18 @@ int libxl_psr_get_hw_info(libxl_ctx *ctx, libxl_psr_feat_type type,
                           unsigned int lvl, unsigned int *nr,
                           libxl_psr_hw_info **info);
 void libxl_psr_hw_info_list_free(libxl_psr_hw_info *list, unsigned int nr);
+
+int libxl_domain_fork_vm(libxl_ctx *ctx, uint32_t pdomid, uint32_t max_vcpus, uint32_t *domid,
+                         bool allow_with_iommu)
+                         LIBXL_EXTERNAL_CALLERS_ONLY;
+
+int libxl_domain_fork_launch_dm(libxl_ctx *ctx, libxl_domain_config *d_config,
+                                uint32_t domid,
+                                const libxl_asyncprogress_how *aop_console_how)
+                                LIBXL_EXTERNAL_CALLERS_ONLY;
+
+int libxl_domain_fork_reset(libxl_ctx *ctx, uint32_t domid)
+                            LIBXL_EXTERNAL_CALLERS_ONLY;
 #endif
 
 /* misc */
