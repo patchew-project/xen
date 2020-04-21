@@ -633,31 +633,35 @@ unsigned int mem_sharing_get_nr_shared_mfns(void)
 /* Functions that change a page's type and ownership */
 static int page_make_sharable(struct domain *d,
                               struct page_info *page,
-                              int expected_refcnt)
+                              int expected_refcnt,
+                              bool validate_only)
 {
-    bool_t drop_dom_ref;
+    int rc;
+    bool drop_dom_ref = false;
 
-    spin_lock(&d->page_alloc_lock);
+    /* caller already has the lock when validating only */
+    if ( !validate_only )
+        spin_lock(&d->page_alloc_lock);
 
     if ( d->is_dying )
     {
-        spin_unlock(&d->page_alloc_lock);
-        return -EBUSY;
+        rc = -EBUSY;
+        goto out;
     }
 
     /* Change page type and count atomically */
     if ( !get_page_and_type(page, d, PGT_shared_page) )
     {
-        spin_unlock(&d->page_alloc_lock);
-        return -EINVAL;
+        rc = -EINVAL;
+        goto out;
     }
 
     /* Check it wasn't already sharable and undo if it was */
     if ( (page->u.inuse.type_info & PGT_count_mask) != 1 )
     {
-        spin_unlock(&d->page_alloc_lock);
         put_page_and_type(page);
-        return -EEXIST;
+        rc = -EEXIST;
+        goto out;
     }
 
     /*
@@ -666,20 +670,31 @@ static int page_make_sharable(struct domain *d,
      */
     if ( page->count_info != (PGC_allocated | (2 + expected_refcnt)) )
     {
-        spin_unlock(&d->page_alloc_lock);
         /* Return type count back to zero */
         put_page_and_type(page);
-        return -E2BIG;
+        rc = -E2BIG;
+        goto out;
+    }
+
+    rc = 0;
+
+    if ( validate_only )
+    {
+        put_page_and_type(page);
+        goto out;
     }
 
     page_set_owner(page, dom_cow);
     drop_dom_ref = !domain_adjust_tot_pages(d, -1);
     page_list_del(page, &d->page_list);
-    spin_unlock(&d->page_alloc_lock);
 
+out:
+    if ( !validate_only )
+        spin_unlock(&d->page_alloc_lock);
     if ( drop_dom_ref )
         put_domain(d);
-    return 0;
+
+    return rc;
 }
 
 static int page_make_private(struct domain *d, struct page_info *page)
@@ -809,8 +824,8 @@ static int debug_gref(struct domain *d, grant_ref_t ref)
     return debug_gfn(d, gfn);
 }
 
-static int nominate_page(struct domain *d, gfn_t gfn,
-                         int expected_refcnt, shr_handle_t *phandle)
+static int nominate_page(struct domain *d, gfn_t gfn, int expected_refcnt,
+                         bool validate_only, shr_handle_t *phandle)
 {
     struct p2m_domain *hp2m = p2m_get_hostp2m(d);
     p2m_type_t p2mt;
@@ -879,8 +894,8 @@ static int nominate_page(struct domain *d, gfn_t gfn,
     }
 
     /* Try to convert the mfn to the sharable type */
-    ret = page_make_sharable(d, page, expected_refcnt);
-    if ( ret )
+    ret = page_make_sharable(d, page, expected_refcnt, validate_only);
+    if ( ret || validate_only )
         goto out;
 
     /*
@@ -1392,13 +1407,13 @@ static int range_share(struct domain *d, struct domain *cd,
          * We only break out if we run out of memory as individual pages may
          * legitimately be unsharable and we just want to skip over those.
          */
-        rc = nominate_page(d, _gfn(start), 0, &sh);
+        rc = nominate_page(d, _gfn(start), 0, false, &sh);
         if ( rc == -ENOMEM )
             break;
 
         if ( !rc )
         {
-            rc = nominate_page(cd, _gfn(start), 0, &ch);
+            rc = nominate_page(cd, _gfn(start), 0, false, &ch);
             if ( rc == -ENOMEM )
                 break;
 
@@ -1476,7 +1491,7 @@ int mem_sharing_fork_page(struct domain *d, gfn_t gfn, bool unsharing)
         /* For read-only accesses we just add a shared entry to the physmap */
         while ( parent )
         {
-            if ( !(rc = nominate_page(parent, gfn, 0, &handle)) )
+            if ( !(rc = nominate_page(parent, gfn, 0, false, &handle)) )
                 break;
 
             parent = parent->parent;
@@ -1773,16 +1788,22 @@ static int mem_sharing_fork_reset(struct domain *d, struct domain *pd)
     spin_lock_recursive(&d->page_alloc_lock);
     page_list_for_each_safe(page, tmp, &d->page_list)
     {
-        p2m_type_t p2mt;
-        p2m_access_t p2ma;
+        shr_handle_t sh;
         mfn_t mfn = page_to_mfn(page);
         gfn_t gfn = mfn_to_gfn(d, mfn);
 
-        mfn = __get_gfn_type_access(p2m, gfn_x(gfn), &p2mt, &p2ma,
-                                    0, NULL, false);
-
-        /* only reset pages that are sharable */
-        if ( !p2m_is_sharable(p2mt) )
+        /*
+         * We only want to remove pages from the fork here that were copied
+         * from the parent but could be potentially re-populated using memory
+         * sharing after the reset. These pages all must be regular pages with
+         * no extra reference held to them, thus should be possible to make
+         * them sharable. Unfortunately p2m_is_sharable check is not sufficient
+         * to test this as it doesn't check the page's reference count. We thus
+         * check whether the page is convertable to the shared type using
+         * nominate_page. In case the page is already shared (ie. a share
+         * handle is returned) then we don't remove it.
+         */
+        if ( (rc = nominate_page(d, gfn, 0, true, &sh)) || sh )
             continue;
 
         /* take an extra reference or just skip if can't for whatever reason */
@@ -1836,7 +1857,7 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
     {
         shr_handle_t handle;
 
-        rc = nominate_page(d, _gfn(mso.u.nominate.u.gfn), 0, &handle);
+        rc = nominate_page(d, _gfn(mso.u.nominate.u.gfn), 0, false, &handle);
         mso.u.nominate.handle = handle;
     }
     break;
@@ -1851,7 +1872,7 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
         if ( rc < 0 )
             goto out;
 
-        rc = nominate_page(d, gfn, 3, &handle);
+        rc = nominate_page(d, gfn, 3, false, &handle);
         mso.u.nominate.handle = handle;
     }
     break;
