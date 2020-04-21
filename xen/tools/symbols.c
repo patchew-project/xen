@@ -84,7 +84,12 @@ static int read_symbol(FILE *in, struct sym_entry *s)
 {
 	char str[500], type[20] = "";
 	char *sym, stype;
-	static enum { symbol, single_source, multi_source } last;
+	static enum symbol_type {
+		symbol,
+		file_source,
+		path_source,
+		obj_file,
+	} last;
 	static char *filename;
 	int rc = -1;
 
@@ -125,13 +130,20 @@ static int read_symbol(FILE *in, struct sym_entry *s)
 		 * prefer the first one if that names an object file or has a
 		 * directory component (to cover multiply compiled files).
 		 */
-		bool multi = strchr(str, '/') || (sym && sym[1] == 'o');
+		enum symbol_type current;
 
-		if (multi || last != multi_source) {
+		if (sym && sym[1] == 'o')
+		    current = obj_file;
+		else if (strchr(str, '/'))
+		    current = path_source;
+		else
+		    current = file_source;
+
+		if (current > last || last == file_source) {
 			free(filename);
 			filename = *str ? strdup(str) : NULL;
+			last = current;
 		}
-		last = multi ? multi_source : single_source;
 		goto skip_tail;
 	}
 
