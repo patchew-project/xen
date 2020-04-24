@@ -5456,10 +5456,12 @@ int populate_pt_range(unsigned long virt, unsigned long nr_mfns)
 int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
 {
     bool locking = system_state > SYS_STATE_boot;
+    l3_pgentry_t *pl3e;
     l2_pgentry_t *pl2e;
     l1_pgentry_t *pl1e;
     unsigned int  i;
     unsigned long v = s;
+    int rc = -ENOMEM;
 
     /* Set of valid PTE bits which may be altered. */
 #define FLAGS_MASK (_PAGE_NX|_PAGE_RW|_PAGE_PRESENT)
@@ -5470,7 +5472,7 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
 
     while ( v < e )
     {
-        l3_pgentry_t *pl3e = virt_to_xen_l3e(v);
+        pl3e = virt_to_xen_l3e(v);
 
         if ( !pl3e || !(l3e_get_flags(*pl3e) & _PAGE_PRESENT) )
         {
@@ -5503,7 +5505,8 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
             /* PAGE1GB: shatter the superpage and fall through. */
             l2t = alloc_xen_pagetable();
             if ( !l2t )
-                return -ENOMEM;
+                goto out;
+
             for ( i = 0; i < L2_PAGETABLE_ENTRIES; i++ )
                 l2e_write(l2t + i,
                           l2e_from_pfn(l3e_get_pfn(*pl3e) +
@@ -5560,7 +5563,8 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
                 /* PSE: shatter the superpage and try again. */
                 l1t = alloc_xen_pagetable();
                 if ( !l1t )
-                    return -ENOMEM;
+                    goto out;
+
                 for ( i = 0; i < L1_PAGETABLE_ENTRIES; i++ )
                     l1e_write(&l1t[i],
                               l1e_from_pfn(l2e_get_pfn(*pl2e) + i,
@@ -5693,7 +5697,10 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
     flush_area(NULL, FLUSH_TLB_GLOBAL);
 
 #undef FLAGS_MASK
-    return 0;
+    rc = 0;
+
+ out:
+    return rc;
 }
 
 #undef flush_area
