@@ -478,9 +478,10 @@ void __init paging_init(void)
 {
     unsigned long i, mpt_size, va;
     unsigned int n, memflags;
-    l3_pgentry_t *l3_ro_mpt;
+    l3_pgentry_t *l3_ro_mpt = NULL;
     l2_pgentry_t *pl2e = NULL, *l2_ro_mpt = NULL;
     struct page_info *l1_pg;
+    mfn_t l3_ro_mpt_mfn, l2_ro_mpt_mfn;
 
     /*
      * We setup the L3s for 1:1 mapping if host support memory hotplug
@@ -493,22 +494,28 @@ void __init paging_init(void)
         if ( !(l4e_get_flags(idle_pg_table[l4_table_offset(va)]) &
               _PAGE_PRESENT) )
         {
-            l3_pgentry_t *pl3t = alloc_xen_pagetable();
+            l3_pgentry_t *pl3t;
+            mfn_t l3mfn = alloc_xen_pagetable_new();
 
-            if ( !pl3t )
+            if ( mfn_eq(l3mfn, INVALID_MFN) )
                 goto nomem;
+
+            pl3t = map_domain_page(l3mfn);
             clear_page(pl3t);
             l4e_write(&idle_pg_table[l4_table_offset(va)],
-                      l4e_from_paddr(__pa(pl3t), __PAGE_HYPERVISOR_RW));
+                      l4e_from_mfn(l3mfn, __PAGE_HYPERVISOR_RW));
+            unmap_domain_page(pl3t);
         }
     }
 
     /* Create user-accessible L2 directory to map the MPT for guests. */
-    if ( (l3_ro_mpt = alloc_xen_pagetable()) == NULL )
+    l3_ro_mpt_mfn = alloc_xen_pagetable_new();
+    if ( mfn_eq(l3_ro_mpt_mfn, INVALID_MFN) )
         goto nomem;
+    l3_ro_mpt = map_domain_page(l3_ro_mpt_mfn);
     clear_page(l3_ro_mpt);
     l4e_write(&idle_pg_table[l4_table_offset(RO_MPT_VIRT_START)],
-              l4e_from_paddr(__pa(l3_ro_mpt), __PAGE_HYPERVISOR_RO | _PAGE_USER));
+              l4e_from_mfn(l3_ro_mpt_mfn, __PAGE_HYPERVISOR_RO | _PAGE_USER));
 
     /*
      * Allocate and map the machine-to-phys table.
@@ -591,12 +598,17 @@ void __init paging_init(void)
         }
         if ( !((unsigned long)pl2e & ~PAGE_MASK) )
         {
-            if ( (l2_ro_mpt = alloc_xen_pagetable()) == NULL )
+            UNMAP_DOMAIN_PAGE(l2_ro_mpt);
+
+            l2_ro_mpt_mfn = alloc_xen_pagetable_new();
+            if ( mfn_eq(l2_ro_mpt_mfn, INVALID_MFN) )
                 goto nomem;
+
+            l2_ro_mpt = map_domain_page(l2_ro_mpt_mfn);
             clear_page(l2_ro_mpt);
             l3e_write(&l3_ro_mpt[l3_table_offset(va)],
-                      l3e_from_paddr(__pa(l2_ro_mpt),
-                                     __PAGE_HYPERVISOR_RO | _PAGE_USER));
+                      l3e_from_mfn(l2_ro_mpt_mfn,
+                                   __PAGE_HYPERVISOR_RO | _PAGE_USER));
             pl2e = l2_ro_mpt;
             ASSERT(!l2_table_offset(va));
         }
@@ -608,13 +620,16 @@ void __init paging_init(void)
     }
 #undef CNT
 #undef MFN
+    UNMAP_DOMAIN_PAGE(l2_ro_mpt);
+    UNMAP_DOMAIN_PAGE(l3_ro_mpt);
 
     /* Create user-accessible L2 directory to map the MPT for compat guests. */
-    if ( (l2_ro_mpt = alloc_xen_pagetable()) == NULL )
+    l2_ro_mpt_mfn = alloc_xen_pagetable_new();
+    if ( mfn_eq(l2_ro_mpt_mfn, INVALID_MFN) )
         goto nomem;
-    compat_idle_pg_table_l2 = l2_ro_mpt;
-    clear_page(l2_ro_mpt);
-    pl2e = l2_ro_mpt;
+    compat_idle_pg_table_l2 = map_domain_page_global(l2_ro_mpt_mfn);
+    clear_page(compat_idle_pg_table_l2);
+    pl2e = compat_idle_pg_table_l2;
     /* Allocate and map the compatibility mode machine-to-phys table. */
     mpt_size = (mpt_size >> 1) + (1UL << (L2_PAGETABLE_SHIFT - 1));
     if ( mpt_size > RDWR_COMPAT_MPT_VIRT_END - RDWR_COMPAT_MPT_VIRT_START )
@@ -662,6 +677,8 @@ void __init paging_init(void)
     return;
 
  nomem:
+    UNMAP_DOMAIN_PAGE(l2_ro_mpt);
+    UNMAP_DOMAIN_PAGE(l3_ro_mpt);
     panic("Not enough memory for m2p table\n");
 }
 
