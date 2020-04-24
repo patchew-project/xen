@@ -444,7 +444,7 @@ static int setup_m2p_table(struct mem_hotadd_info *info)
                 l2_ro_mpt = map_l2t_from_l3e(l3_ro_mpt[l3_table_offset(va)]);
             else
             {
-                mfn_t l2_ro_mpt_mfn = alloc_xen_pagetable_new();
+                mfn_t l2_ro_mpt_mfn = alloc_xen_pagetable();
 
                 if ( mfn_eq(l2_ro_mpt_mfn, INVALID_MFN) )
                 {
@@ -497,7 +497,7 @@ void __init paging_init(void)
               _PAGE_PRESENT) )
         {
             l3_pgentry_t *pl3t;
-            mfn_t l3mfn = alloc_xen_pagetable_new();
+            mfn_t l3mfn = alloc_xen_pagetable();
 
             if ( mfn_eq(l3mfn, INVALID_MFN) )
                 goto nomem;
@@ -511,7 +511,7 @@ void __init paging_init(void)
     }
 
     /* Create user-accessible L2 directory to map the MPT for guests. */
-    l3_ro_mpt_mfn = alloc_xen_pagetable_new();
+    l3_ro_mpt_mfn = alloc_xen_pagetable();
     if ( mfn_eq(l3_ro_mpt_mfn, INVALID_MFN) )
         goto nomem;
     l3_ro_mpt = map_domain_page(l3_ro_mpt_mfn);
@@ -602,7 +602,7 @@ void __init paging_init(void)
         {
             UNMAP_DOMAIN_PAGE(l2_ro_mpt);
 
-            l2_ro_mpt_mfn = alloc_xen_pagetable_new();
+            l2_ro_mpt_mfn = alloc_xen_pagetable();
             if ( mfn_eq(l2_ro_mpt_mfn, INVALID_MFN) )
                 goto nomem;
 
@@ -626,7 +626,7 @@ void __init paging_init(void)
     UNMAP_DOMAIN_PAGE(l3_ro_mpt);
 
     /* Create user-accessible L2 directory to map the MPT for compat guests. */
-    l2_ro_mpt_mfn = alloc_xen_pagetable_new();
+    l2_ro_mpt_mfn = alloc_xen_pagetable();
     if ( mfn_eq(l2_ro_mpt_mfn, INVALID_MFN) )
         goto nomem;
     compat_idle_pg_table_l2 = map_domain_page_global(l2_ro_mpt_mfn);

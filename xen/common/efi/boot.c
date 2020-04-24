@@ -1456,7 +1456,7 @@ static __init void copy_mapping(unsigned long mfn, unsigned long end,
             continue;
         if ( !(l4e_get_flags(l4e) & _PAGE_PRESENT) )
         {
-            mfn_t l3mfn = alloc_xen_pagetable_new();
+            mfn_t l3mfn = alloc_xen_pagetable();
 
             BUG_ON(mfn_eq(l3mfn, INVALID_MFN));
             l3dst = map_domain_page(l3mfn);
@@ -1608,7 +1608,7 @@ void __init efi_init_memory(void)
      * Set up 1:1 page tables for runtime calls. See SetVirtualAddressMap() in
      * efi_exit_boot().
      */
-    efi_l4_mfn = alloc_xen_pagetable_new();
+    efi_l4_mfn = alloc_xen_pagetable();
     BUG_ON(mfn_eq(efi_l4_mfn, INVALID_MFN));
     efi_l4_pgtable = map_domain_page(efi_l4_mfn);
     clear_page(efi_l4_pgtable);
@@ -1643,7 +1643,7 @@ void __init efi_init_memory(void)
 
         if ( !(l4e_get_flags(l4e) & _PAGE_PRESENT) )
         {
-            mfn_t l3mfn = alloc_xen_pagetable_new();
+            mfn_t l3mfn = alloc_xen_pagetable();
 
             BUG_ON(mfn_eq(l3mfn, INVALID_MFN));
             pl3e = map_domain_page(l3mfn);
@@ -1656,7 +1656,7 @@ void __init efi_init_memory(void)
         pl3e += l3_table_offset(addr);
         if ( !(l3e_get_flags(*pl3e) & _PAGE_PRESENT) )
         {
-            mfn_t l2mfn = alloc_xen_pagetable_new();
+            mfn_t l2mfn = alloc_xen_pagetable();
 
             BUG_ON(mfn_eq(l2mfn, INVALID_MFN));
             pl2e = map_domain_page(l2mfn);
@@ -1671,7 +1671,7 @@ void __init efi_init_memory(void)
         pl2e += l2_table_offset(addr);
         if ( !(l2e_get_flags(*pl2e) & _PAGE_PRESENT) )
         {
-            mfn_t l1mfn = alloc_xen_pagetable_new();
+            mfn_t l1mfn = alloc_xen_pagetable();
 
             BUG_ON(mfn_eq(l1mfn, INVALID_MFN));
             l1t = map_domain_page(l1mfn);
