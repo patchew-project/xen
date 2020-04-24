@@ -379,13 +379,13 @@ static int setup_m2p_table(struct mem_hotadd_info *info)
 {
     unsigned long i, va, smap, emap;
     unsigned int n;
-    l2_pgentry_t *l2_ro_mpt = NULL;
     l3_pgentry_t *l3_ro_mpt = NULL;
     int ret = 0;
 
     ASSERT(l4e_get_flags(idle_pg_table[l4_table_offset(RO_MPT_VIRT_START)])
             & _PAGE_PRESENT);
-    l3_ro_mpt = l4e_to_l3e(idle_pg_table[l4_table_offset(RO_MPT_VIRT_START)]);
+    l3_ro_mpt = map_l3t_from_l4e(
+                    idle_pg_table[l4_table_offset(RO_MPT_VIRT_START)]);
 
     smap = (info->spfn & (~((1UL << (L2_PAGETABLE_SHIFT - 3)) -1)));
     emap = ((info->epfn + ((1UL << (L2_PAGETABLE_SHIFT - 3)) - 1 )) &
@@ -424,6 +424,7 @@ static int setup_m2p_table(struct mem_hotadd_info *info)
                 break;
         if ( n < CNT )
         {
+            l2_pgentry_t *l2_ro_mpt;
             mfn_t mfn = alloc_hotadd_mfn(info);
 
             ret = map_pages_to_xen(
@@ -440,30 +441,30 @@ static int setup_m2p_table(struct mem_hotadd_info *info)
                   _PAGE_PSE));
             if ( l3e_get_flags(l3_ro_mpt[l3_table_offset(va)]) &
               _PAGE_PRESENT )
-                l2_ro_mpt = l3e_to_l2e(l3_ro_mpt[l3_table_offset(va)]) +
-                  l2_table_offset(va);
+                l2_ro_mpt = map_l2t_from_l3e(l3_ro_mpt[l3_table_offset(va)]);
             else
             {
-                l2_ro_mpt = alloc_xen_pagetable();
-                if ( !l2_ro_mpt )
+                mfn_t l2_ro_mpt_mfn = alloc_xen_pagetable_new();
+
+                if ( mfn_eq(l2_ro_mpt_mfn, INVALID_MFN) )
                 {
                     ret = -ENOMEM;
                     goto error;
                 }
 
+                l2_ro_mpt = map_domain_page(l2_ro_mpt_mfn);
                 clear_page(l2_ro_mpt);
                 l3e_write(&l3_ro_mpt[l3_table_offset(va)],
-                          l3e_from_paddr(__pa(l2_ro_mpt),
-                                         __PAGE_HYPERVISOR_RO | _PAGE_USER));
-                l2_ro_mpt += l2_table_offset(va);
+                          l3e_from_mfn(l2_ro_mpt_mfn,
+                                       __PAGE_HYPERVISOR_RO | _PAGE_USER));
             }
+            l2_ro_mpt += l2_table_offset(va);
 
             /* NB. Cannot be GLOBAL: guest user mode should not see it. */
             l2e_write(l2_ro_mpt, l2e_from_mfn(mfn,
                    /*_PAGE_GLOBAL|*/_PAGE_PSE|_PAGE_USER|_PAGE_PRESENT));
+            unmap_domain_page(l2_ro_mpt);
         }
-        if ( !((unsigned long)l2_ro_mpt & ~PAGE_MASK) )
-            l2_ro_mpt = NULL;
         i += ( 1UL << (L2_PAGETABLE_SHIFT - 3));
     }
 #undef CNT
@@ -471,6 +472,7 @@ static int setup_m2p_table(struct mem_hotadd_info *info)
 
     ret = setup_compat_m2p_table(info);
 error:
+    UNMAP_DOMAIN_PAGE(l3_ro_mpt);
     return ret;
 }
 
