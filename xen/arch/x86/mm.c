@@ -4949,6 +4949,10 @@ void free_xen_pagetable_new(mfn_t mfn)
 
 static DEFINE_SPINLOCK(map_pgdir_lock);
 
+/*
+ * For virt_to_xen_lXe() functions, they take a virtual address and return a
+ * pointer to Xen's LX entry. Caller needs to unmap the pointer.
+ */
 static l3_pgentry_t *virt_to_xen_l3e(unsigned long v)
 {
     l4_pgentry_t *pl4e;
@@ -4957,33 +4961,36 @@ static l3_pgentry_t *virt_to_xen_l3e(unsigned long v)
     if ( !(l4e_get_flags(*pl4e) & _PAGE_PRESENT) )
     {
         bool locking = system_state > SYS_STATE_boot;
-        l3_pgentry_t *l3t = alloc_xen_pagetable();
+        l3_pgentry_t *l3t;
+        mfn_t l3mfn = alloc_xen_pagetable_new();
 
-        if ( !l3t )
+        if ( mfn_eq(l3mfn, INVALID_MFN) )
             return NULL;
+        l3t = map_domain_page(l3mfn);
         clear_page(l3t);
+        UNMAP_DOMAIN_PAGE(l3t);
         if ( locking )
             spin_lock(&map_pgdir_lock);
         if ( !(l4e_get_flags(*pl4e) & _PAGE_PRESENT) )
         {
-            l4_pgentry_t l4e = l4e_from_paddr(__pa(l3t), __PAGE_HYPERVISOR);
+            l4_pgentry_t l4e = l4e_from_mfn(l3mfn, __PAGE_HYPERVISOR);
 
             l4e_write(pl4e, l4e);
             efi_update_l4_pgtable(l4_table_offset(v), l4e);
-            l3t = NULL;
+            l3mfn = INVALID_MFN;
         }
         if ( locking )
             spin_unlock(&map_pgdir_lock);
-        if ( l3t )
-            free_xen_pagetable(l3t);
+        free_xen_pagetable_new(l3mfn);
     }
 
-    return l4e_to_l3e(*pl4e) + l3_table_offset(v);
+    return map_l3t_from_l4e(*pl4e) + l3_table_offset(v);
 }
 
 static l2_pgentry_t *virt_to_xen_l2e(unsigned long v)
 {
     l3_pgentry_t *pl3e;
+    l2_pgentry_t *pl2e;
 
     pl3e = virt_to_xen_l3e(v);
     if ( !pl3e )
@@ -4992,31 +4999,40 @@ static l2_pgentry_t *virt_to_xen_l2e(unsigned long v)
     if ( !(l3e_get_flags(*pl3e) & _PAGE_PRESENT) )
     {
         bool locking = system_state > SYS_STATE_boot;
-        l2_pgentry_t *l2t = alloc_xen_pagetable();
+        l2_pgentry_t *l2t;
+        mfn_t l2mfn = alloc_xen_pagetable_new();
 
-        if ( !l2t )
+        if ( mfn_eq(l2mfn, INVALID_MFN) )
+        {
+            UNMAP_DOMAIN_PAGE(pl3e);
             return NULL;
+        }
+        l2t = map_domain_page(l2mfn);
         clear_page(l2t);
+        UNMAP_DOMAIN_PAGE(l2t);
         if ( locking )
             spin_lock(&map_pgdir_lock);
         if ( !(l3e_get_flags(*pl3e) & _PAGE_PRESENT) )
         {
-            l3e_write(pl3e, l3e_from_paddr(__pa(l2t), __PAGE_HYPERVISOR));
-            l2t = NULL;
+            l3e_write(pl3e, l3e_from_mfn(l2mfn, __PAGE_HYPERVISOR));
+            l2mfn = INVALID_MFN;
         }
         if ( locking )
             spin_unlock(&map_pgdir_lock);
-        if ( l2t )
-            free_xen_pagetable(l2t);
+        free_xen_pagetable_new(l2mfn);
     }
 
     BUG_ON(l3e_get_flags(*pl3e) & _PAGE_PSE);
-    return l3e_to_l2e(*pl3e) + l2_table_offset(v);
+    pl2e = map_l2t_from_l3e(*pl3e) + l2_table_offset(v);
+    unmap_domain_page(pl3e);
+
+    return pl2e;
 }
 
 l1_pgentry_t *virt_to_xen_l1e(unsigned long v)
 {
     l2_pgentry_t *pl2e;
+    l1_pgentry_t *pl1e;
 
     pl2e = virt_to_xen_l2e(v);
     if ( !pl2e )
@@ -5025,26 +5041,34 @@ l1_pgentry_t *virt_to_xen_l1e(unsigned long v)
     if ( !(l2e_get_flags(*pl2e) & _PAGE_PRESENT) )
     {
         bool locking = system_state > SYS_STATE_boot;
-        l1_pgentry_t *l1t = alloc_xen_pagetable();
+        l1_pgentry_t *l1t;
+        mfn_t l1mfn = alloc_xen_pagetable_new();
 
-        if ( !l1t )
+        if ( mfn_eq(l1mfn, INVALID_MFN) )
+        {
+            UNMAP_DOMAIN_PAGE(pl2e);
             return NULL;
+        }
+        l1t = map_domain_page(l1mfn);
         clear_page(l1t);
+        UNMAP_DOMAIN_PAGE(l1t);
         if ( locking )
             spin_lock(&map_pgdir_lock);
         if ( !(l2e_get_flags(*pl2e) & _PAGE_PRESENT) )
         {
-            l2e_write(pl2e, l2e_from_paddr(__pa(l1t), __PAGE_HYPERVISOR));
-            l1t = NULL;
+            l2e_write(pl2e, l2e_from_mfn(l1mfn, __PAGE_HYPERVISOR));
+            l1mfn = INVALID_MFN;
         }
         if ( locking )
             spin_unlock(&map_pgdir_lock);
-        if ( l1t )
-            free_xen_pagetable(l1t);
+        free_xen_pagetable_new(l1mfn);
     }
 
     BUG_ON(l2e_get_flags(*pl2e) & _PAGE_PSE);
-    return l2e_to_l1e(*pl2e) + l1_table_offset(v);
+    pl1e = map_l1t_from_l2e(*pl2e) + l1_table_offset(v);
+    unmap_domain_page(pl2e);
+
+    return pl1e;
 }
 
 /* Convert to from superpage-mapping flags for map_pages_to_xen(). */
@@ -5067,8 +5091,8 @@ int map_pages_to_xen(
     unsigned int flags)
 {
     bool locking = system_state > SYS_STATE_boot;
-    l3_pgentry_t *pl3e, ol3e;
-    l2_pgentry_t *pl2e, ol2e;
+    l3_pgentry_t *pl3e = NULL, ol3e;
+    l2_pgentry_t *pl2e = NULL, ol2e;
     l1_pgentry_t *pl1e, ol1e;
     unsigned int  i;
     int rc = -ENOMEM;
@@ -5089,6 +5113,10 @@ int map_pages_to_xen(
 
     while ( nr_mfns != 0 )
     {
+        /* Clean up mappings mapped in the previous iteration. */
+        UNMAP_DOMAIN_PAGE(pl3e);
+        UNMAP_DOMAIN_PAGE(pl2e);
+
         pl3e = virt_to_xen_l3e(virt);
 
         if ( !pl3e )
@@ -5254,9 +5282,12 @@ int map_pages_to_xen(
             /* Normal page mapping. */
             if ( !(l2e_get_flags(*pl2e) & _PAGE_PRESENT) )
             {
+                /* This forces the mapping to be populated. */
                 pl1e = virt_to_xen_l1e(virt);
                 if ( pl1e == NULL )
                     goto out;
+
+                UNMAP_DOMAIN_PAGE(pl1e);
             }
             else if ( l2e_get_flags(*pl2e) & _PAGE_PSE )
             {
@@ -5433,6 +5464,8 @@ int map_pages_to_xen(
     rc = 0;
 
  out:
+    UNMAP_DOMAIN_PAGE(pl2e);
+    UNMAP_DOMAIN_PAGE(pl3e);
     return rc;
 }
 
@@ -5456,7 +5489,7 @@ int populate_pt_range(unsigned long virt, unsigned long nr_mfns)
 int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
 {
     bool locking = system_state > SYS_STATE_boot;
-    l3_pgentry_t *pl3e;
+    l3_pgentry_t *pl3e = NULL;
     l2_pgentry_t *pl2e;
     l1_pgentry_t *pl1e;
     unsigned int  i;
@@ -5472,6 +5505,9 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
 
     while ( v < e )
     {
+        /* Clean up mappings mapped in the previous iteration. */
+        UNMAP_DOMAIN_PAGE(pl3e);
+
         pl3e = virt_to_xen_l3e(v);
 
         if ( !pl3e || !(l3e_get_flags(*pl3e) & _PAGE_PRESENT) )
@@ -5700,6 +5736,7 @@ int modify_xen_mappings(unsigned long s, unsigned long e, unsigned int nf)
     rc = 0;
 
  out:
+    UNMAP_DOMAIN_PAGE(pl3e);
     return rc;
 }
 
