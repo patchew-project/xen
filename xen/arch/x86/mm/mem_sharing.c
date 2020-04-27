@@ -1656,6 +1656,7 @@ static void copy_tsc(struct domain *cd, struct domain *d)
 static int copy_special_pages(struct domain *cd, struct domain *d)
 {
     mfn_t new_mfn, old_mfn;
+    gfn_t old_gfn;
     struct p2m_domain *p2m = p2m_get_hostp2m(cd);
     static const unsigned int params[] =
     {
@@ -1700,6 +1701,34 @@ static int copy_special_pages(struct domain *cd, struct domain *d)
     old_mfn = _mfn(virt_to_mfn(d->shared_info));
     new_mfn = _mfn(virt_to_mfn(cd->shared_info));
     copy_domain_page(new_mfn, old_mfn);
+
+    old_gfn = _gfn(get_gpfn_from_mfn(mfn_x(old_mfn)));
+
+    if ( !gfn_eq(old_gfn, INVALID_GFN) )
+    {
+        /* let's make sure shared_info is mapped to the same gfn */
+        gfn_t new_gfn = _gfn(get_gpfn_from_mfn(mfn_x(new_mfn)));
+
+        if ( !gfn_eq(new_gfn, INVALID_GFN) && !gfn_eq(old_gfn, new_gfn) )
+        {
+            /* if shared info is mapped to a different gfn just remove it */
+            rc = p2m->set_entry(p2m, new_gfn, INVALID_MFN, PAGE_ORDER_4K,
+                                p2m_invalid, p2m->default_access, -1);
+            if ( rc )
+                return rc;
+
+            new_gfn = INVALID_GFN;
+        }
+
+        if ( gfn_eq(new_gfn, INVALID_GFN) )
+        {
+            /* if shared info is not currently mapped then map it */
+            rc = p2m->set_entry(p2m, old_gfn, new_mfn, PAGE_ORDER_4K,
+                                p2m_ram_rw, p2m->default_access, -1);
+            if ( rc )
+                return rc;
+        }
+    }
 
     return 0;
 }
