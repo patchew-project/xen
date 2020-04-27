@@ -18,7 +18,7 @@
  * 6 - Primary stack
  * 5 - Optionally not present (MEMORY_GUARD)
  * 4 - Unused; optionally not present (MEMORY_GUARD)
- * 3 - Unused; optionally not present (MEMORY_GUARD)
+ * 3 -  DB IST stack
  * 2 - MCE IST stack
  * 1 - NMI IST stack
  * 0 - Double Fault IST stack
