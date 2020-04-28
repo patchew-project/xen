@@ -33,6 +33,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <signal.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -88,6 +89,22 @@ char outbuf[BUFSIZE];
 int insiz = 0;
 int outsiz = 0;
 int verbose = 0;
+char *cleanup_socket;
+
+static void cleanup(void)
+{
+    if (cleanup_socket) {
+        unlink(cleanup_socket);
+        free(cleanup_socket);
+        cleanup_socket = NULL;
+    }
+}
+
+static void cleanup_exit(int signum)
+{
+    cleanup();
+    exit(0);
+}
 
 static void vchan_wr(struct libxenvchan *ctrl) {
     int ret;
@@ -394,6 +411,9 @@ int main(int argc, char **argv)
     vchan_path = argv[optind+1];
     socket_path = argv[optind+2];
 
+    signal(SIGHUP, cleanup_exit);
+    signal(SIGTERM, cleanup_exit);
+
     if (is_server) {
         ctrl = libxenvchan_server_init(NULL, domid, vchan_path, 0, 0);
         if (!ctrl) {
@@ -410,6 +430,8 @@ int main(int argc, char **argv)
                 perror("listen socket");
                 return 1;
             }
+            cleanup_socket = strdup(socket_path);
+            atexit(cleanup);
         }
     }
 
