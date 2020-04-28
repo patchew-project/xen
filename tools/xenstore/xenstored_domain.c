@@ -369,7 +369,6 @@ int do_introduce(struct connection *conn, struct buffered_data *in)
 	struct domain *domain;
 	char *vec[3];
 	unsigned int domid;
-	unsigned long mfn;
 	evtchn_port_t port;
 	int rc;
 	struct xenstore_domain_interface *interface;
@@ -381,7 +380,7 @@ int do_introduce(struct connection *conn, struct buffered_data *in)
 		return EACCES;
 
 	domid = atoi(vec[0]);
-	mfn = atol(vec[1]);
+	/* Ignore the mfn, we don't need it. */
 	port = atoi(vec[2]);
 
 	/* Sanity check args. */
@@ -390,33 +389,25 @@ int do_introduce(struct connection *conn, struct buffered_data *in)
 
 	domain = find_domain_by_domid(domid);
 
-	if (domain == NULL) {
-		interface = map_interface(domid);
-		if (!interface)
-			return errno;
-		/* Hang domain off "in" until we're finished. */
-		domain = new_domain(in, domid, port);
-		if (!domain) {
-			rc = errno;
-			unmap_interface(interface);
-			return rc;
-		}
-		domain->interface = interface;
-		domain->mfn = mfn;
-
-		/* Now domain belongs to its connection. */
-		talloc_steal(domain->conn, domain);
-
-		fire_watches(NULL, in, "@introduceDomain", false);
-	} else if ((domain->mfn == mfn) && (domain->conn != conn)) {
-		/* Use XS_INTRODUCE for recreating the xenbus event-channel. */
-		if (domain->port)
-			xenevtchn_unbind(xce_handle, domain->port);
-		rc = xenevtchn_bind_interdomain(xce_handle, domid, port);
-		domain->port = (rc == -1) ? 0 : rc;
-		domain->remote_port = port;
-	} else
+	if (domain)
 		return EINVAL;
+
+	interface = map_interface(domid);
+	if (!interface)
+		return errno;
+	/* Hang domain off "in" until we're finished. */
+	domain = new_domain(in, domid, port);
+	if (!domain) {
+		rc = errno;
+		unmap_interface(interface);
+		return rc;
+	}
+	domain->interface = interface;
+
+	/* Now domain belongs to its connection. */
+	talloc_steal(domain->conn, domain);
+
+	fire_watches(NULL, in, "@introduceDomain", false);
 
 	domain_conn_reset(domain);
 
