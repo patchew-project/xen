@@ -37,7 +37,7 @@ static cpumask_t cpupool_locked_cpus;
 
 static DEFINE_SPINLOCK(cpupool_lock);
 
-static enum sched_gran __read_mostly opt_sched_granularity = SCHED_GRAN_cpu;
+enum sched_gran __read_mostly opt_sched_granularity = SCHED_GRAN_cpu;
 static unsigned int __read_mostly sched_granularity = 1;
 
 #ifdef CONFIG_HAS_SCHED_GRANULARITY

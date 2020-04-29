@@ -30,6 +30,8 @@ enum sched_gran {
     SCHED_GRAN_socket
 };
 
+extern enum sched_gran opt_sched_granularity;
+
 /*
  * In order to allow a scheduler to remap the lock->cpu mapping,
  * we have a per-cpu pointer, along with a pre-allocated set of

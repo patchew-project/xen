@@ -472,6 +472,16 @@ static int __init parse_credit2_runqueue(const char *s)
 custom_param("credit2_runqueue", parse_credit2_runqueue);
 
 /*
+ * How many CPUs will be put, at most, in the same runqueue.
+ * Runqueues are still arranged according to the host topology (and
+ * according to the value of the 'credit2_runqueue' parameter). But
+ * we also have a cap to the number of CPUs that share runqueues.
+ * As soon as we reach the limit, a new runqueue will be created.
+ */
+static unsigned int __read_mostly opt_max_cpus_runqueue = 16;
+integer_param("sched_credit2_max_cpus_runqueue", opt_max_cpus_runqueue);
+
+/*
  * Per-runqueue data
  */
 struct csched2_runqueue_data {
@@ -852,14 +862,61 @@ cpu_runqueue_match(const struct csched2_runqueue_data *rqd, unsigned int cpu)
            (opt_runqueue == OPT_RUNQUEUE_NODE && same_node(peer_cpu, cpu));
 }
 
+/* Additional checks, to avoid separating siblings in different runqueues. */
+static bool
+cpu_runqueue_smt_match(const struct csched2_runqueue_data *rqd, unsigned int cpu)
+{
+    unsigned int nr_sibl = cpumask_weight(per_cpu(cpu_sibling_mask, cpu));
+    unsigned int rcpu, nr_smts = 0;
+
+    /*
+     * If we put the CPU in this runqueue, we must be sure that there will
+     * be enough room for accepting its hyperthread sibling(s) here as well.
+     */
+    cpumask_clear(cpumask_scratch_cpu(cpu));
+    for_each_cpu ( rcpu, &rqd->active )
+    {
+        ASSERT(rcpu != cpu);
+        if ( !cpumask_test_cpu(rcpu, cpumask_scratch_cpu(cpu)) )
+        {
+            /*
+             * For each CPU already in the runqueue, account for it and for
+             * its sibling(s), independently from whether such sibling(s) are
+             * in the runqueue already or not.
+             *
+             * Of course, if there are sibling CPUs in the runqueue already,
+             * only count them once.
+             */
+            cpumask_or(cpumask_scratch_cpu(cpu), cpumask_scratch_cpu(cpu),
+                       per_cpu(cpu_sibling_mask, rcpu));
+            nr_smts += nr_sibl;
+        }
+    }
+    /*
+     * We know that neither the CPU, nor any of its sibling are here,
+     * or we wouldn't even have entered the function.
+     */
+    ASSERT(!cpumask_intersects(cpumask_scratch_cpu(cpu),
+                               per_cpu(cpu_sibling_mask, cpu)));
+
+    /* Try adding CPU and its sibling(s) to the count and check... */
+    nr_smts += nr_sibl;
+
+    if ( nr_smts <= opt_max_cpus_runqueue )
+        return true;
+
+    return false;
+}
+
 static struct csched2_runqueue_data *
 cpu_add_to_runqueue(struct csched2_private *prv, unsigned int cpu)
 {
     struct csched2_runqueue_data *rqd, *rqd_new;
+    struct csched2_runqueue_data *rqd_valid = NULL;
     struct list_head *rqd_ins;
     unsigned long flags;
     int rqi = 0;
-    bool rqi_unused = false, rqd_valid = false;
+    bool rqi_unused = false;
 
     /* Prealloc in case we need it - not allowed with interrupts off. */
     rqd_new = xzalloc(struct csched2_runqueue_data);
@@ -873,11 +930,44 @@ cpu_add_to_runqueue(struct csched2_private *prv, unsigned int cpu)
         if ( !rqi_unused && rqd->id > rqi )
             rqi_unused = true;
 
-        if ( cpu_runqueue_match(rqd, cpu) )
+        /*
+         * Check whether the CPU should (according to the topology) and also
+         * can (if we there aren't too many already) go in this runqueue.
+         */
+        if ( rqd->refcnt < opt_max_cpus_runqueue &&
+             cpu_runqueue_match(rqd, cpu) )
         {
-            rqd_valid = true;
-            break;
+            cpumask_t *siblings = per_cpu(cpu_sibling_mask, cpu);
+
+            dprintk(XENLOG_DEBUG, "CPU %d matches runq %d, cpus={%*pbl} (max %d)\n",
+                    cpu, rqd->id, CPUMASK_PR(&rqd->active),
+                    opt_max_cpus_runqueue);
+
+            /*
+             * If we're using core (or socket!) scheduling, or we don't have
+             * hyperthreading, no need to do any further checking.
+             *
+             * If no (to both), but our sibling is already in this runqueue,
+             * then it's also ok for the CPU to stay in this runqueue..
+             *
+             * Otherwise, do some more checks, to better account for SMT.
+             */
+            if ( opt_sched_granularity != SCHED_GRAN_cpu ||
+                 cpumask_weight(siblings) <= 1 ||
+                 cpumask_intersects(&rqd->active, siblings) )
+            {
+                dprintk(XENLOG_DEBUG, "runq %d selected\n", rqd->id);
+                rqd_valid = rqd;
+                break;
+            }
+            else if ( cpu_runqueue_smt_match(rqd, cpu) )
+            {
+                dprintk(XENLOG_DEBUG, "considering runq %d...\n", rqd->id);
+                rqd_valid = rqd;
+            }
         }
+	else
+            dprintk(XENLOG_DEBUG, "ignoring runq %d\n", rqd->id);
 
         if ( !rqi_unused )
         {
@@ -900,6 +990,12 @@ cpu_add_to_runqueue(struct csched2_private *prv, unsigned int cpu)
         rqd->pick_bias = cpu;
         rqd->id = rqi;
     }
+    else
+        rqd = rqd_valid;
+
+    printk(XENLOG_INFO "CPU %d (sibling={%*pbl}) will go to runqueue %d with {%*pbl}\n",
+           cpu, CPUMASK_PR(per_cpu(cpu_sibling_mask, cpu)), rqd->id,
+           CPUMASK_PR(&rqd->active));
 
     rqd->refcnt++;
 
