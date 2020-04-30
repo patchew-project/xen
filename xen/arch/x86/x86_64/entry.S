@@ -154,7 +154,24 @@ restore_all_guest:
         and   %rsi, %rdi
         and   %r9, %rsi
         add   %rcx, %rdi
-        add   %rcx, %rsi
+
+         /*
+          * Without a direct map, we have to map first before copying. We only
+          * need to map the guest root table but not the per-CPU root_pgt,
+          * because the latter is still a xenheap page.
+          */
+        pushq %r9
+        pushq %rdx
+        pushq %rax
+        pushq %rdi
+        mov   %rsi, %rdi
+        shr   $PAGE_SHIFT, %rdi
+        callq map_domain_page
+        mov   %rax, %rsi
+        popq  %rdi
+        /* Stash the pointer for unmapping later. */
+        pushq %rax
+
         mov   $ROOT_PAGETABLE_FIRST_XEN_SLOT, %ecx
         mov   root_table_offset(SH_LINEAR_PT_VIRT_START)*8(%rsi), %r8
         mov   %r8, root_table_offset(SH_LINEAR_PT_VIRT_START)*8(%rdi)
@@ -166,6 +183,14 @@ restore_all_guest:
         sub   $(ROOT_PAGETABLE_FIRST_XEN_SLOT - \
                 ROOT_PAGETABLE_LAST_XEN_SLOT - 1) * 8, %rdi
         rep movsq
+
+        /* Unmap the page. */
+        popq  %rdi
+        callq unmap_domain_page
+        popq  %rax
+        popq  %rdx
+        popq  %r9
+
 .Lrag_copy_done:
         mov   %r9, STACK_CPUINFO_FIELD(xen_cr3)(%rdx)
         movb  $1, STACK_CPUINFO_FIELD(use_pv_cr3)(%rdx)
