@@ -52,6 +52,7 @@ obj-y += pci.o
 obj-y += percpu.o
 obj-y += physdev.o x86_64/physdev.o
 obj-y += platform_hypercall.o x86_64/platform_hypercall.o
+obj-bin-y += pmap.init.o
 obj-y += psr.o
 obj-y += setup.o
 obj-y += shutdown.o
