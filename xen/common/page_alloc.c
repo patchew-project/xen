@@ -2143,6 +2143,7 @@ void init_xenheap_pages(paddr_t ps, paddr_t pe)
 void *alloc_xenheap_pages(unsigned int order, unsigned int memflags)
 {
     struct page_info *pg;
+    void *ret;
 
     ASSERT(!in_irq());
 
@@ -2151,20 +2152,39 @@ void *alloc_xenheap_pages(unsigned int order, unsigned int memflags)
     if ( unlikely(pg == NULL) )
         return NULL;
 
-    memguard_unguard_range(page_to_virt(pg), 1 << (order + PAGE_SHIFT));
+    ret = page_to_virt(pg);
 
-    return page_to_virt(pg);
+    if ( !arch_has_directmap() &&
+         map_pages_to_xen((unsigned long)ret, page_to_mfn(pg), 1UL << order,
+                          PAGE_HYPERVISOR) )
+        {
+            /* Failed to map xenheap pages. */
+            free_heap_pages(pg, order, false);
+            return NULL;
+        }
+
+    memguard_unguard_range(ret, 1 << (order + PAGE_SHIFT));
+
+    return ret;
 }
 
 
 void free_xenheap_pages(void *v, unsigned int order)
 {
+    unsigned long va = (unsigned long)v & PAGE_MASK;
+
     ASSERT(!in_irq());
 
     if ( v == NULL )
         return;
 
     memguard_guard_range(v, 1 << (order + PAGE_SHIFT));
+
+    if ( !arch_has_directmap() &&
+         destroy_xen_mappings(va, va + (1UL << (order + PAGE_SHIFT))) )
+        dprintk(XENLOG_WARNING,
+                "Error while destroying xenheap mappings at %p, order %u\n",
+                v, order)
 
     free_heap_pages(virt_to_page(v), order, false);
 }
@@ -2189,6 +2209,7 @@ void *alloc_xenheap_pages(unsigned int order, unsigned int memflags)
 {
     struct page_info *pg;
     unsigned int i;
+    void *ret;
 
     ASSERT(!in_irq());
 
@@ -2201,16 +2222,28 @@ void *alloc_xenheap_pages(unsigned int order, unsigned int memflags)
     if ( unlikely(pg == NULL) )
         return NULL;
 
+    ret = page_to_virt(pg);
+
+    if ( !arch_has_directmap() &&
+         map_pages_to_xen((unsigned long)ret, page_to_mfn(pg), 1UL << order,
+                          PAGE_HYPERVISOR) )
+        {
+            /* Failed to map xenheap pages. */
+            free_domheap_pages(pg, order);
+            return NULL;
+        }
+
     for ( i = 0; i < (1u << order); i++ )
         pg[i].count_info |= PGC_xen_heap;
 
-    return page_to_virt(pg);
+    return ret;
 }
 
 void free_xenheap_pages(void *v, unsigned int order)
 {
     struct page_info *pg;
     unsigned int i;
+    unsigned long va = (unsigned long)v & PAGE_MASK;
 
     ASSERT(!in_irq());
 
@@ -2221,6 +2254,12 @@ void free_xenheap_pages(void *v, unsigned int order)
 
     for ( i = 0; i < (1u << order); i++ )
         pg[i].count_info &= ~PGC_xen_heap;
+
+    if ( !arch_has_directmap() &&
+         destroy_xen_mappings(va, va + (1UL << (order + PAGE_SHIFT))) )
+        dprintk(XENLOG_WARNING,
+                "Error while destroying xenheap mappings at %p, order %u\n",
+                v, order);
 
     free_heap_pages(pg, order, true);
 }
