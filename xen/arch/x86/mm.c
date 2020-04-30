@@ -798,7 +798,7 @@ static int update_xen_mappings(unsigned long mfn, unsigned int cacheattr)
 
     if ( unlikely(alias) && cacheattr )
         err = map_pages_to_xen(xen_va, _mfn(mfn), 1, 0);
-    if ( !err )
+    if ( arch_has_directmap() && !err )
         err = map_pages_to_xen((unsigned long)mfn_to_virt(mfn), _mfn(mfn), 1,
                      PAGE_HYPERVISOR | cacheattr_to_pte_flags(cacheattr));
     if ( unlikely(alias) && !cacheattr && !err )
