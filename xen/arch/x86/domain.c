@@ -539,6 +539,8 @@ int arch_domain_create(struct domain *d,
 
     spin_lock_init(&d->arch.e820_lock);
 
+    mapcache_domain_init(d);
+
     /* Minimal initialisation for the idle domain. */
     if ( unlikely(is_idle_domain(d)) )
     {
@@ -633,8 +635,6 @@ int arch_domain_create(struct domain *d,
         goto fail;
 
     psr_domain_init(d);
-
-    mapcache_domain_init(d);
 
     if ( is_hvm_domain(d) )
     {

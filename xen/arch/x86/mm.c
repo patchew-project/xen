@@ -5765,6 +5765,9 @@ int create_perdomain_mapping(struct domain *d, unsigned long va,
         l3tab = __map_domain_page(pg);
         clear_page(l3tab);
         d->arch.perdomain_l3_pg = pg;
+        if ( is_idle_domain(d) )
+            idle_pg_table[l4_table_offset(PERDOMAIN_VIRT_START)] =
+                l4e_from_page(pg, __PAGE_HYPERVISOR_RW);
         if ( !nr )
         {
             unmap_domain_page(l3tab);
