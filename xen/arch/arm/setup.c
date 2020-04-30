@@ -822,6 +822,8 @@ void __init start_xen(unsigned long boot_phys_offset,
 
     setup_mm();
 
+    vm_init();
+
     /* Parse the ACPI tables for possible boot-time configuration */
     acpi_boot_table_init();
 
@@ -832,8 +834,6 @@ void __init start_xen(unsigned long boot_phys_offset,
      * early_boot -> boot.
      */
     system_state = SYS_STATE_boot;
-
-    vm_init();
 
     if ( acpi_disabled )
     {
