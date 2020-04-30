@@ -23,6 +23,11 @@ void *vmalloc_xen(size_t size);
 void *vzalloc(size_t size);
 void vfree(void *va);
 
+static inline void *vmap_boot_pages(mfn_t mfn, unsigned int nr_pages)
+{
+    return __vmap(&mfn, nr_pages, 1, 1, PAGE_HYPERVISOR, VMAP_DEFAULT);
+}
+
 void __iomem *ioremap(paddr_t, size_t);
 
 static inline void iounmap(void __iomem *va)

@@ -219,7 +219,11 @@ void *__init acpi_os_alloc_memory(size_t sz)
 	void *ptr;
 
 	if (system_state == SYS_STATE_early_boot)
-		return mfn_to_virt(mfn_x(alloc_boot_pages(PFN_UP(sz), 1)));
+	{
+		mfn_t mfn = alloc_boot_pages(PFN_UP(sz), 1);
+
+		return vmap_boot_pages(mfn, PFN_UP(sz));
+	}
 
 	ptr = xmalloc_bytes(sz);
 	ASSERT(!ptr || is_xmalloc_memory(ptr));
@@ -244,5 +248,8 @@ void __init acpi_os_free_memory(void *ptr)
 	if (is_xmalloc_memory(ptr))
 		xfree(ptr);
 	else if (ptr && system_state == SYS_STATE_early_boot)
+	{
+		vunmap(ptr);
 		init_boot_pages(__pa(ptr), __pa(ptr) + PAGE_SIZE);
+	}
 }
