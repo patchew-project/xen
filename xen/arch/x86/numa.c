@@ -100,13 +100,13 @@ static int __init populate_memnodemap(const struct node *nodes,
 static int __init allocate_cachealigned_memnodemap(void)
 {
     unsigned long size = PFN_UP(memnodemapsize * sizeof(*memnodemap));
-    unsigned long mfn = mfn_x(alloc_boot_pages(size, 1));
+    mfn_t mfn = alloc_boot_pages(size, 1);
 
-    memnodemap = mfn_to_virt(mfn);
-    mfn <<= PAGE_SHIFT;
+    memnodemap = vmap_boot_pages(mfn, size);
+    BUG_ON(!memnodemap);
     size <<= PAGE_SHIFT;
     printk(KERN_DEBUG "NUMA: Allocated memnodemap from %lx - %lx\n",
-           mfn, mfn + size);
+           mfn_to_maddr(mfn), mfn_to_maddr(mfn) + size);
     memnodemapsize = size / sizeof(*memnodemap);
 
     return 0;
