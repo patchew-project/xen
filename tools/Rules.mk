@@ -36,7 +36,7 @@ debug ?= y
 debug_symbols ?= $(debug)
 
 XEN_GOPATH        = $(XEN_ROOT)/tools/golang
-XEN_GOCODE_URL    = golang.xenproject.org
+XEN_GOCODE_URL    = xenbits.xen.org/git-http/xen.git/tools/golang
 
 ifeq ($(debug_symbols),y)
 CFLAGS += -g3
