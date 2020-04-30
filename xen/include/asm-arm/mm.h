@@ -366,6 +366,11 @@ int arch_acquire_resource(struct domain *d, unsigned int type, unsigned int id,
     return -EOPNOTSUPP;
 }
 
+static inline bool arch_has_directmap(void)
+{
+    return true;
+}
+
 #endif /*  __ARCH_ARM_MM__ */
 /*
  * Local variables:

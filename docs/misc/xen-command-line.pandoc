@@ -652,6 +652,18 @@ Specify the size of the console debug trace buffer. By specifying `cpu:`
 additionally a trace buffer of the specified size is allocated per cpu.
 The debug trace feature is only enabled in debugging builds of Xen.
 
+### directmap (x86)
+> `= <boolean>`
+
+> Default: `true`
+
+Enable or disable the direct map region in Xen.
+
+By default, Xen creates the direct map region which maps physical memory
+in that region. Setting this to no will remove the direct map, blocking
+exploits that leak secrets via speculative memory access in the direct
+map.
+
 ### dma_bits
 > `= <integer>`
 

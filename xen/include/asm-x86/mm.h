@@ -454,6 +454,8 @@ int check_descriptor(const struct domain *d, seg_desc_t *desc);
 
 extern paddr_t mem_hotplug;
 
+extern bool opt_directmap;
+
 /******************************************************************************
  * With shadow pagetables, the different kinds of address start
  * to get get confusing.
@@ -639,13 +641,26 @@ extern const char zero_page[];
 /* Build a 32bit PSE page table using 4MB pages. */
 void write_32bit_pse_identmap(uint32_t *l2);
 
+static inline bool arch_has_directmap(void)
+{
+    return opt_directmap;
+}
+
 /*
  * x86 maps part of physical memory via the directmap region.
  * Return whether the input MFN falls in that range.
+ *
+ * When boot command line sets directmap=no, we will not have a direct map at
+ * all so this will always return false.
  */
 static inline bool arch_mfn_in_directmap(unsigned long mfn)
 {
-    unsigned long eva = min(DIRECTMAP_VIRT_END, HYPERVISOR_VIRT_END);
+    unsigned long eva;
+
+    if ( !arch_has_directmap() )
+        return false;
+
+    eva = min(DIRECTMAP_VIRT_END, HYPERVISOR_VIRT_END);
 
     return mfn <= (virt_to_mfn(eva - 1) + 1);
 }
