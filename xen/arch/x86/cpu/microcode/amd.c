@@ -125,6 +125,7 @@ static bool_t verify_patch_size(uint32_t patch_size)
         max_size = F16H_MPB_MAX_SIZE;
         break;
     case 0x17:
+    case 0x19:
         max_size = F17H_MPB_MAX_SIZE;
         break;
     default:
