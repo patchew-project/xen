@@ -527,7 +527,7 @@ ENTRY(dom_crash_sync_extable)
         sete  %al
         leal  (%rax,%rax,2),%eax
         orb   %al,UREGS_cs(%rsp)
-        xorl  %edi,%edi
+        lea   dom_crash_sync_extable(%rip), %rdi
         jmp   asm_domain_crash_synchronous /* Does not return */
         .popsection
 #endif /* CONFIG_PV */

@@ -96,7 +96,6 @@ static char __read_mostly opt_nmi[10] = "fatal";
 string_param("nmi", opt_nmi);
 
 DEFINE_PER_CPU(uint64_t, efer);
-static DEFINE_PER_CPU(unsigned long, last_extable_addr);
 
 DEFINE_PER_CPU_READ_MOSTLY(seg_desc_t *, gdt);
 DEFINE_PER_CPU_READ_MOSTLY(l1_pgentry_t, gdt_l1e);
@@ -784,7 +783,6 @@ static void do_trap(struct cpu_user_regs *regs)
     {
         dprintk(XENLOG_ERR, "Trap %u: %p [%ps] -> %p\n",
                 trapnr, _p(regs->rip), _p(regs->rip), _p(fixup));
-        this_cpu(last_extable_addr) = regs->rip;
         regs->rip = fixup;
         return;
     }
@@ -1097,7 +1095,6 @@ void do_invalid_op(struct cpu_user_regs *regs)
  die:
     if ( (fixup = search_exception_table(regs)) != 0 )
     {
-        this_cpu(last_extable_addr) = regs->rip;
         regs->rip = fixup;
         return;
     }
@@ -1120,7 +1117,6 @@ void do_int3(struct cpu_user_regs *regs)
 
         if ( (fixup = search_exception_table(regs)) != 0 )
         {
-            this_cpu(last_extable_addr) = regs->rip;
             dprintk(XENLOG_DEBUG, "Trap %u: %p [%ps] -> %p\n",
                     TRAP_int3, _p(regs->rip), _p(regs->rip), _p(fixup));
             regs->rip = fixup;
@@ -1459,7 +1455,6 @@ void do_page_fault(struct cpu_user_regs *regs)
             perfc_incr(copy_user_faults);
             if ( unlikely(regs->error_code & PFEC_reserved_bit) )
                 reserved_bit_page_fault(addr, regs);
-            this_cpu(last_extable_addr) = regs->rip;
             regs->rip = fixup;
             return;
         }
@@ -1589,7 +1584,6 @@ void do_general_protection(struct cpu_user_regs *regs)
     {
         dprintk(XENLOG_INFO, "GPF (%04x): %p [%ps] -> %p\n",
                 regs->error_code, _p(regs->rip), _p(regs->rip), _p(fixup));
-        this_cpu(last_extable_addr) = regs->rip;
         regs->rip = fixup;
         return;
     }
@@ -2083,10 +2077,7 @@ void asm_domain_crash_synchronous(unsigned long addr)
      */
     clac();
 
-    if ( addr == 0 )
-        addr = this_cpu(last_extable_addr);
-
-    printk("domain_crash_sync called from entry.S: fault at %p %pS\n",
+    printk("domain_crash_sync called from entry.S: issue around %p %pS\n",
            _p(addr), _p(addr));
 
     __domain_crash(current->domain);
