@@ -730,14 +730,14 @@ void load_system_tables(void)
 		.rsp2 = 0x8600111111111111ul,
 
 		/*
-		 * MCE, NMI and Double Fault handlers get their own stacks.
+		 * #DB, NMI, DF and #MCE handlers get their own stacks.
 		 * All others poisoned.
 		 */
 		.ist = {
-			[IST_MCE - 1] = stack_top + IST_MCE * PAGE_SIZE,
-			[IST_DF  - 1] = stack_top + IST_DF  * PAGE_SIZE,
-			[IST_NMI - 1] = stack_top + IST_NMI * PAGE_SIZE,
-			[IST_DB  - 1] = stack_top + IST_DB  * PAGE_SIZE,
+			[IST_MCE - 1] = stack_top + (1 + IST_MCE) * PAGE_SIZE,
+			[IST_NMI - 1] = stack_top + (1 + IST_NMI) * PAGE_SIZE,
+			[IST_DB  - 1] = stack_top + (1 + IST_DB)  * PAGE_SIZE,
+			[IST_DF  - 1] = stack_top + (1 + IST_DF)  * PAGE_SIZE,
 
 			[IST_MAX ... ARRAY_SIZE(tss->ist) - 1] =
 				0x8600111111111111ul,
