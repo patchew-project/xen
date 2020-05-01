@@ -198,7 +198,7 @@ ENTRY(cr4_pv32_restore)
 
 /* See lstar_enter for entry register state. */
 ENTRY(cstar_enter)
-        /* sti could live here when we don't switch page tables below. */
+        ALTERNATIVE "", "setssbsy", X86_FEATURE_XEN_SHSTK
         CR4_PV32_RESTORE
         movq  8(%rsp),%rax /* Restore %rax. */
         movq  $FLAT_USER_SS32, 8(%rsp) /* Assume a 64bit domain.  Compat handled lower. */
