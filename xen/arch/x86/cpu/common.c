@@ -746,6 +746,25 @@ void load_system_tables(void)
 		.bitmap = IOBMP_INVALID_OFFSET,
 	};
 
+	/* Set up the shadow stack IST. */
+	if ( cpu_has_xen_shstk ) {
+		unsigned int i;
+		uint64_t *ist_ssp = this_cpu(tss_page).ist_ssp;
+
+		/* Must point at the supervisor stack token. */
+		ist_ssp[IST_MCE] = stack_top + (IST_MCE * 0x400) - 8;
+		ist_ssp[IST_NMI] = stack_top + (IST_NMI * 0x400) - 8;
+		ist_ssp[IST_DB]  = stack_top + (IST_DB  * 0x400) - 8;
+		ist_ssp[IST_DF]  = stack_top + (IST_DF  * 0x400) - 8;
+
+		/* Poision unused entries. */
+		for ( i = IST_MAX;
+		      i < ARRAY_SIZE(this_cpu(tss_page).ist_ssp); ++i )
+			ist_ssp[i] = 0x8600111111111111ul;
+
+		wrmsrl(MSR_INTERRUPT_SSP_TABLE, (unsigned long)ist_ssp);
+	}
+
 	BUILD_BUG_ON(sizeof(*tss) <= 0x67); /* Mandated by the architecture. */
 
 	_set_tssldt_desc(gdt + TSS_ENTRY, (unsigned long)tss,
