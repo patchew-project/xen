@@ -776,6 +776,28 @@ static bool exception_fixup(struct cpu_user_regs *regs, bool print)
                vec_name(regs->entry_vector), regs->error_code,
                _p(regs->rip), _p(regs->rip), _p(fixup));
 
+    if ( IS_ENABLED(CONFIG_XEN_SHSTK) )
+    {
+        unsigned long ssp;
+
+        asm ("rdsspq %0" : "=r" (ssp) : "0" (1) );
+        if ( ssp != 1 )
+        {
+            unsigned long *ptr = _p(ssp);
+
+            /* Search for %rip in the shadow stack, ... */
+            while ( *ptr != regs->rip )
+                ptr++;
+
+            ASSERT(ptr[1] == __HYPERVISOR_CS);
+
+            /* ... and adjust to the fixup location. */
+            asm ("wrssq %[fix], %[stk]"
+                 : [stk] "=m" (*ptr)
+                 : [fix] "r" (fixup));
+        }
+    }
+
     regs->rip = fixup;
 
     return true;
