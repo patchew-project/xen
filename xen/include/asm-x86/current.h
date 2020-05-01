@@ -124,13 +124,49 @@ unsigned long get_stack_dump_bottom (unsigned long sp);
 # define CHECK_FOR_LIVEPATCH_WORK ""
 #endif
 
+#ifdef CONFIG_XEN_SHSTK
+/*
+ * We need to unwind the primary shadow stack to its supervisor token, located
+ * at 0x5ff8 from the base of the stack blocks.
+ *
+ * Read the shadow stack pointer, subtract it from 0x5ff8, divide by 8 to get
+ * the number of slots needing popping.
+ *
+ * INCSSPQ can't pop more than 255 entries.  We shouldn't ever need to pop
+ * that many entries, and getting this wrong will cause us to #DF later.
+ */
+# define SHADOW_STACK_WORK                      \
+    "mov $1, %[ssp];"                           \
+    "rdsspd %[ssp];"                            \
+    "cmp $1, %[ssp];"                           \
+    "je 1f;" /* CET not active?  Skip. */       \
+    "mov $"STR(0x5ff8)", %[val];"               \
+    "and $"STR(STACK_SIZE - 1)", %[ssp];"       \
+    "sub %[ssp], %[val];"                       \
+    "shr $3, %[val];"                           \
+    "cmp $255, %[val];"                         \
+    "jle 2f;"                                   \
+    "ud2a;"                                     \
+    "2: incsspq %q[val];"                       \
+    "1:"
+#else
+# define SHADOW_STACK_WORK ""
+#endif
+
 #define switch_stack_and_jump(fn, instr)                                \
     ({                                                                  \
+        unsigned int tmp;                                               \
         __asm__ __volatile__ (                                          \
-            "mov %0,%%"__OP"sp;"                                        \
+            "cmc;"                                                      \
+            SHADOW_STACK_WORK                                           \
+            "mov %[stk], %%rsp;"                                        \
             instr                                                       \
-             "jmp %c1"                                                  \
-            : : "r" (guest_cpu_user_regs()), "i" (fn) : "memory" );     \
+            "jmp %c[fun];"                                              \
+            : [val] "=&r" (tmp),                                        \
+              [ssp] "=&r" (tmp)                                         \
+            : [stk] "r" (guest_cpu_user_regs()),                        \
+              [fun] "i" (fn)                                            \
+            : "memory" );                                               \
         unreachable();                                                  \
     })
 
