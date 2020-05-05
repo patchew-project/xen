@@ -8,11 +8,14 @@ cc-ver()
     $CC -dumpversion | awk -F. '{ printf "0x%02x%02x%02x", $1, $2, $3 }'
 }
 
+mkdir logs
+
 # random config or default config
 if [[ "${RANDCONFIG}" == "y" ]]; then
-    make -C xen KCONFIG_ALLCONFIG=tools/kconfig/allrandom.config randconfig
+    make -C xen KCONFIG_ALLCONFIG=tools/kconfig/allrandom.config randconfig \
+         > logs/kconfig.log 2>&1
 else
-    make -C xen defconfig
+    make -C xen defconfig > logs/kconfig.log 2>&1
 fi
 
 # build up our configure options
@@ -38,9 +41,9 @@ if [[ "${CC}" == "gcc" && `cc-ver` -lt 0x040600 ]]; then
     cfgargs+=("--with-system-seabios=/bin/false")
 fi
 
-./configure "${cfgargs[@]}"
+./configure "${cfgargs[@]}" > logs/configure.log 2>&1
 
-make -j$(nproc) dist
+make -j$(nproc) dist > logs/build.log 2>&1
 
 # Extract artifacts to avoid getting rewritten by customised builds
 cp xen/.config xen-config
@@ -58,8 +61,9 @@ esac
 cfg_dir="automation/configs/${arch}"
 for cfg in `ls ${cfg_dir}`; do
     echo "Building $cfg"
-    make -j$(nproc) -C xen clean
+    make -j$(nproc) -C xen clean > /dev/null 2>&1
     rm -f xen/.config
-    make -C xen KBUILD_DEFCONFIG=../../../../${cfg_dir}/${cfg} XEN_CONFIG_EXPERT=y defconfig
-    make -j$(nproc) -C xen XEN_CONFIG_EXPERT=y
+    make -C xen KBUILD_DEFCONFIG=../../../../${cfg_dir}/${cfg} \
+         XEN_CONFIG_EXPERT=y defconfig > logs/kconfig-${cfg}.log 2>&1
+    make -j$(nproc) -C xen XEN_CONFIG_EXPERT=y > logs/build-${cfg}.log 2>&1
 done

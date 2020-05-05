@@ -2,9 +2,10 @@
   stage: build
   image: registry.gitlab.com/xen-project/xen/${CONTAINER}
   script:
-    - ./automation/scripts/build 2>&1 | tee build.log
+    - ./automation/scripts/build 2>&1 | tee run.log
   artifacts:
     paths:
+      - logs/
       - binaries/
       - xen-config
       - '*.log'
