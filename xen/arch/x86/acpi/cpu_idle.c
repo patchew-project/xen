@@ -573,6 +573,25 @@ static bool errata_c6_eoi_workaround(void)
     return (fix_needed && cpu_has_pending_apic_eoi());
 }
 
+static int8_t __read_mostly disable_c6_isr = -1;
+boolean_param("disable-c6-isr", disable_c6_isr);
+
+/*
+ * Errata CLX30: A Pending Fixed Interrupt May Be Dispatched Before an
+ * Interrupt of The Same Priority Completes.
+ *
+ * Prevent entering C6 if there are pending lapic interrupts, or else the
+ * processor might dispatch further pending interrupts before the first one has
+ * been completed.
+ */
+bool errata_c6_isr_workaround(void)
+{
+    if ( unlikely(disable_c6_isr == -1) )
+        disable_c6_isr = boot_cpu_data.x86_vendor == X86_VENDOR_INTEL;
+
+    return disable_c6_isr && cpu_has_pending_apic_eoi();
+}
+
 void update_last_cx_stat(struct acpi_processor_power *power,
                          struct acpi_processor_cx *cx, uint64_t ticks)
 {
@@ -676,7 +695,8 @@ static void acpi_processor_idle(void)
         return;
     }
 
-    if ( (cx->type == ACPI_STATE_C3) && errata_c6_eoi_workaround() )
+    if ( (cx->type == ACPI_STATE_C3) &&
+         (errata_c6_eoi_workaround() || errata_c6_isr_workaround()) )
         cx = power->safe_state;
 
 

@@ -770,6 +770,9 @@ static void mwait_idle(void)
 		return;
 	}
 
+	if (cx->type == ACPI_STATE_C3 && errata_c6_isr_workaround())
+		cx = power->safe_state;
+
 	eax = cx->address;
 	cstate = ((eax >> MWAIT_SUBSTATE_SIZE) & MWAIT_CSTATE_MASK) + 1;
 
