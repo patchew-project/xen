@@ -71,27 +71,6 @@ static bool __read_mostly opt_ept_pml = true;
 static s8 __read_mostly opt_ept_ad = -1;
 int8_t __read_mostly opt_ept_exec_sp = -1;
 
-#ifdef CONFIG_HYPFS
-static char opt_ept_setting[10];
-
-static void update_ept_param(void)
-{
-    if ( opt_ept_exec_sp >= 0 )
-        snprintf(opt_ept_setting, sizeof(opt_ept_setting), "exec-sp=%d",
-                 opt_ept_exec_sp);
-}
-
-static void __init init_ept_param(struct param_hypfs *par)
-{
-    update_ept_param();
-    custom_runtime_set_var(par, opt_ept_setting);
-}
-#else
-static void update_ept_param(void)
-{
-}
-#endif
-
 static int __init parse_ept_param(const char *s)
 {
     const char *ss;
@@ -117,6 +96,22 @@ static int __init parse_ept_param(const char *s)
     return rc;
 }
 custom_param("ept", parse_ept_param);
+
+#ifdef CONFIG_HYPFS
+static char opt_ept_setting[10];
+
+static void update_ept_param(void)
+{
+    if ( opt_ept_exec_sp >= 0 )
+        snprintf(opt_ept_setting, sizeof(opt_ept_setting), "exec-sp=%d",
+                 opt_ept_exec_sp);
+}
+
+static void __init init_ept_param(struct param_hypfs *par)
+{
+    update_ept_param();
+    custom_runtime_set_var(par, opt_ept_setting);
+}
 
 static int parse_ept_param_runtime(const char *s);
 custom_runtime_only_param("ept", parse_ept_param_runtime, init_ept_param);
@@ -172,6 +167,7 @@ static int parse_ept_param_runtime(const char *s)
 
     return 0;
 }
+#endif
 
 /* Dynamic (run-time adjusted) execution control flags. */
 u32 vmx_pin_based_exec_control __read_mostly;
