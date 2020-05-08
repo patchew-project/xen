@@ -10,6 +10,7 @@ obj-y += domain.o
 obj-y += event_2l.o
 obj-y += event_channel.o
 obj-y += event_fifo.o
+obj-$(CONFIG_HYPFS) += hypfs.o
 obj-$(CONFIG_CRASH_DEBUG) += gdbstub.o
 obj-$(CONFIG_GRANT_TABLE) += grant_table.o
 obj-y += guestcopy.o
