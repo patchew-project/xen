@@ -158,7 +158,7 @@ struct vcpu *vcpu_create(struct domain *d, unsigned int vcpu_id)
 
     v->domain = d;
     v->vcpu_id = vcpu_id;
-    v->dirty_cpu = VCPU_CPU_CLEAN;
+    write_atomic(&v->dirty_cpu, VCPU_CPU_CLEAN);
 
     spin_lock_init(&v->virq_lock);
 
