@@ -652,6 +652,14 @@ Specify the size of the console debug trace buffer. By specifying `cpu:`
 additionally a trace buffer of the specified size is allocated per cpu.
 The debug trace feature is only enabled in debugging builds of Xen.
 
+### disable-c6-isr
+> `= <boolean>`
+
+> Default: `true for Intel CPUs`
+
+Workaround for Intel errata CLX30. Prevent entering C6 idle states with in
+service local APIC interrupts. Enabled by default for all Intel CPUs.
+
 ### dma_bits
 > `= <integer>`
 
