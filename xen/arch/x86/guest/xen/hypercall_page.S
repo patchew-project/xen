@@ -8,7 +8,6 @@
 GLOBAL(hypercall_page)
          /* Poisoned with `ret` for safety before hypercalls are set up. */
         .fill PAGE_SIZE, 1, 0xc3
-        .type hypercall_page, STT_OBJECT
         .size hypercall_page, PAGE_SIZE
 
 /*
