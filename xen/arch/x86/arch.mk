@@ -63,7 +63,16 @@ CFLAGS += -mno-red-zone -fpic -fno-asynchronous-unwind-tables
 CFLAGS += -mno-sse $(call cc-option,$(CC),-mskip-rax-setup)
 
 # Compile with thunk-extern, indirect-branch-register if avaiable.
-CFLAGS-$(CONFIG_INDIRECT_THUNK) += -mindirect-branch=thunk-extern
+# Some versions of gcc error: "‘-mindirect-branch’ and ‘-fcf-protection’ are
+# not compatible".  For those, we need to disable cf-protection with
+# -fcf-protection=none
+cc-mindirect-branch = $(shell if test -n "`echo 'void foo(void) {};' | \
+      LANG=C $(CC) -mindirect-branch=thunk-extern -S -o /dev/null -x c - 2>&1 | \
+      grep -- '-mindirect-branch.*-fcf-protection.*are not compatible' -`"; \
+    then echo "-mindirect-branch=thunk-extern -fcf-protection=none"; \
+    else echo "-mindirect-branch=thunk-extern"; fi ;)
+
+CFLAGS-$(CONFIG_INDIRECT_THUNK) += $(call cc-mindirect-branch)
 CFLAGS-$(CONFIG_INDIRECT_THUNK) += -mindirect-branch-register
 CFLAGS-$(CONFIG_INDIRECT_THUNK) += -fno-jump-tables
 
