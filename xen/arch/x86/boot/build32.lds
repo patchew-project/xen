@@ -48,5 +48,10 @@ SECTIONS
          * Please check build32.mk for more details.
          */
         /* *(.got.plt) */
+        /*
+         * The note will end up before the .text section and be called
+         * incorrectly as instructions.
+         */
+        *(.note.gnu.property)
   }
 }
