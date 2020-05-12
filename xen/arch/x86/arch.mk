@@ -67,6 +67,15 @@ CFLAGS-$(CONFIG_INDIRECT_THUNK) += -mindirect-branch=thunk-extern
 CFLAGS-$(CONFIG_INDIRECT_THUNK) += -mindirect-branch-register
 CFLAGS-$(CONFIG_INDIRECT_THUNK) += -fno-jump-tables
 
+# Xen doesn't support CET-IBT yet.  At a minimum, logic is required to
+# enable it for supervisor use, but the Livepatch functionality needs
+# to learn not to overwrite ENDBR64 instructions.
+#
+# Furthermore, Ubuntu enables -fcf-protection by default, along with a
+# buggy version of GCC-9 which objects to it in combination with
+# -mindirect-branch=thunk-extern (Fixed in GCC 10, 9.4).
+$(call cc-option-add,CFLAGS,CC,-fcf-protection=none)
+
 # If supported by the compiler, reduce stack alignment to 8 bytes. But allow
 # this to be overridden elsewhere.
 $(call cc-option-add,CFLAGS-stack-boundary,CC,-mpreferred-stack-boundary=3)

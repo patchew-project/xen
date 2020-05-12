@@ -3,6 +3,7 @@ CFLAGS =
 include $(XEN_ROOT)/Config.mk
 
 $(call cc-options-add,CFLAGS,CC,$(EMBEDDED_EXTRA_CFLAGS))
+$(call cc-option-add,CFLAGS,CC,-fcf-protection=none)
 
 CFLAGS += -Werror -fno-asynchronous-unwind-tables -fno-builtin -g0 -msoft-float
 CFLAGS += -I$(XEN_ROOT)/xen/include
