@@ -10,25 +10,6 @@ static inline bool is_canonical_address(xen_vaddr_t vaddr)
 }
 
 /*
- * Maps the guests shared info page.
- */
-static int map_shinfo(struct xc_sr_context *ctx)
-{
-    xc_interface *xch = ctx->xch;
-
-    ctx->x86.pv.shinfo = xc_map_foreign_range(
-        xch, ctx->domid, PAGE_SIZE, PROT_READ, ctx->dominfo.shared_info_frame);
-    if ( !ctx->x86.pv.shinfo )
-    {
-        PERROR("Failed to map shared info frame at mfn %#lx",
-               ctx->dominfo.shared_info_frame);
-        return -1;
-    }
-
-    return 0;
-}
-
-/*
  * Copy a list of mfns from a guest, accounting for differences between guest
  * and toolstack width.  Can fail if truncation would occur.
  */
@@ -1041,7 +1022,7 @@ static int x86_pv_setup(struct xc_sr_context *ctx)
     if ( rc )
         return rc;
 
-    rc = map_shinfo(ctx);
+    rc = x86_pv_get_shinfo(ctx);
     if ( rc )
         return rc;
 
@@ -1112,11 +1093,10 @@ static int x86_pv_cleanup(struct xc_sr_context *ctx)
     if ( ctx->x86.pv.p2m )
         munmap(ctx->x86.pv.p2m, ctx->x86.pv.p2m_frames * PAGE_SIZE);
 
-    if ( ctx->x86.pv.shinfo )
-        munmap(ctx->x86.pv.shinfo, PAGE_SIZE);
-
     if ( ctx->x86.pv.m2p )
         munmap(ctx->x86.pv.m2p, ctx->x86.pv.nr_m2p_frames * PAGE_SIZE);
+
+    common_cleanup(ctx);
 
     return 0;
 }
