@@ -10,6 +10,7 @@
 #include <xen/hypercall.h>
 #include <xen/hypfs.h>
 #include <xen/lib.h>
+#include <xen/param.h>
 #include <xen/rwlock.h>
 #include <public/hypfs.h>
 
@@ -39,13 +40,13 @@ static void hypfs_read_lock(void)
     this_cpu(hypfs_locked) = hypfs_read_locked;
 }
 
-static void hypfs_write_lock(void)
+void hypfs_write_lock(void)
 {
     write_lock(&hypfs_lock);
     this_cpu(hypfs_locked) = hypfs_write_locked;
 }
 
-static void hypfs_unlock(void)
+void hypfs_unlock(void)
 {
     enum hypfs_lock_state locked = this_cpu(hypfs_locked);
 
@@ -340,6 +341,35 @@ int hypfs_write_bool(struct hypfs_entry_leaf *leaf,
     *(bool *)leaf->write_ptr = buf;
 
     return 0;
+}
+
+int hypfs_write_custom(struct hypfs_entry_leaf *leaf,
+                       XEN_GUEST_HANDLE_PARAM(void) uaddr, unsigned int ulen)
+{
+    struct param_hypfs *p;
+    char *buf;
+    int ret;
+
+    ASSERT(this_cpu(hypfs_locked) == hypfs_write_locked);
+
+    buf = xzalloc_array(char, ulen);
+    if ( !buf )
+        return -ENOMEM;
+
+    ret = -EFAULT;
+    if ( copy_from_guest(buf, uaddr, ulen) )
+        goto out;
+
+    ret = -EDOM;
+    if ( memchr(buf, 0, ulen) != (buf + ulen - 1) )
+        goto out;
+
+    p = container_of(leaf, struct param_hypfs, hypfs);
+    ret = p->param->par.func(buf);
+
+ out:
+    xfree(buf);
+    return ret;
 }
 
 static int hypfs_write(struct hypfs_entry *entry,
