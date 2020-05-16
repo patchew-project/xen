@@ -65,6 +65,9 @@ struct xen_pvcalls_request {
             uint32_t domain;
             uint32_t type;
             uint32_t protocol;
+#ifndef CONFIG_X86_32
+            uint8_t pad[4];
+#endif
         } socket;
         struct xen_pvcalls_connect {
             uint64_t id;
@@ -73,10 +76,18 @@ struct xen_pvcalls_request {
             uint32_t flags;
             grant_ref_t ref;
             uint32_t evtchn;
+#ifndef CONFIG_X86_32
+            uint8_t pad[4];
+#endif
         } connect;
         struct xen_pvcalls_release {
             uint64_t id;
             uint8_t reuse;
+#ifndef CONFIG_X86_32
+            uint8_t pad[7];
+#else
+            uint8_t pad[3];
+#endif
         } release;
         struct xen_pvcalls_bind {
             uint64_t id;
@@ -86,6 +97,9 @@ struct xen_pvcalls_request {
         struct xen_pvcalls_listen {
             uint64_t id;
             uint32_t backlog;
+#ifndef CONFIG_X86_32
+            uint8_t pad[4];
+#endif
         } listen;
         struct xen_pvcalls_accept {
             uint64_t id;
