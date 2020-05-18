@@ -2066,6 +2066,57 @@ static int libxl__vfb_and_vkb_from_hvm_guest_config(libxl__gc *gc,
     return 0;
 }
 
+static int libxl__write_stub_linux_dm_argv(libxl__gc *gc,
+                                           int dm_domid, int guest_domid,
+                                           char **args)
+{
+    const char *vm_path;
+    char *path;
+    struct xs_permissions roperm[2];
+    xs_transaction_t t = XBT_NULL;
+    int rc;
+
+    roperm[0].id = 0;
+    roperm[0].perms = XS_PERM_NONE;
+    roperm[1].id = dm_domid;
+    roperm[1].perms = XS_PERM_READ;
+
+    rc = libxl__xs_read_mandatory(gc, XBT_NULL,
+                                  GCSPRINTF("/local/domain/%d/vm", guest_domid),
+                                  &vm_path);
+    if (rc)
+        return rc;
+
+    path = GCSPRINTF("%s/image/dm-argv", vm_path);
+
+    for (;;) {
+        int i;
+
+        rc = libxl__xs_transaction_start(gc, &t);
+        if (rc) goto out;
+
+        rc = libxl__xs_mknod(gc, t, path, roperm, ARRAY_SIZE(roperm));
+        if (rc) goto out;
+
+        for (i=1; args[i] != NULL; i++) {
+            rc = libxl__xs_write_checked(gc, t, GCSPRINTF("%s/%03d", path, i),
+                                         args[i]);
+            if (rc) goto out;
+        }
+
+        rc = libxl__xs_transaction_commit(gc, &t);
+        if (!rc) break;
+        if (rc<0) goto out;
+    }
+
+    return 0;
+
+ out:
+    libxl__xs_transaction_abort(gc, &t);
+
+    return rc;
+}
+
 static int libxl__write_stub_dmargs(libxl__gc *gc,
                                     int dm_domid, int guest_domid,
                                     char **args)
@@ -2275,7 +2326,10 @@ void libxl__spawn_stub_dm(libxl__egc *egc, libxl__stub_dm_spawn_state *sdss)
 
     libxl__store_libxl_entry(gc, guest_domid, "dm-version",
         libxl_device_model_version_to_string(dm_config->b_info.device_model_version));
-    libxl__write_stub_dmargs(gc, dm_domid, guest_domid, args);
+    if (libxl__stubdomain_is_linux(&guest_config->b_info))
+        libxl__write_stub_linux_dm_argv(gc, dm_domid, guest_domid, args);
+    else
+        libxl__write_stub_dmargs(gc, dm_domid, guest_domid, args);
     libxl__xs_printf(gc, XBT_NULL,
                      GCSPRINTF("%s/image/device-model-domid",
                                libxl__xs_get_dompath(gc, guest_domid)),
