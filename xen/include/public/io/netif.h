@@ -161,6 +161,13 @@
  */
 
 /*
+ * "netfront-xdp-headroom" is used to add an extra space before packet data
+ * for XDP processing. The value is passed by the frontend to be consistent
+ * between both ends. If the value is greater than zero that means that
+ * an RX response is going to be passed to an XDP program for processing.
+ */
+
+/*
  * Control ring
  * ============
  *
@@ -985,7 +992,8 @@ typedef struct netif_tx_request netif_tx_request_t;
 #define XEN_NETIF_EXTRA_TYPE_MCAST_ADD (2)  /* u.mcast */
 #define XEN_NETIF_EXTRA_TYPE_MCAST_DEL (3)  /* u.mcast */
 #define XEN_NETIF_EXTRA_TYPE_HASH      (4)  /* u.hash */
-#define XEN_NETIF_EXTRA_TYPE_MAX       (5)
+#define XEN_NETIF_EXTRA_TYPE_XDP       (5)  /* u.xdp */
+#define XEN_NETIF_EXTRA_TYPE_MAX       (6)
 
 /* netif_extra_info_t flags. */
 #define _XEN_NETIF_EXTRA_FLAG_MORE (0)
@@ -1018,6 +1026,10 @@ struct netif_extra_info {
             uint8_t algorithm;
             uint8_t value[4];
         } hash;
+        struct {
+            uint16_t headroom;
+            uint16_t pad[2]
+        } xdp;
         uint16_t pad[3];
     } u;
 };
