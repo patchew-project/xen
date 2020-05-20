@@ -147,31 +147,45 @@ the domain being migrated.
 ```
     0       1       2       3       4       5       6       7    octet
 +-------+-------+-------+-------+-------+-------+-------+-------+
-| conn-id                       | conn-type     | conn-spec
+| conn-id                       | conn-type     | flags         |
++-------------------------------+---------------+---------------+
+| conn-spec
 ...
 +-------------------------------+-------------------------------+
-| data-len                      | data
-+-------------------------------+
+| in-data-len                   | out-data-len                  |
++-------------------------------+-------------------------------+
+| data
 ...
 ```
 
 
-| Field       | Description                                     |
-|-------------|-------------------------------------------------|
-| `conn-id`   | A non-zero number used to identify this         |
-|             | connection in subsequent connection-specific    |
-|             | records                                         |
-|             |                                                 |
-| `conn-type` | 0x0000: shared ring                             |
-|             | 0x0001: socket                                  |
-|             | 0x0002 - 0xFFFF: reserved for future use        |
-|             |                                                 |
-| `conn-spec` | See below                                       |
-|             |                                                 |
-| `data-len`  | The length (in octets) of any pending data not  |
-|             | yet written to the connection                   |
-|             |                                                 |
-| `data`      | Pending data (may be empty)                     |
+| Field          | Description                                  |
+|----------------|----------------------------------------------|
+| `conn-id`      | A non-zero number used to identify this      |
+|                | connection in subsequent connection-specific |
+|                | records                                      |
+|                |                                              |
+| `flags`        | A bit-wise OR of:                            |
+|                | 0001: read-only                              |
+|                |                                              |
+| `conn-type`    | 0x0000: shared ring                          |
+|                | 0x0001: socket                               |
+|                | 0x0002 - 0xFFFF: reserved for future use     |
+|                |                                              |
+| `conn-spec`    | See below                                    |
+|                |                                              |
+| `in-data-len`  | The length (in octets) of any data read      |
+|                | from the connection not yet processed        |
+|                |                                              |
+| `out-data-len` | The length (in octets) of any pending data   |
+|                | not yet written to the connection            |
+|                |                                              |
+| `data`         | Pending data, first read data, then written  |
+|                | data (any of both may be empty)              |
+
+In case of live update the connection record for the connection via which
+the live update command was issued will contain the response for the live
+update command in the pending write data.
 
 The format of `conn-spec` is dependent upon `conn-type`.
 
@@ -182,8 +196,6 @@ For `shared ring` connections it is as follows:
 
 ```
     0       1       2       3       4       5       6       7    octet
-                                                +-------+-------+
-                                                | flags         |
 +---------------+---------------+---------------+---------------+
 | domid         | tdomid        | evtchn                        |
 +-------------------------------+-------------------------------+
@@ -198,8 +210,6 @@ For `shared ring` connections it is as follows:
 |           | it has been subject to an SET_TARGET              |
 |           | operation [2] or DOMID_INVALID [3] otherwise      |
 |           |                                                   |
-| `flags`   | Must be zero                                      |
-|           |                                                   |
 | `evtchn`  | The port number of the interdomain channel used   |
 |           | by `domid` to communicate with xenstored          |
 |           |                                                   |
@@ -211,8 +221,6 @@ For `socket` connections it is as follows:
 
 
 ```
-                                                +-------+-------+
-                                                | flags         |
 +---------------+---------------+---------------+---------------+
 | socket-fd                     | pad                           |
 +-------------------------------+-------------------------------+
@@ -221,9 +229,6 @@ For `socket` connections it is as follows:
 
 | Field       | Description                                     |
 |-------------|-------------------------------------------------|
-| `flags`     | A bit-wise OR of:                               |
-|             | 0001: read-only                                 |
-|             |                                                 |
 | `socket-fd` | The file descriptor of the connected socket     |
 
 This type of connection is only relevant for live update, where the xenstored
