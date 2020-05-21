@@ -208,6 +208,11 @@ struct xc_sr_context
 
     xc_dominfo_t dominfo;
 
+    struct {
+        void *buffer;
+        unsigned int len;
+    } domain_context;
+
     union /* Common save or restore data. */
     {
         struct /* Save data. */
@@ -314,7 +319,7 @@ struct xc_sr_context
                 /* The guest pfns containing the p2m leaves */
                 xen_pfn_t *p2m_pfns;
 
-                /* Read-only mapping of guests shared info page */
+                /* Pointer to shared_info (located in context buffer) */
                 shared_info_any_t *shinfo;
 
                 /* p2m generation count for verifying validity of local p2m. */
@@ -424,6 +429,10 @@ int read_record(struct xc_sr_context *ctx, int fd, struct xc_sr_record *rec);
  */
 int populate_pfns(struct xc_sr_context *ctx, unsigned int count,
                   const xen_pfn_t *original_pfns, const uint32_t *types);
+
+int get_domain_context(struct xc_sr_context *ctx);
+int set_domain_context(struct xc_sr_context *ctx);
+void common_cleanup(struct xc_sr_context *ctx);
 
 #endif
 /*

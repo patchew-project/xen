@@ -138,6 +138,73 @@ int read_record(struct xc_sr_context *ctx, int fd, struct xc_sr_record *rec)
     return 0;
 };
 
+int get_domain_context(struct xc_sr_context *ctx)
+{
+    xc_interface *xch = ctx->xch;
+    size_t len = 0;
+    int rc;
+
+    if ( ctx->domain_context.buffer )
+    {
+        ERROR("Domain context already present");
+        return -1;
+    }
+
+    rc = xc_domain_getcontext(xch, ctx->domid, NULL, &len);
+    if ( rc < 0 )
+    {
+        PERROR("Unable to get size of domain context");
+        return -1;
+    }
+
+    ctx->domain_context.buffer = malloc(len);
+    if ( !ctx->domain_context.buffer )
+    {
+        PERROR("Unable to allocate memory for domain context");
+        return -1;
+    }
+
+    rc = xc_domain_getcontext(xch, ctx->domid, ctx->domain_context.buffer,
+                              &len);
+    if ( rc < 0 )
+    {
+        PERROR("Unable to get domain context");
+        return -1;
+    }
+
+    ctx->domain_context.len = len;
+
+    return 0;
+}
+
+int set_domain_context(struct xc_sr_context *ctx)
+{
+    xc_interface *xch = ctx->xch;
+    int rc;
+
+    if ( !ctx->domain_context.buffer )
+    {
+        ERROR("Domain context not present");
+        return -1;
+    }
+
+    rc = xc_domain_setcontext(xch, ctx->domid, ctx->domain_context.buffer,
+                              ctx->domain_context.len);
+
+    if ( rc < 0 )
+    {
+        PERROR("Unable to set domain context");
+        return -1;
+    }
+
+    return 0;
+}
+
+void common_cleanup(struct xc_sr_context *ctx)
+{
+    free(ctx->domain_context.buffer);
+}
+
 static void __attribute__((unused)) build_assertions(void)
 {
     BUILD_BUG_ON(sizeof(struct xc_sr_ihdr) != 24);
