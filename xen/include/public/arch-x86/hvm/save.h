@@ -648,6 +648,11 @@ struct hvm_msr {
  */
 #define HVM_SAVE_CODE_MAX 20
 
+/*
+ * Further use of HVM state is deprecated. New state records should only
+ * be added to the domain state header: public/save.h
+ */
+
 #endif /* __XEN_PUBLIC_HVM_SAVE_X86_H__ */
 
 /*
