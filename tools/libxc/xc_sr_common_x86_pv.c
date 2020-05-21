@@ -182,6 +182,80 @@ int x86_pv_map_m2p(struct xc_sr_context *ctx)
     return rc;
 }
 
+int x86_pv_get_shinfo(struct xc_sr_context *ctx)
+{
+    xc_interface *xch = ctx->xch;
+    unsigned int off = 0;
+    int rc;
+
+#define GET_PTR(_x)                                                         \
+    do {                                                                    \
+        if ( ctx->domain_context.len - off < sizeof(*(_x)) )                \
+        {                                                                   \
+            ERROR("Need another %lu bytes of context, only %u available\n", \
+                  sizeof(*(_x)), ctx->domain_context.len - off);            \
+            return -1;                                                      \
+        }                                                                   \
+        (_x) = ctx->domain_context.buffer + off;                            \
+    } while (false);
+
+    rc = get_domain_context(ctx);
+    if ( rc )
+        return rc;
+
+    for ( ; ; )
+    {
+        struct domain_save_descriptor *desc;
+
+        GET_PTR(desc);
+
+        off += sizeof(*desc);
+
+        switch (desc->typecode)
+        {
+        case DOMAIN_SAVE_CODE(SHARED_INFO):
+        {
+            DOMAIN_SAVE_TYPE(SHARED_INFO) *s;
+
+            GET_PTR(s);
+
+            ctx->x86.pv.shinfo = (shared_info_any_t *)s->buffer;
+            break;
+        }
+        default:
+            break;
+        }
+
+        if ( desc->typecode == DOMAIN_SAVE_CODE(END) )
+            break;
+
+        off += desc->length;
+    }
+
+    if ( !ctx->x86.pv.shinfo )
+    {
+        ERROR("Failed to get SHARED_INFO\n");
+        return -1;
+    }
+
+    return 0;
+
+#undef GET_PTR
+}
+
+int x86_pv_set_shinfo(struct xc_sr_context *ctx)
+{
+    xc_interface *xch = ctx->xch;
+
+    if ( !ctx->x86.pv.shinfo )
+    {
+        ERROR("SHARED_INFO buffer not present\n");
+        return -1;
+    }
+
+    return set_domain_context(ctx);
+}
+
 /*
  * Local variables:
  * mode: C

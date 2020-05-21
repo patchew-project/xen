@@ -19,6 +19,7 @@
 
 #include <xen/foreign/x86_32.h>
 #include <xen/foreign/x86_64.h>
+#include <xen/save.h>
 
 /*
 ** We process save/restore/migrate in batches of pages; the below
