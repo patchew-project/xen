@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
    fixes.
  - Hypervisor framework to ease porting Xen to run on hypervisors.
  - Initial support to run on Hyper-V.
+ - Golang bindings: IDL generation of structs, more functions covered,
+  more module-friendly (still Experimental)
 
 ## [4.13.0](https://xenbits.xen.org/gitweb/?p=xen.git;a=shortlog;h=RELEASE-4.13.0) - 2019-12-17
 
