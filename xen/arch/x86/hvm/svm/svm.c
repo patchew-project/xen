@@ -1726,6 +1726,10 @@ static void svm_do_nested_pgfault(struct vcpu *v,
         /* inject #VMEXIT(NPF) into guest. */
         nestedsvm_vmexit_defer(v, VMEXIT_NPF, pfec, gpa);
         return;
+    case 0:
+        /* If a recalculation page fault hasn't been handled - just retry. */
+        if ( pfec & PFEC_user_mode )
+            return;
     }
 
     /* Everything else is an error. */
