@@ -19,7 +19,7 @@ package: $(XEN_GOPATH)$(GOXL_PKG_DIR)
 
 GOXL_GEN_FILES = types.gen.go helpers.gen.go
 
-$(XEN_GOPATH)/src/$(XEN_GOCODE_URL)/xenlight/: xenlight.go $(GOXL_GEN_FILES)
+$(XEN_GOPATH)$(GOXL_PKG_DIR): xenlight.go $(GOXL_GEN_FILES)
 	$(INSTALL_DIR) $(XEN_GOPATH)$(GOXL_PKG_DIR)
 	$(INSTALL_DATA) xenlight.go $(XEN_GOPATH)$(GOXL_PKG_DIR)
 	$(INSTALL_DATA) types.gen.go $(XEN_GOPATH)$(GOXL_PKG_DIR)
