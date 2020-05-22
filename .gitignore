@@ -406,6 +406,7 @@ tools/python/xen/lowlevel/xl/_pyxl_types.h
 tools/xenstore/xenstore-watch
 tools/xl/_paths.h
 tools/xl/xl
+tools/golang/src
 
 docs/txt/misc/*.txt
 docs/txt/man/*.txt
