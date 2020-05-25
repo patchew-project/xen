@@ -148,6 +148,12 @@ static int connect_socket(const char *path_or_fd) {
         return fd;
     }
 
+    if (strlen(path_or_fd) >= sizeof(addr.sun_path)) {
+        fprintf(stderr, "UNIX socket path \"%s\" too long (%zd >= %zd)\n",
+                path_or_fd, strlen(path_or_fd), sizeof(addr.sun_path));
+        return -1;
+    }
+
     fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd == -1)
         return -1;
@@ -172,6 +178,12 @@ static int listen_socket(const char *path_or_fd) {
     fd = strtoll(path_or_fd, &endptr, 0);
     if (*endptr == '\0') {
         return fd;
+    }
+
+    if (strlen(path_or_fd) >= sizeof(addr.sun_path)) {
+        fprintf(stderr, "UNIX socket path \"%s\" too long (%zd >= %zd)\n",
+                path_or_fd, strlen(path_or_fd), sizeof(addr.sun_path));
+        return -1;
     }
 
     /* if not a number, assume a socket path */
