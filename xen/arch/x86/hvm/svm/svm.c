@@ -1695,7 +1695,12 @@ static void svm_do_nested_pgfault(struct vcpu *v,
     else if ( pfec & NPT_PFEC_in_gpt )
         npfec.kind = npfec_kind_in_gpt;
 
-    ret = hvm_hap_nested_page_fault(gpa, ~0ul, npfec);
+    /*
+     * US bit being set in error code indicates P2M type recalculation has
+     * just been done meaning that it's possible there is nothing else to handle
+     * and we can just fall through and retry.
+     */
+    ret = hvm_hap_nested_page_fault(gpa, ~0ul, npfec, !!(pfec & PFEC_user_mode));
 
     if ( tb_init_done )
     {

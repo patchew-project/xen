@@ -329,7 +329,7 @@ void hvm_fast_singlestep(struct vcpu *v, uint16_t p2midx);
 
 struct npfec;
 int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
-                              struct npfec npfec);
+                              struct npfec npfec, bool fall_through);
 
 /* Check CR4/EFER values */
 const char *hvm_efer_valid(const struct vcpu *v, uint64_t value,

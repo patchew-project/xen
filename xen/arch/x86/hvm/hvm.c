@@ -1731,7 +1731,7 @@ void hvm_inject_event(const struct x86_event *event)
 }
 
 int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
-                              struct npfec npfec)
+                              struct npfec npfec, bool fall_through)
 {
     unsigned long gfn = gpa >> PAGE_SHIFT;
     p2m_type_t p2mt;
@@ -1740,7 +1740,7 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
     struct vcpu *curr = current;
     struct domain *currd = curr->domain;
     struct p2m_domain *p2m, *hostp2m;
-    int rc, fall_through = 0, paged = 0;
+    int rc, paged = 0;
     bool sharing_enomem = false;
     vm_event_request_t *req_ptr = NULL;
     bool sync = false;
@@ -1905,7 +1905,7 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
             sync = p2m_mem_access_check(gpa, gla, npfec, &req_ptr);
 
             if ( !sync )
-                fall_through = 1;
+                fall_through = true;
             else
             {
                 /* Rights not promoted (aka. sync event), work here is done */
