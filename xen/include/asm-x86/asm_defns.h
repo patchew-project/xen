@@ -177,13 +177,13 @@ register unsigned long current_stack_pointer asm("rsp");
 
 #ifdef __clang__ /* clang's builtin assember can't do .subsection */
 
-#define UNLIKELY_START_SECTION ".pushsection .text.unlikely,\"ax\""
-#define UNLIKELY_END_SECTION   ".popsection"
+#define UNLIKELY_START_SECTION ".pushsection .text.unlikely,\"ax\"\n\t"
+#define UNLIKELY_END_SECTION   ".popsection\n\t"
 
 #else
 
-#define UNLIKELY_START_SECTION ".subsection 1"
-#define UNLIKELY_END_SECTION   ".subsection 0"
+#define UNLIKELY_START_SECTION ".subsection 1\n\t"
+#define UNLIKELY_END_SECTION   ".subsection 0\n\t"
 
 #endif
 
