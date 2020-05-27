@@ -1129,6 +1129,43 @@ struct xen_domctl_vuart_op {
                                  */
 };
 
+/*
+ * XEN_DOMCTL_getdomaincontext
+ * ---------------------------
+ *
+ * buffer (IN):   The buffer into which the context data should be
+ *                copied, or NULL to query the buffer size that should
+ *                be allocated.
+ * size (IN/OUT): If 'buffer' is NULL then the value passed in must be
+ *                zero, and the value passed out will be the size of the
+ *                buffer to allocate.
+ *                If 'buffer' is non-NULL then the value passed in must
+ *                be the size of the buffer into which data may be copied.
+ *                The value passed out will be the size of data written.
+ */
+struct xen_domctl_getdomaincontext {
+    uint32_t size;
+    uint32_t pad;
+    XEN_GUEST_HANDLE_64(void) buffer;
+};
+
+/* XEN_DOMCTL_setdomaincontext
+ * ---------------------------
+ *
+ * buffer (IN):   The buffer from which the context data should be
+ *                copied.
+ * size (IN):     The size of the buffer from which data may be copied.
+ *                This data must include DOMAIN_SAVE_CODE_HEADER at the
+ *                start and terminate with a DOMAIN_SAVE_CODE_END record.
+ *                Any data beyond the DOMAIN_SAVE_CODE_END record will be
+ *                ignored.
+ */
+struct xen_domctl_setdomaincontext {
+    uint32_t size;
+    uint32_t pad;
+    XEN_GUEST_HANDLE_64(const_void) buffer;
+};
+
 struct xen_domctl {
     uint32_t cmd;
 #define XEN_DOMCTL_createdomain                   1
@@ -1210,6 +1247,8 @@ struct xen_domctl {
 #define XEN_DOMCTL_vuart_op                      81
 #define XEN_DOMCTL_get_cpu_policy                82
 #define XEN_DOMCTL_set_cpu_policy                83
+#define XEN_DOMCTL_getdomaincontext              84
+#define XEN_DOMCTL_setdomaincontext              85
 #define XEN_DOMCTL_gdbsx_guestmemio            1000
 #define XEN_DOMCTL_gdbsx_pausevcpu             1001
 #define XEN_DOMCTL_gdbsx_unpausevcpu           1002
@@ -1270,6 +1309,8 @@ struct xen_domctl {
         struct xen_domctl_monitor_op        monitor_op;
         struct xen_domctl_psr_alloc         psr_alloc;
         struct xen_domctl_vuart_op          vuart_op;
+        struct xen_domctl_getdomaincontext  getdomaincontext;
+        struct xen_domctl_setdomaincontext  setdomaincontext;
         uint8_t                             pad[128];
     } u;
 };
