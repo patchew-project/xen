@@ -167,7 +167,9 @@ bool handle_pio(uint16_t port, unsigned int size, int dir)
         break;
 
     default:
-        gdprintk(XENLOG_ERR, "Weird HVM ioemulation status %d.\n", rc);
+        gprintk(XENLOG_ERR, "Unexpected PIO status %d, port %#x %s 0x%0*lx\n",
+                rc, port, dir == IOREQ_WRITE ? "write" : "read",
+                size * 2, data & ((1ul << (size * 8)) - 1));
         domain_crash(curr->domain);
         return false;
     }
