@@ -278,33 +278,37 @@ static void ctxt_switch_to(struct vcpu *n)
 /* Update per-VCPU guest runstate shared memory area (if registered). */
 static void update_runstate_area(struct vcpu *v)
 {
-    void __user *guest_handle = NULL;
-    struct vcpu_runstate_info runstate;
+    struct vcpu_runstate_info *runstate;
 
-    if ( guest_handle_is_null(runstate_guest(v)) )
+    /* XXX why do we accept not to block here */
+    if ( !spin_trylock(&v->runstate_guest_lock) )
         return;
 
-    memcpy(&runstate, &v->runstate, sizeof(runstate));
+    runstate = runstate_guest(v);
+
+    if (runstate == NULL)
+    {
+        spin_unlock(&v->runstate_guest_lock);
+        return;
+    }
 
     if ( VM_ASSIST(v->domain, runstate_update_flag) )
     {
-        guest_handle = &v->runstate_guest.p->state_entry_time + 1;
-        guest_handle--;
-        runstate.state_entry_time |= XEN_RUNSTATE_UPDATE;
-        __raw_copy_to_guest(guest_handle,
-                            (void *)(&runstate.state_entry_time + 1) - 1, 1);
+        runstate->state_entry_time |= XEN_RUNSTATE_UPDATE;
         smp_wmb();
+        v->runstate.state_entry_time |= XEN_RUNSTATE_UPDATE;
     }
 
-    __copy_to_guest(runstate_guest(v), &runstate, 1);
+    memcpy(runstate, &v->runstate, sizeof(v->runstate));
 
-    if ( guest_handle )
+    if ( VM_ASSIST(v->domain, runstate_update_flag) )
     {
-        runstate.state_entry_time &= ~XEN_RUNSTATE_UPDATE;
+        runstate->state_entry_time &= ~XEN_RUNSTATE_UPDATE;
         smp_wmb();
-        __raw_copy_to_guest(guest_handle,
-                            (void *)(&runstate.state_entry_time + 1) - 1, 1);
+        v->runstate.state_entry_time &= ~XEN_RUNSTATE_UPDATE;
     }
+
+    spin_unlock(&v->runstate_guest_lock);
 }
 
 static void schedule_tail(struct vcpu *prev)

@@ -166,15 +166,18 @@ struct vcpu
     struct sched_unit *sched_unit;
 
     struct vcpu_runstate_info runstate;
+
+    spinlock_t      runstate_guest_lock;
+
 #ifndef CONFIG_COMPAT
 # define runstate_guest(v) ((v)->runstate_guest)
-    XEN_GUEST_HANDLE(vcpu_runstate_info_t) runstate_guest; /* guest address */
+    vcpu_runstate_info_t *runstate_guest; /* mapped address of guest copy */
 #else
 # define runstate_guest(v) ((v)->runstate_guest.native)
     union {
-        XEN_GUEST_HANDLE(vcpu_runstate_info_t) native;
-        XEN_GUEST_HANDLE(vcpu_runstate_info_compat_t) compat;
-    } runstate_guest; /* guest address */
+        vcpu_runstate_info_t *native;
+        vcpu_runstate_info_compat_t *compat;
+    } runstate_guest; /* mapped address of guest copy */
 #endif
     unsigned int     new_state;
 

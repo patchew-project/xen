@@ -161,6 +161,7 @@ struct vcpu *vcpu_create(struct domain *d, unsigned int vcpu_id)
     v->dirty_cpu = VCPU_CPU_CLEAN;
 
     spin_lock_init(&v->virq_lock);
+    spin_lock_init(&v->runstate_guest_lock);
 
     tasklet_init(&v->continue_hypercall_tasklet, NULL, NULL);
 
@@ -691,6 +692,66 @@ int rcu_lock_live_remote_domain_by_id(domid_t dom, struct domain **d)
     return 0;
 }
 
+static void  unmap_runstate_area(struct vcpu *v, unsigned int lock)
+{
+    mfn_t mfn;
+
+    if ( ! runstate_guest(v) )
+        return;
+
+    if (lock)
+        spin_lock(&v->runstate_guest_lock);
+
+    mfn = domain_page_map_to_mfn(runstate_guest(v));
+
+    unmap_domain_page_global((void *)
+                            ((unsigned long)v->runstate_guest &
+                             PAGE_MASK));
+
+    put_page_and_type(mfn_to_page(mfn));
+    runstate_guest(v) = NULL;
+
+    if (lock)
+        spin_unlock(&v->runstate_guest_lock);
+}
+
+static int map_runstate_area(struct vcpu *v,
+                    struct vcpu_register_runstate_memory_area *area)
+{
+    unsigned long offset = area->addr.p & ~PAGE_MASK;
+    void *mapping;
+    struct page_info *page;
+    size_t size = sizeof(struct vcpu_runstate_info);
+
+    ASSERT(runstate_guest(v) == NULL);
+
+    /* do not allow an area crossing 2 pages */
+    if ( offset > (PAGE_SIZE - size) )
+        return -EINVAL;
+
+#ifdef CONFIG_ARM
+    page = get_page_from_gva(v, area->addr.p, GV2M_WRITE);
+#else
+    /* XXX how to solve this one ? */
+#error get_page_from_gva is not available on other archs
+#endif
+    if ( !page )
+        return -EINVAL;
+
+    mapping = __map_domain_page_global(page);
+
+    if ( mapping == NULL )
+    {
+        put_page_and_type(page);
+        return -ENOMEM;
+    }
+
+    runstate_guest(v) = (struct vcpu_runstate_info *)
+        ((unsigned long)mapping + offset);
+
+    return 0;
+}
+
 int domain_kill(struct domain *d)
 {
     int rc = 0;
@@ -727,7 +788,10 @@ int domain_kill(struct domain *d)
         if ( cpupool_move_domain(d, cpupool0) )
             return -ERESTART;
         for_each_vcpu ( d, v )
+        {
+            unmap_runstate_area(v, 0);
             unmap_vcpu_info(v);
+        }
         d->is_dying = DOMDYING_dead;
         /* Mem event cleanup has to go here because the rings 
          * have to be put before we call put_domain. */
@@ -1167,7 +1231,7 @@ int domain_soft_reset(struct domain *d)
 
     for_each_vcpu ( d, v )
     {
-        set_xen_guest_handle(runstate_guest(v), NULL);
+        unmap_runstate_area(v, 1);
         unmap_vcpu_info(v);
     }
 
@@ -1484,7 +1548,6 @@ long do_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) arg)
     case VCPUOP_register_runstate_memory_area:
     {
         struct vcpu_register_runstate_memory_area area;
-        struct vcpu_runstate_info runstate;
 
         rc = -EFAULT;
         if ( copy_from_guest(&area, arg, 1) )
@@ -1493,18 +1556,13 @@ long do_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) arg)
         if ( !guest_handle_okay(area.addr.h, 1) )
             break;
 
-        rc = 0;
-        runstate_guest(v) = area.addr.h;
+        spin_lock(&v->runstate_guest_lock);
 
-        if ( v == current )
-        {
-            __copy_to_guest(runstate_guest(v), &v->runstate, 1);
-        }
-        else
-        {
-            vcpu_runstate_get(v, &runstate);
-            __copy_to_guest(runstate_guest(v), &runstate, 1);
-        }
+        unmap_runstate_area(v, 0);
+
+        rc = map_runstate_area(v, &area);
+
+        spin_unlock(&v->runstate_guest_lock);
 
         break;
     }
