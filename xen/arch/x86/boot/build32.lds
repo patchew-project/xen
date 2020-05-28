@@ -50,6 +50,11 @@ SECTIONS
         *(.got.plt)
   }
 
+  .shstrtab : {
+        /* Discarding .shstrtab is not supported by LLD (LLVM LD). */
+        *(.shstrtab)
+  }
+
   /DISCARD/ : {
         /*
          * Discard everything else, to prevent linkers from putting
