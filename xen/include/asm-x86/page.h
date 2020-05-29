@@ -291,7 +291,13 @@ void copy_page_sse2(void *, const void *);
 #define pfn_to_paddr(pfn)   __pfn_to_paddr(pfn)
 #define paddr_to_pfn(pa)    __paddr_to_pfn(pa)
 #define paddr_to_pdx(pa)    pfn_to_pdx(paddr_to_pfn(pa))
-#define vmap_to_mfn(va)     _mfn(l1e_get_pfn(*virt_to_xen_l1e((unsigned long)(va))))
+
+#define vmap_to_mfn(va) ({                                                  \
+        const l1_pgentry_t *pl1e_ = virt_to_xen_l1e((unsigned long)(va));   \
+        mfn_t mfn_ = l1e_get_mfn(*pl1e_);                                   \
+        unmap_domain_page(pl1e_);                                           \
+        mfn_; })
+
 #define vmap_to_page(va)    mfn_to_page(vmap_to_mfn(va))
 
 #endif /* !defined(__ASSEMBLY__) */
