@@ -105,8 +105,8 @@ modules to find any CPIO archives, and search the archive for the applicable
 file.  Xen will stop searching at the first match.
 
 
-Run time microcode loading
---------------------------
+Runtime microcode loading
+-------------------------
 
 .. warning::
 
@@ -114,7 +114,23 @@ Run time microcode loading
    or at boot time.  Not all microcode updates (or parts thereof) can be
    applied at runtime.
 
-The ``xen-ucode`` utility can be used to initiate a runtime microcode load.
+   Given the proprietry nature of microcode, we are unable to make any claim
+   that a runtime microcode is risk-free.  Any runtime microcode loading needs
+   adequate testing on a dev instance before being rolled out to production
+   systems.
+
+The ``xen-ucode`` utility can be used to initiate a runtime microcode load::
+
+  [root@host ~]# xen-ucode
+  xen-ucode: Xen microcode updating tool
+  Usage: xen-ucode <microcode blob>
+  [root@host ~]#
+
+e.g. With a Linux dom0 on a Haswell system::
+
+  [root@host ~]# xen-ucode /lib/firmware/intel-ucode/06-3c-03
+  [root@host ~]#
+
 It will pass the blob to Xen, which will check to see whether the blob is
 correct for the processor, and newer than the running microcode.
 
