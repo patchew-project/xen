@@ -102,8 +102,8 @@ commitish_version () {
     esac
 
     git cat-file blob "$commitish:$versionfile" >"$tmp_versionfile"
-    version=$(make --no-print-directory -C docs \
-                   -f "${tmp_versionfile#docs/}" xenversion)
+    version=$(make --no-print-directory -C xen \
+                   -f "../${tmp_versionfile}" xenversion)
     case "$version" in
         *.*.*) version="${version%.*}" ;;
     esac
