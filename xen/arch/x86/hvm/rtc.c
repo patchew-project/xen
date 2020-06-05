@@ -808,9 +808,78 @@ void rtc_reset(struct domain *d)
     s->pt.source = PTSRC_isa;
 }
 
+/* RTC mediator for HVM hardware domain. */
+static unsigned int hw_read(unsigned int port)
+{
+    const struct domain *currd = current->domain;
+    unsigned long flags;
+    unsigned int data = 0;
+
+    switch ( port )
+    {
+    case RTC_PORT(0):
+          data = currd->arch.cmos_idx;
+          break;
+
+    case RTC_PORT(1):
+          spin_lock_irqsave(&rtc_lock, flags);
+          outb(currd->arch.cmos_idx & 0x7f, RTC_PORT(0));
+          data = inb(RTC_PORT(1));
+          spin_unlock_irqrestore(&rtc_lock, flags);
+          break;
+    }
+
+    return data;
+}
+
+static void hw_write(unsigned int port, unsigned int data)
+{
+    struct domain *currd = current->domain;
+    unsigned long flags;
+
+    switch ( port )
+    {
+    case RTC_PORT(0):
+          currd->arch.cmos_idx = data;
+          break;
+
+    case RTC_PORT(1):
+          spin_lock_irqsave(&rtc_lock, flags);
+          outb(currd->arch.cmos_idx & 0x7f, RTC_PORT(0));
+          outb(data, RTC_PORT(1));
+          spin_unlock_irqrestore(&rtc_lock, flags);
+          break;
+    }
+}
+
+static int hw_rtc_io(int dir, unsigned int port, unsigned int size,
+                     uint32_t *val)
+{
+    if ( size != 1 )
+    {
+        gdprintk(XENLOG_WARNING, "bad RTC access size (%u)\n", size);
+        *val = ~0;
+        return X86EMUL_OKAY;
+    }
+
+    if ( dir == IOREQ_WRITE )
+        hw_write(port, *val);
+    else
+        *val = hw_read(port);
+
+    return X86EMUL_OKAY;
+}
+
 void rtc_init(struct domain *d)
 {
     RTCState *s = domain_vrtc(d);
+
+    if ( is_hardware_domain(d) )
+    {
+        /* Hardware domain gets mediated access to the physical RTC. */
+        register_portio_handler(d, RTC_PORT(0), 2, hw_rtc_io);
+        return;
+    }
 
     if ( !has_vrtc(d) )
         return;
