@@ -27,6 +27,7 @@
 #include <xen/keyhandler.h>
 #include <xen/guest_access.h>
 #include <asm/io.h>
+#include <asm/iocap.h>
 #include <asm/msr.h>
 #include <asm/mpspec.h>
 #include <asm/processor.h>
@@ -1108,6 +1109,64 @@ static unsigned long get_cmos_time(void)
         panic("No CMOS RTC found - system must be booted from EFI\n");
 
     return mktime(rtc.year, rtc.mon, rtc.day, rtc.hour, rtc.min, rtc.sec);
+}
+
+/* Helpers for guest accesses to the physical RTC. */
+unsigned int rtc_guest_read(unsigned int port)
+{
+    const struct domain *currd = current->domain;
+    unsigned long flags;
+    unsigned int data = ~0;
+
+    ASSERT(port == RTC_PORT(0) || port == RTC_PORT(1));
+    if ( !ioports_access_permitted(currd, port, port) )
+    {
+        ASSERT_UNREACHABLE();
+        return data;
+    }
+
+    switch ( port )
+    {
+    case RTC_PORT(0):
+        data = currd->arch.cmos_idx;
+        break;
+
+    case RTC_PORT(1):
+        spin_lock_irqsave(&rtc_lock, flags);
+        outb(currd->arch.cmos_idx & 0x7f, RTC_PORT(0));
+        data = inb(RTC_PORT(1));
+        spin_unlock_irqrestore(&rtc_lock, flags);
+        break;
+    }
+
+    return data;
+}
+
+void rtc_guest_write(unsigned int port, unsigned int data)
+{
+    struct domain *currd = current->domain;
+    unsigned long flags;
+
+    ASSERT(port == RTC_PORT(0) || port == RTC_PORT(1));
+    if ( !ioports_access_permitted(currd, port, port) )
+    {
+        ASSERT_UNREACHABLE();
+        return;
+    }
+
+    switch ( port )
+    {
+    case RTC_PORT(0):
+        currd->arch.cmos_idx = data;
+        break;
+
+    case RTC_PORT(1):
+        spin_lock_irqsave(&rtc_lock, flags);
+        outb(currd->arch.cmos_idx & 0x7f, RTC_PORT(0));
+        outb(data, RTC_PORT(1));
+        spin_unlock_irqrestore(&rtc_lock, flags);
+        break;
+    }
 }
 
 static unsigned long get_wallclock_time(void)
