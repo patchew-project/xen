@@ -72,6 +72,22 @@ void libxl__rdm_setdefault(libxl__gc *gc, libxl_domain_build_info *b_info)
                             LIBXL_RDM_MEM_BOUNDARY_MEMKB_DEFAULT;
 }
 
+static enum libxl_gfx_passthru_kind
+libxl__detect_gfx_passthru_kind(libxl__gc *gc,
+                                const libxl_domain_config *guest_config)
+{
+    const libxl_domain_build_info *b_info = &guest_config->b_info;
+
+    if (b_info->u.hvm.gfx_passthru_kind != LIBXL_GFX_PASSTHRU_KIND_DEFAULT)
+        return b_info->u.hvm.gfx_passthru_kind;
+
+    if (libxl__is_igd_vga_passthru(gc, guest_config)) {
+        return LIBXL_GFX_PASSTHRU_KIND_IGD;
+    }
+
+    return LIBXL_GFX_PASSTHRU_KIND_DEFAULT;
+}
+
 int libxl__domain_build_info_setdefault(libxl__gc *gc,
                                         libxl_domain_build_info *b_info)
 {
@@ -411,7 +427,8 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
 
         libxl_defbool_setdefault(&b_info->u.hvm.nographic, false);
 
-        libxl_defbool_setdefault(&b_info->u.hvm.gfx_passthru, false);
+        libxl_defbool_setdefault(&b_info->u.hvm.gfx_passthru,
+                b_info->u.hvm.gfx_passthru_kind != LIBXL_GFX_PASSTHRU_KIND_DEFAULT);
 
         libxl__rdm_setdefault(gc, b_info);
         break;
@@ -1176,6 +1193,14 @@ int libxl__domain_config_setdefault(libxl__gc *gc,
             (d_config->c_info.passthrough == LIBXL_PASSTHROUGH_SYNC_PT)
             ? libxl__get_required_iommu_memory(d_config->b_info.max_memkb)
             : 0;
+
+    if (d_config->b_info.type == LIBXL_DOMAIN_TYPE_HVM) {
+        if (d_config->b_info.u.hvm.gfx_passthru_kind == LIBXL_GFX_PASSTHRU_KIND_DEFAULT) {
+            /* this may also keep LIBXL_GFX_PASSTHRU_KIND_DEFAULT */
+            d_config->b_info.u.hvm.gfx_passthru_kind =
+                libxl__detect_gfx_passthru_kind(gc, d_config);
+        }
+    }
 
     ret = libxl__domain_build_info_setdefault(gc, &d_config->b_info);
     if (ret) {

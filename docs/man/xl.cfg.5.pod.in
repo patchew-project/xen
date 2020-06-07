@@ -1250,6 +1250,9 @@ Intel Graphics Device.
 
 =back
 
+By default, this option is enabled if Intel Graphics Device is assigned to the
+VM.
+
 Note that some graphics cards (AMD/ATI cards, for example) do not
 necessarily require the B<gfx_passthru> option, so you can use the normal Xen
 PCI passthrough to assign the graphics card as a secondary graphics

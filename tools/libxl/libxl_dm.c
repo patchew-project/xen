@@ -981,22 +981,6 @@ static char *dm_spice_options(libxl__gc *gc,
     return opt;
 }
 
-static enum libxl_gfx_passthru_kind
-libxl__detect_gfx_passthru_kind(libxl__gc *gc,
-                                const libxl_domain_config *guest_config)
-{
-    const libxl_domain_build_info *b_info = &guest_config->b_info;
-
-    if (b_info->u.hvm.gfx_passthru_kind != LIBXL_GFX_PASSTHRU_KIND_DEFAULT)
-        return b_info->u.hvm.gfx_passthru_kind;
-
-    if (libxl__is_igd_vga_passthru(gc, guest_config)) {
-        return LIBXL_GFX_PASSTHRU_KIND_IGD;
-    }
-
-    return LIBXL_GFX_PASSTHRU_KIND_DEFAULT;
-}
-
 /* colo mode */
 enum {
     LIBXL__COLO_NONE = 0,
@@ -1798,9 +1782,7 @@ static int libxl__build_device_model_args_new(libxl__gc *gc,
         }
 
         if (libxl_defbool_val(b_info->u.hvm.gfx_passthru)) {
-            enum libxl_gfx_passthru_kind gfx_passthru_kind =
-                            libxl__detect_gfx_passthru_kind(gc, guest_config);
-            switch (gfx_passthru_kind) {
+            switch (b_info->u.hvm.gfx_passthru_kind) {
             case LIBXL_GFX_PASSTHRU_KIND_IGD:
                 machinearg = GCSPRINTF("%s,igd-passthru=on", machinearg);
                 break;
