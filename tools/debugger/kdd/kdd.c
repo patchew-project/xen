@@ -249,7 +249,7 @@ static void kdd_log_pkt(kdd_state *s, char *name, kdd_pkt *p)
 
     /* Re-check the checksum */
     for (i = 0; i < p->h.len; i++)
-        sum += p->payload[i];
+        sum += p->h.payload[i];
 
     fprintf(f, "\n"
             "%s: %s type 0x%4.4"PRIx16" len 0x%4.4"PRIx16
@@ -267,8 +267,8 @@ static void kdd_log_pkt(kdd_state *s, char *name, kdd_pkt *p)
             fprintf(f, "%8.8x ", i);
         } else if (i % 8 == 0)
             fprintf(f, " ");
-        fprintf(f, " %2.2x", p->payload[i]);
-        ascii[i % 16] = (isprint(((int)p->payload[i])) ? p->payload[i] : 0x2e);
+        fprintf(f, " %2.2x", p->h.payload[i]);
+        ascii[i % 16] = (isprint(((int)p->h.payload[i])) ? p->h.payload[i] : 0x2e);
         if (i % 16 == 15)
             fprintf(f, "  |%s|\n", ascii);
     }
@@ -743,7 +743,7 @@ static void kdd_tx(kdd_state *s)
 
     /* Fix up the checksum before we send */
     for (i = 0; i < s->txp.h.len; i++)
-        sum += s->txp.payload[i];
+        sum += s->txp.h.payload[i];
     s->txp.h.sum = sum;
 
     kdd_log_pkt(s, "TX", &s->txp);
@@ -1127,7 +1127,7 @@ static void kdd_handle_pkt(kdd_state *s, kdd_pkt *p)
 
     /* Simple checksum: add all the bytes */
     for (i = 0; i < p->h.len; i++)
-        sum += p->payload[i];
+        sum += p->h.payload[i];
     if (p->h.sum != sum) {
         kdd_send_ack(s, p->h.id, KDD_ACK_BAD);
         return;
