@@ -140,7 +140,7 @@ static int set_nonblocking(int fd, int nonblocking) {
 static int connect_socket(const char *path_or_fd) {
     int fd;
     char *endptr;
-    struct sockaddr_un addr;
+    struct sockaddr_un addr = {};
 
     fd = strtoll(path_or_fd, &endptr, 0);
     if (*endptr == '\0') {
@@ -153,7 +153,7 @@ static int connect_socket(const char *path_or_fd) {
         return -1;
 
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, path_or_fd, sizeof(addr.sun_path));
+    strncpy(addr.sun_path, path_or_fd, sizeof(addr.sun_path) - 1);
     if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == -1) {
         close(fd);
         return -1;
@@ -167,7 +167,7 @@ static int connect_socket(const char *path_or_fd) {
 static int listen_socket(const char *path_or_fd) {
     int fd;
     char *endptr;
-    struct sockaddr_un addr;
+    struct sockaddr_un addr = {};
 
     fd = strtoll(path_or_fd, &endptr, 0);
     if (*endptr == '\0') {
@@ -180,7 +180,7 @@ static int listen_socket(const char *path_or_fd) {
         return -1;
 
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, path_or_fd, sizeof(addr.sun_path));
+    strncpy(addr.sun_path, path_or_fd, sizeof(addr.sun_path) - 1);
     if (bind(fd, (const struct sockaddr *)&addr, sizeof(addr)) == -1) {
         close(fd);
         return -1;

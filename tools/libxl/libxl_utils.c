@@ -1259,7 +1259,7 @@ int libxl__prepare_sockaddr_un(libxl__gc *gc,
     }
     memset(un, 0, sizeof(struct sockaddr_un));
     un->sun_family = AF_UNIX;
-    strncpy(un->sun_path, path, sizeof(un->sun_path));
+    strncpy(un->sun_path, path, sizeof(un->sun_path) - 1);
     return 0;
 }
 
