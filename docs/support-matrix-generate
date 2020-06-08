@@ -26,12 +26,9 @@
 # SUPPORT.md into json.
 #
 # Then we try to find the next previous revision.  This is done by
-# extracting the current version number from xen/Makefile.  (We make
-# some slight assumption about how xen/Makefile's xenversion target
-# works, because we want to be able to do this without checking out
-# the whole tree for the version in question.)  Then we use git log on
-# xen/Makefile to try to find a commit where the version changed.
-# This gives us the previous version number, NN.
+# extracting the current version number from xen/Makefile.  Then we
+# use git log on xen/Makefile to try to find a commit where the
+# version changed.  This gives us the previous version number, NN.
 #
 # That is substituted into the `refs/remotes/origin/stable-NN'
 # argument to get the tip of the relevant branch.  That in turns
@@ -102,12 +99,16 @@ commitish_version () {
     esac
 
     git cat-file blob "$commitish:$versionfile" >"$tmp_versionfile"
-    version=$(make --no-print-directory -C docs \
-                   -f "${tmp_versionfile#docs/}" xenversion)
-    case "$version" in
-        *.*.*) version="${version%.*}" ;;
-    esac
-    printf "%s\n" "${version%%-*}"
+
+    local maj=$(sed -n 's/.*XEN_VERSION.*= \([0-9]\+\)/\1/p' < "$tmp_versionfile")
+    local min=$(sed -n 's/.*XEN_SUBVERSION.*= \([0-9]\+\)/\1/p' < "$tmp_versionfile")
+
+    if [[ -z $maj || -z $min ]];
+    then
+        fail "Unable to identify Xen version for ${commitish}";
+    fi
+
+    printf "%d.%d\n" "${maj}" "${min}"
 }
 
 exec 4>"$tmp_revisions"
