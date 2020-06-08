@@ -4,6 +4,7 @@
 
 #include <xen/init.h>
 #include <xen/kernel.h>
+#include <xen/mm.h>
 #include <xen/rcupdate.h>
 #include <xen/spinlock.h>
 #include <xen/virtual_region.h>
@@ -89,6 +90,18 @@ void unregister_virtual_region(struct virtual_region *r)
     ASSERT(!local_irq_is_enabled());
 
     remove_virtual_region(r);
+}
+
+void reset_virtual_region_perms(void)
+{
+    const struct virtual_region *region;
+
+    rcu_read_lock(&rcu_virtual_region_lock);
+    list_for_each_entry_rcu( region, &virtual_region_list, list )
+        modify_xen_mappings((unsigned long)region->start,
+                            ROUNDUP((unsigned long)region->end, PAGE_SIZE),
+                            PAGE_HYPERVISOR_RX);
+    rcu_read_unlock(&rcu_virtual_region_lock);
 }
 
 void __init unregister_init_virtual_region(void)

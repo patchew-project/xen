@@ -12,6 +12,7 @@
 #include <xen/livepatch.h>
 #include <xen/sched.h>
 #include <xen/vm_event.h>
+#include <xen/virtual_region.h>
 
 #include <asm/fixmap.h>
 #include <asm/nmi.h>
@@ -58,6 +59,10 @@ int arch_livepatch_safety_check(void)
 
 int arch_livepatch_quiesce(void)
 {
+    /* If Shadow Stacks are in use, disable CR4.CET so we can modify CR0.WP. */
+    if ( cpu_has_xen_shstk )
+        write_cr4(read_cr4() & ~X86_CR4_CET);
+
     /* Disable WP to allow changes to read-only pages. */
     write_cr0(read_cr0() & ~X86_CR0_WP);
 
@@ -68,6 +73,29 @@ void arch_livepatch_revive(void)
 {
     /* Reinstate WP. */
     write_cr0(read_cr0() | X86_CR0_WP);
+
+    /* Clobber dirty bits and reinstate CET, if applicable. */
+    if ( IS_ENABLED(CONFIG_XEN_SHSTK) && cpu_has_xen_shstk )
+    {
+        unsigned long tmp;
+
+        reset_virtual_region_perms();
+
+        write_cr4(read_cr4() | X86_CR4_CET);
+
+        /*
+         * Fix up the return address on the shadow stack, which currently
+         * points at arch_livepatch_quiesce()'s caller.
+         *
+         * Note: this is somewhat fragile, and depends on both
+         * arch_livepatch_{quiesce,revive}() being called from the same
+         * function, which is currently the case.
+         */
+        asm volatile ("rdsspq %[ssp];"
+                      "wrssq %[addr], (%[ssp]);"
+                      : [ssp] "=&r" (tmp)
+                      : [addr] "r" (__builtin_return_address(0)));
+    }
 }
 
 int arch_livepatch_verify_func(const struct livepatch_func *func)
