@@ -169,9 +169,10 @@ void hvm_pci_intx_deassert(
 
 void hvm_gsi_assert(struct domain *d, unsigned int gsi)
 {
+    int level = vioapic_get_trigger_mode(d, gsi);
     struct hvm_irq *hvm_irq = hvm_domain_irq(d);
 
-    if ( gsi >= hvm_irq->nr_gsis )
+    if ( gsi >= hvm_irq->nr_gsis || level < 0 )
     {
         ASSERT_UNREACHABLE();
         return;
@@ -186,9 +187,10 @@ void hvm_gsi_assert(struct domain *d, unsigned int gsi)
      * to know if the GSI is pending or not.
      */
     spin_lock(&d->arch.hvm.irq_lock);
-    if ( !hvm_irq->gsi_assert_count[gsi] )
+    if ( !level || !hvm_irq->gsi_assert_count[gsi] )
     {
-        hvm_irq->gsi_assert_count[gsi] = 1;
+        if ( !level )
+            hvm_irq->gsi_assert_count[gsi] = 1;
         assert_gsi(d, gsi);
     }
     spin_unlock(&d->arch.hvm.irq_lock);
@@ -196,11 +198,12 @@ void hvm_gsi_assert(struct domain *d, unsigned int gsi)
 
 void hvm_gsi_deassert(struct domain *d, unsigned int gsi)
 {
+    int level = vioapic_get_trigger_mode(d, gsi);
     struct hvm_irq *hvm_irq = hvm_domain_irq(d);
 
-    if ( gsi >= hvm_irq->nr_gsis )
+    if ( level <= 0 || gsi >= hvm_irq->nr_gsis )
     {
-        ASSERT_UNREACHABLE();
+        ASSERT(level == 0 && gsi < hvm_irq->nr_gsis);
         return;
     }
 
