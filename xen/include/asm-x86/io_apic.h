@@ -205,4 +205,7 @@ unsigned highest_gsi(void);
 int ioapic_guest_read( unsigned long physbase, unsigned int reg, u32 *pval);
 int ioapic_guest_write(unsigned long physbase, unsigned int reg, u32 pval);
 
+int io_apic_find_isa_irq_pin(int irq, int type);
+int io_apic_find_isa_irq_apic(int irq, int type);
+
 #endif

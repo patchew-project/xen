@@ -608,7 +608,7 @@ static int find_irq_entry(int apic, int pin, int type)
 /*
  * Find the pin to which IRQ[irq] (ISA) is connected
  */
-static int __init find_isa_irq_pin(int irq, int type)
+int io_apic_find_isa_irq_pin(int irq, int type)
 {
     int i;
 
@@ -628,7 +628,7 @@ static int __init find_isa_irq_pin(int irq, int type)
     return -1;
 }
 
-static int __init find_isa_irq_apic(int irq, int type)
+int io_apic_find_isa_irq_apic(int irq, int type)
 {
     int i;
 
@@ -1306,8 +1306,8 @@ static void __init enable_IO_APIC(void)
      * the i8259 probably is not connected the ioapic but give the
      * mptable a chance anyway.
      */
-    i8259_pin  = find_isa_irq_pin(0, mp_ExtINT);
-    i8259_apic = find_isa_irq_apic(0, mp_ExtINT);
+    i8259_pin  = io_apic_find_isa_irq_pin(0, mp_ExtINT);
+    i8259_apic = io_apic_find_isa_irq_apic(0, mp_ExtINT);
     /* Trust the MP table if nothing is setup in the hardware */
     if ((ioapic_i8259.pin == -1) && (i8259_pin >= 0)) {
         printk(KERN_WARNING "ExtINT not setup in hardware but reported by MP table\n");
@@ -1834,8 +1834,8 @@ static void __init unlock_ExtINT_logic(void)
     struct IO_APIC_route_entry entry0, entry1;
     unsigned char save_control, save_freq_select;
 
-    pin = find_isa_irq_pin(8, mp_INT);
-    apic = find_isa_irq_apic(8, mp_INT);
+    pin = io_apic_find_isa_irq_pin(8, mp_INT);
+    apic = io_apic_find_isa_irq_apic(8, mp_INT);
     if ( pin == -1 || apic == -1 )
         return;
 
@@ -1913,8 +1913,8 @@ static void __init check_timer(void)
     /*timer_ack = 1;*/
     /*enable_8259A_irq(irq_to_desc(0));*/
 
-    pin1  = find_isa_irq_pin(0, mp_INT);
-    apic1 = find_isa_irq_apic(0, mp_INT);
+    pin1  = io_apic_find_isa_irq_pin(0, mp_INT);
+    apic1 = io_apic_find_isa_irq_apic(0, mp_INT);
     pin2  = ioapic_i8259.pin;
     apic2 = ioapic_i8259.apic;
 

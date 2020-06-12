@@ -425,7 +425,7 @@ static void vioapic_deliver(struct hvm_vioapic *vioapic, unsigned int pin)
         struct vlapic *lapic0 = vcpu_vlapic(d->vcpu[0]);
 
         /* Force to pick vCPU 0 if part of the destination list */
-        if ( (irq == hvm_isa_irq_to_gsi(0)) && pit_channel0_enabled() &&
+        if ( (irq == hvm_isa_irq_to_gsi(d, 0)) && pit_channel0_enabled() &&
              vlapic_match_dest(lapic0, NULL, 0, dest, dest_mode) &&
              vlapic_enabled(lapic0) )
             target = lapic0;

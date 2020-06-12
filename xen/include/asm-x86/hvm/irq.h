@@ -100,7 +100,7 @@ struct hvm_irq {
 #define hvm_domain_irq(d) ((d)->arch.hvm.irq)
 #define hvm_irq_size(cnt) offsetof(struct hvm_irq, gsi_assert_count[cnt])
 
-#define hvm_isa_irq_to_gsi(isa_irq) ((isa_irq) ? : 2)
+unsigned int hvm_isa_irq_to_gsi(const struct domain *d, unsigned int irq);
 
 /* Check/Acknowledge next pending interrupt. */
 struct hvm_intack hvm_vcpu_has_pending_irq(struct vcpu *v);

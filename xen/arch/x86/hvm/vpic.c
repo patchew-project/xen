@@ -230,6 +230,8 @@ static void vpic_ioport_write(
         }
         else
         {
+            struct domain *currd = current->domain;
+
             /* OCW2 */
             cmd = val >> 5;
             switch ( cmd )
@@ -260,8 +262,9 @@ static void vpic_ioport_write(
                 /* Release lock and EOI the physical interrupt (if any). */
                 vpic_update_int_output(vpic);
                 vpic_unlock(vpic);
-                hvm_dpci_eoi(current->domain,
-                             hvm_isa_irq_to_gsi((addr >> 7) ? (irq|8) : irq),
+                hvm_dpci_eoi(currd,
+                             hvm_isa_irq_to_gsi(currd, (addr >> 7) ? (irq | 8)
+                                                                   : irq),
                              NULL);
                 return; /* bail immediately */
             case 6: /* Set Priority                */

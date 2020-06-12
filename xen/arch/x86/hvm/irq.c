@@ -23,6 +23,7 @@
 #include <xen/sched.h>
 #include <xen/irq.h>
 #include <xen/keyhandler.h>
+#include <asm/io_apic.h>
 #include <asm/hvm/domain.h>
 #include <asm/hvm/support.h>
 #include <asm/msi.h>
@@ -212,12 +213,25 @@ void hvm_gsi_deassert(struct domain *d, unsigned int gsi)
     spin_unlock(&d->arch.hvm.irq_lock);
 }
 
+unsigned int hvm_isa_irq_to_gsi(const struct domain *d, unsigned int irq)
+{
+    int pin, apic;
+
+    if ( !is_hardware_domain(d) )
+        return irq ?: 2;
+
+    pin  = io_apic_find_isa_irq_pin(irq, mp_INT);
+    apic = io_apic_find_isa_irq_apic(irq, mp_INT);
+
+    return (pin < 0 || apic < 0) ? irq : (io_apic_gsi_base(apic) + pin);
+}
+
 int hvm_isa_irq_assert(struct domain *d, unsigned int isa_irq,
                        int (*get_vector)(const struct domain *d,
                                          unsigned int gsi))
 {
     struct hvm_irq *hvm_irq = hvm_domain_irq(d);
-    unsigned int gsi = hvm_isa_irq_to_gsi(isa_irq);
+    unsigned int gsi = hvm_isa_irq_to_gsi(d, isa_irq);
     int vector = -1;
 
     ASSERT(isa_irq <= 15);
@@ -240,7 +254,7 @@ void hvm_isa_irq_deassert(
     struct domain *d, unsigned int isa_irq)
 {
     struct hvm_irq *hvm_irq = hvm_domain_irq(d);
-    unsigned int gsi = hvm_isa_irq_to_gsi(isa_irq);
+    unsigned int gsi = hvm_isa_irq_to_gsi(d, isa_irq);
 
     ASSERT(isa_irq <= 15);
 
@@ -754,7 +768,7 @@ static int irq_load_isa(struct domain *d, hvm_domain_context_t *h)
      * This relies on the PCI IRQ state being loaded first. */
     for ( irq = 0; platform_legacy_irq(irq); irq++ )
         if ( test_bit(irq, &hvm_irq->isa_irq.i) )
-            hvm_irq->gsi_assert_count[hvm_isa_irq_to_gsi(irq)]++;
+            hvm_irq->gsi_assert_count[hvm_isa_irq_to_gsi(d, irq)]++;
 
     return 0;
 }
