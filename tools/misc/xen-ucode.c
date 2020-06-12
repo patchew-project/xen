@@ -62,8 +62,11 @@ int main(int argc, char *argv[])
 
     ret = xc_microcode_update(xch, buf, len);
     if ( ret )
+    {
+        ret = errno;
         fprintf(stderr, "Failed to update microcode. (err: %s)\n",
                 strerror(errno));
+    }
 
     xc_interface_close(xch);
 
@@ -74,5 +77,5 @@ int main(int argc, char *argv[])
     }
     close(fd);
 
-    return 0;
+    return ret;
 }
