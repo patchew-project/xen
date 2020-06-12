@@ -168,6 +168,7 @@ static void pit_load_count(PITState *pit, int channel, int val)
     u32 period;
     struct hvm_hw_pit_channel *s = &pit->hw.channels[channel];
     struct vcpu *v = vpit_vcpu(pit);
+    const struct domain *d = v ? v->domain : NULL;
 
     ASSERT(spin_is_locked(&pit->lock));
 
@@ -190,14 +191,18 @@ static void pit_load_count(PITState *pit, int channel, int val)
     case 3:
         /* Periodic timer. */
         TRACE_2D(TRC_HVM_EMUL_PIT_START_TIMER, period, period);
-        create_periodic_time(v, &pit->pt0, period, period, 0, pit_time_fired, 
+        create_periodic_time(v, &pit->pt0, period, period,
+                             has_vpic(d) ? 0 : hvm_isa_irq_to_gsi(d, 0),
+                             pit_time_fired,
                              &pit->count_load_time[channel], false);
         break;
     case 1:
     case 4:
         /* One-shot timer. */
         TRACE_2D(TRC_HVM_EMUL_PIT_START_TIMER, period, 0);
-        create_periodic_time(v, &pit->pt0, period, 0, 0, pit_time_fired,
+        create_periodic_time(v, &pit->pt0, period, 0,
+                             has_vpic(d) ? 0 : hvm_isa_irq_to_gsi(d, 0),
+                             pit_time_fired,
                              &pit->count_load_time[channel], false);
         break;
     default:
@@ -455,7 +460,8 @@ void pit_reset(struct domain *d)
     {
         TRACE_0D(TRC_HVM_EMUL_PIT_STOP_TIMER);
         destroy_periodic_time(&pit->pt0);
-        pit->pt0.source = PTSRC_isa;
+        ASSERT(has_vpic(d) || has_vioapic(d));
+        pit->pt0.source = has_vpic(d) ? PTSRC_isa : PTSRC_ioapic;
     }
 
     spin_lock(&pit->lock);

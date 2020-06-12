@@ -268,7 +268,14 @@ static void vioapic_write_redirent(
 
     spin_unlock(&d->arch.hvm.irq_lock);
 
-    if ( is_hardware_domain(d) && unmasked )
+    if ( is_hardware_domain(d) && unmasked &&
+         /*
+          * A PVH dom0 can have an emulated PIT that should respect any
+          * interrupt overwrites found in the ACPI MADT table, so we need to
+          * check to which GSI the ISA IRQ 0 is mapped in order to prevent
+          * identity mapping it.
+          */
+         (!has_vpit(d) || gsi != hvm_isa_irq_to_gsi(d, 0)) )
     {
         /*
          * NB: don't call vioapic_hwdom_map_gsi while holding hvm.irq_lock
