@@ -391,10 +391,12 @@ static void ioapic_inj_irq(
     vlapic_set_irq(target, vector, trig_mode);
 }
 
+#ifdef IRQ0_SPECIAL_ROUTING
 static inline int pit_channel0_enabled(void)
 {
     return pt_active(&current->domain->arch.vpit.pt0);
 }
+#endif
 
 static void vioapic_deliver(struct hvm_vioapic *vioapic, unsigned int pin)
 {
