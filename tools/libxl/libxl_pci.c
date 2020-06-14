@@ -2497,7 +2497,51 @@ static int libxl__grant_legacy_vga_permissions(libxl__gc *gc, const uint32_t dom
 }
 
 static int libxl__grant_igd_opregion_permission(libxl__gc *gc, const uint32_t domid) {
-    return 0;
+    char* sysfs_path;
+    FILE* f;
+    uint32_t igd_host_opregion;
+    int ret = 0;
+    uint32_t stubdom_domid = libxl_get_stubdom_id(CTX, domid);
+
+    sysfs_path = GCSPRINTF(SYSFS_PCI_DEV"/"PCI_BDF"/config", 0, 0, 2, 0);
+    f = fopen(sysfs_path, "r");
+    if (!f) {
+        LOGED(ERROR, domid, "Unable to access IGD config space");
+        return ERROR_FAIL;
+    }
+
+    ret = fseek(f, 0xfc, SEEK_SET);
+    if (ret < 0) {
+        LOGED(ERROR, domid, "Unable to lseek in PCI config space");
+        goto out;
+    }
+
+    ret = fread((void*)&igd_host_opregion, 4, 1, f);
+    if (ret < 0) {
+        LOGED(ERROR, domid, "Unable to read opregion register");
+        goto out;
+    }
+
+    ret = xc_domain_iomem_permission(CTX->xch, stubdom_domid,
+                                     (unsigned long)(igd_host_opregion >> XC_PAGE_SHIFT), 0x3, 1);
+    if (ret < 0) {
+        LOGED(ERROR, domid,
+              "failed to give stubdom%d access to %"PRIx32" opregions for igd passthrough", stubdom_domid, igd_host_opregion);
+        goto out;
+    }
+
+    ret = xc_domain_iomem_permission(CTX->xch, domid,
+                                     (unsigned long)(igd_host_opregion >> XC_PAGE_SHIFT), 0x3, 1);
+    if (ret < 0) {
+        LOGED(ERROR, domid,
+              "failed to give dom%d access to %"PRIx32" opregions for igd passthrough", domid, igd_host_opregion);
+        goto out;
+    }
+
+    out:
+    if(f)
+        fclose(f);
+    return ret;
 }
 
 int libxl__grant_vga_iomem_permission(libxl__gc *gc, const uint32_t domid,
