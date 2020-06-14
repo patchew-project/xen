@@ -2441,17 +2441,75 @@ void libxl__device_pci_destroy_all(libxl__egc *egc, uint32_t domid,
     }
 }
 
+static int libxl__grant_legacy_vga_permissions(libxl__gc *gc, const uint32_t domid) {
+    int ret, i;
+    uint64_t vga_iomem_start = 0xa0000 >> XC_PAGE_SHIFT;
+    uint64_t vga_iomem_npages = 0x20;
+    uint32_t stubdom_domid = libxl_get_stubdom_id(CTX, domid);
+    uint64_t vga_ioport_start[] = {0x3B0, 0x3C0};
+    uint64_t vga_ioport_size[] = {0xC, 0x20};
+
+    /* VGA RAM */
+    ret = xc_domain_iomem_permission(CTX->xch, stubdom_domid,
+                                     vga_iomem_start, vga_iomem_npages, 1);
+    if (ret < 0) {
+        LOGED(ERROR, domid,
+              "failed to give stubdom%d access to iomem range "
+              "%"PRIx64"-%"PRIx64" for VGA passthru",
+              stubdom_domid,
+              vga_iomem_start, (vga_iomem_start + (vga_iomem_npages << XC_PAGE_SHIFT) - 1));
+        return ret;
+    }
+    ret = xc_domain_iomem_permission(CTX->xch, domid,
+                                     vga_iomem_start, vga_iomem_npages, 1);
+    if (ret < 0) {
+        LOGED(ERROR, domid,
+              "failed to give dom%d access to iomem range "
+              "%"PRIx64"-%"PRIx64" for VGA passthru",
+              domid, vga_iomem_start, (vga_iomem_start + (vga_iomem_npages << XC_PAGE_SHIFT) - 1));
+        return ret;
+    }
+
+    /* VGA IOPORTS */
+    for (i = 0 ; i < 2 ; i++) {
+        ret = xc_domain_ioport_permission(CTX->xch, stubdom_domid,
+                                          vga_ioport_start[i], vga_ioport_size[i], 1);
+        if (ret < 0) {
+            LOGED(ERROR, domid,
+                  "failed to give stubdom%d access to ioport range "
+                  "%"PRIx64"-%"PRIx64" for VGA passthru",
+                  stubdom_domid,
+                  vga_ioport_start[i], (vga_ioport_start[i] + vga_ioport_size[i] - 1));
+            return ret;
+        }
+        ret = xc_domain_ioport_permission(CTX->xch, domid,
+                                          vga_ioport_start[i], vga_ioport_size[i], 1);
+        if (ret < 0) {
+            LOGED(ERROR, domid,
+                  "failed to give dom%d access to ioport range "
+                  "%"PRIx64"-%"PRIx64" for VGA passthru",
+                  domid, vga_ioport_start[i], (vga_ioport_start[i] + vga_ioport_size[i] - 1));
+            return ret;
+        }
+    }
+
+    return 0;
+}
+
+static int libxl__grant_igd_opregion_permission(libxl__gc *gc, const uint32_t domid) {
+    return 0;
+}
+
 int libxl__grant_vga_iomem_permission(libxl__gc *gc, const uint32_t domid,
                                       libxl_domain_config *const d_config)
 {
-    int i, ret;
+    int i, ret = 0;
+    bool vga_found = false, igd_found = false;
 
     if (!libxl_defbool_val(d_config->b_info.u.hvm.gfx_passthru))
         return 0;
 
-    for (i = 0 ; i < d_config->num_pcidevs ; i++) {
-        uint64_t vga_iomem_start = 0xa0000 >> XC_PAGE_SHIFT;
-        uint32_t stubdom_domid;
+    for (i = 0 ; i < d_config->num_pcidevs && !igd_found ; i++) {
         libxl_device_pci *pcidev = &d_config->pcidevs[i];
         unsigned long pci_device_class;
 
@@ -2460,30 +2518,19 @@ int libxl__grant_vga_iomem_permission(libxl__gc *gc, const uint32_t domid,
         if (pci_device_class != 0x030000) /* VGA class */
             continue;
 
-        stubdom_domid = libxl_get_stubdom_id(CTX, domid);
-        ret = xc_domain_iomem_permission(CTX->xch, stubdom_domid,
-                                         vga_iomem_start, 0x20, 1);
-        if (ret < 0) {
-            LOGED(ERROR, domid,
-                  "failed to give stubdom%d access to iomem range "
-                  "%"PRIx64"-%"PRIx64" for VGA passthru",
-                  stubdom_domid,
-                  vga_iomem_start, (vga_iomem_start + 0x20 - 1));
-            return ret;
-        }
-        ret = xc_domain_iomem_permission(CTX->xch, domid,
-                                         vga_iomem_start, 0x20, 1);
-        if (ret < 0) {
-            LOGED(ERROR, domid,
-                  "failed to give dom%d access to iomem range "
-                  "%"PRIx64"-%"PRIx64" for VGA passthru",
-                  domid, vga_iomem_start, (vga_iomem_start + 0x20 - 1));
-            return ret;
-        }
-        break;
+        vga_found = true;
+        if (pcidev->bus == 0 && pcidev->dev == 2 && pcidev->func == 0)
+            igd_found = true;
     }
 
-    return 0;
+    if (vga_found)
+        ret = libxl__grant_legacy_vga_permissions(gc, domid);
+    if (ret < 0)
+        return ret;
+    if (igd_found)
+        ret = libxl__grant_igd_opregion_permission(gc, domid);
+
+    return ret;
 }
 
 static int libxl_device_pci_compare(const libxl_device_pci *d1,
