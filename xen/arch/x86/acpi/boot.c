@@ -480,7 +480,10 @@ static int __init acpi_parse_fadt(struct acpi_table_header *table)
 		if (fadt->xpm_timer_block.space_id ==
 		    ACPI_ADR_SPACE_SYSTEM_IO) {
 			pmtmr_ioport = fadt->xpm_timer_block.address;
-			pmtmr_width = fadt->xpm_timer_block.bit_width;
+			if (fadt->flags & ACPI_FADT_32BIT_TIMER)
+				pmtmr_width = 32;
+			else
+				pmtmr_width = 24;
 		}
 	}
 	/*
