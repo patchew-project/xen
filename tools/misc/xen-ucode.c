@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
         fprintf(stderr,
                 "xen-ucode: Xen microcode updating tool\n"
                 "Usage: %s <microcode blob>\n", argv[0]);
-        return 0;
+        return EINVAL;
     }
 
     filename = argv[1];
@@ -62,8 +62,11 @@ int main(int argc, char *argv[])
 
     ret = xc_microcode_update(xch, buf, len);
     if ( ret )
+    {
         fprintf(stderr, "Failed to update microcode. (err: %s)\n",
                 strerror(errno));
+        return errno;
+    }
 
     xc_interface_close(xch);
 
