@@ -79,6 +79,114 @@ int xc_tbuf_get_size(xc_interface *xch, unsigned long *size)
     return rc;
 }
 
+int xc_ptbuf_enable(xc_interface *xch, uint32_t domid, uint32_t vcpu, uint64_t size)
+{
+    DECLARE_HYPERCALL_BUFFER(xen_hvm_vmtrace_op_t, arg);
+    int rc = -1;
+
+    arg = xc_hypercall_buffer_alloc(xch, arg, sizeof(*arg));
+    if ( arg == NULL )
+        return -1;
+
+    arg->version = HVMOP_VMTRACE_INTERFACE_VERSION;
+    arg->cmd = HVMOP_vmtrace_ipt_enable;
+    arg->domain = domid;
+    arg->vcpu = vcpu;
+    arg->size = size;
+
+    rc = xencall2(xch->xcall, __HYPERVISOR_hvm_op, HVMOP_vmtrace,
+                  HYPERCALL_BUFFER_AS_ARG(arg));
+
+    xc_hypercall_buffer_free(xch, arg);
+    return rc;
+}
+
+int xc_ptbuf_get_offset(xc_interface *xch, uint32_t domid, uint32_t vcpu, uint64_t *offset)
+{
+    DECLARE_HYPERCALL_BUFFER(xen_hvm_vmtrace_op_t, arg);
+    int rc = -1;
+
+    arg = xc_hypercall_buffer_alloc(xch, arg, sizeof(*arg));
+    if ( arg == NULL )
+        return -1;
+
+    arg->version = HVMOP_VMTRACE_INTERFACE_VERSION;
+    arg->cmd = HVMOP_vmtrace_ipt_get_offset;
+    arg->domain = domid;
+    arg->vcpu = vcpu;
+
+    rc = xencall2(xch->xcall, __HYPERVISOR_hvm_op, HVMOP_vmtrace,
+                  HYPERCALL_BUFFER_AS_ARG(arg));
+
+    if ( rc == 0 )
+    {
+        *offset = arg->offset;
+    }
+
+    xc_hypercall_buffer_free(xch, arg);
+    return rc;
+}
+
+int xc_ptbuf_map(xc_interface *xch, uint32_t domid, uint32_t vcpu, uint8_t **buf, uint64_t *size)
+{
+    DECLARE_HYPERCALL_BUFFER(xen_hvm_vmtrace_op_t, arg);
+    int rc = -1;
+    uint8_t *mapped_buf;
+
+    arg = xc_hypercall_buffer_alloc(xch, arg, sizeof(*arg));
+    if ( arg == NULL )
+        return -1;
+
+    arg->version = HVMOP_VMTRACE_INTERFACE_VERSION;
+    arg->cmd = HVMOP_vmtrace_ipt_get_buf;
+    arg->domain = domid;
+    arg->vcpu = vcpu;
+
+    rc = xencall2(xch->xcall, __HYPERVISOR_hvm_op, HVMOP_vmtrace,
+                  HYPERCALL_BUFFER_AS_ARG(arg));
+
+    if ( rc == 0 )
+    {
+        mapped_buf = (uint8_t *)xc_map_foreign_range(xch, DOMID_XEN, arg->size, PROT_READ, arg->mfn);
+
+        if ( mapped_buf == NULL )
+            return -1;
+
+        *buf = mapped_buf;
+        *size = arg->size;
+    }
+
+    xc_hypercall_buffer_free(xch, arg);
+    return rc;
+}
+
+int xc_ptbuf_unmap(xc_interface *xch, uint8_t *buf, uint64_t size)
+{
+    xenforeignmemory_unmap(xch->fmem, buf, size >> PAGE_SHIFT);
+    return 0;
+}
+
+int xc_ptbuf_disable(xc_interface *xch, uint32_t domid, uint32_t vcpu)
+{
+    DECLARE_HYPERCALL_BUFFER(xen_hvm_vmtrace_op_t, arg);
+    int rc = -1;
+
+    arg = xc_hypercall_buffer_alloc(xch, arg, sizeof(*arg));
+    if ( arg == NULL )
+        return -1;
+
+    arg->version = HVMOP_VMTRACE_INTERFACE_VERSION;
+    arg->cmd = HVMOP_vmtrace_ipt_disable;
+    arg->domain = domid;
+    arg->vcpu = vcpu;
+
+    rc = xencall2(xch->xcall, __HYPERVISOR_hvm_op, HVMOP_vmtrace,
+                  HYPERCALL_BUFFER_AS_ARG(arg));
+
+    xc_hypercall_buffer_free(xch, arg);
+    return rc;
+}
+
 int xc_tbuf_enable(xc_interface *xch, unsigned long pages, unsigned long *mfn,
                    unsigned long *size)
 {
