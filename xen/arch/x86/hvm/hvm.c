@@ -4949,6 +4949,172 @@ static int compat_altp2m_op(
     return rc;
 }
 
+static int do_vmtrace_op(
+    XEN_GUEST_HANDLE_PARAM(void) arg)
+{
+    struct xen_hvm_vmtrace_op a;
+    struct domain *d = NULL;
+    int rc = -EFAULT;
+    int i;
+    struct vcpu *v;
+    void* buf;
+    uint32_t buf_size;
+    uint32_t buf_order;
+    uint64_t buf_mfn;
+    struct page_info *pg;
+
+    if ( !hvm_ipt_supported() )
+        return -EOPNOTSUPP;
+
+    if ( copy_from_guest(&a, arg, 1) )
+        return -EFAULT;
+
+    if ( a.version != HVMOP_VMTRACE_INTERFACE_VERSION )
+        return -EINVAL;
+
+    switch ( a.cmd )
+    {
+    case HVMOP_vmtrace_ipt_enable:
+    case HVMOP_vmtrace_ipt_disable:
+    case HVMOP_vmtrace_ipt_get_buf:
+    case HVMOP_vmtrace_ipt_get_offset:
+        break;
+
+    default:
+        return -EOPNOTSUPP;
+    }
+
+    d = rcu_lock_domain_by_any_id(a.domain);
+
+    if ( d == NULL )
+        return -ESRCH;
+
+    if ( !is_hvm_domain(d) )
+    {
+        rc = -EOPNOTSUPP;
+        goto out;
+    }
+
+    domain_pause(d);
+
+    if ( a.vcpu >= d->max_vcpus )
+    {
+        rc = -EINVAL;
+        goto out;
+    }
+
+    v = d->vcpu[a.vcpu];
+
+    if ( a.cmd == HVMOP_vmtrace_ipt_enable )
+    {
+        if ( v->arch.hvm.vmx.ipt_state ) {
+            // already enabled
+            rc = -EINVAL;
+            goto out;
+        }
+
+        if ( a.size < PAGE_SIZE || a.size > 1000000 * PAGE_SIZE ) {
+            // we don't accept trace buffer size smaller than single page
+            // and the upper bound is defined as 4GB in the specification
+            rc = -EINVAL;
+            goto out;
+	}
+
+        buf_order = get_order_from_bytes(a.size);
+
+        if ( (a.size >> PAGE_SHIFT) != (1 << buf_order) ) {
+            rc = -EINVAL;
+            goto out;
+        }
+
+        buf = page_to_virt(alloc_domheap_pages(d, buf_order, MEMF_no_refcount));
+        buf_size = a.size;
+
+        if ( !buf ) {
+            rc = -EFAULT;
+            goto out;
+        }
+
+        memset(buf, 0, buf_size);
+
+        for ( i = 0; i < (buf_size >> PAGE_SHIFT); i++ ) {
+            share_xen_page_with_privileged_guests(virt_to_page(buf) + i, SHARE_ro);
+        }
+
+        v->arch.hvm.vmx.ipt_state = xmalloc(struct ipt_state);
+        v->arch.hvm.vmx.ipt_state->output_base = virt_to_mfn(buf) << PAGE_SHIFT;
+        v->arch.hvm.vmx.ipt_state->output_mask = buf_size - 1;
+        v->arch.hvm.vmx.ipt_state->status = 0;
+        v->arch.hvm.vmx.ipt_state->ctl = RTIT_CTL_TRACEEN | RTIT_CTL_OS | RTIT_CTL_USR | RTIT_CTL_BRANCH_EN;
+    }
+    else if ( a.cmd == HVMOP_vmtrace_ipt_disable )
+    {
+        if ( !v->arch.hvm.vmx.ipt_state ) {
+            rc = -EINVAL;
+            goto out;
+        }
+
+        buf_mfn = v->arch.hvm.vmx.ipt_state->output_base >> PAGE_SHIFT;
+        buf_size = ( v->arch.hvm.vmx.ipt_state->output_mask + 1 ) & 0xFFFFFFFFUL;
+
+        for ( i = 0; i < (buf_size >> PAGE_SHIFT); i++ )
+        {
+            if ( (mfn_to_page(_mfn(buf_mfn + i))->count_info & PGC_count_mask) != 1 )
+            {
+                rc = -EBUSY;
+                goto out;
+            }
+        }
+
+        xfree(v->arch.hvm.vmx.ipt_state);
+	v->arch.hvm.vmx.ipt_state = NULL;
+
+        for ( i = 0; i < (buf_size >> PAGE_SHIFT); i++ )
+        {
+            pg = mfn_to_page(_mfn(buf_mfn + i));
+            put_page_alloc_ref(pg);
+            if ( !test_and_clear_bit(_PGC_xen_heap, &pg->count_info) )
+                ASSERT_UNREACHABLE();
+            pg->u.inuse.type_info = 0;
+            page_set_owner(pg, NULL);
+            free_domheap_page(pg);
+        }
+    }
+    else if ( a.cmd == HVMOP_vmtrace_ipt_get_buf )
+    {
+        if ( !v->arch.hvm.vmx.ipt_state ) {
+            rc = -EINVAL;
+            goto out;
+        }
+
+        a.mfn = v->arch.hvm.vmx.ipt_state->output_base >> PAGE_SHIFT;
+        a.size = (v->arch.hvm.vmx.ipt_state->output_mask + 1) & 0xFFFFFFFFUL;
+    }
+    else if ( a.cmd == HVMOP_vmtrace_ipt_get_offset )
+    {
+        if ( !v->arch.hvm.vmx.ipt_state ) {
+            rc = -EINVAL;
+            goto out;
+        }
+
+        a.offset = v->arch.hvm.vmx.ipt_state->output_mask >> 32;
+    }
+
+    rc = -EFAULT;
+    if ( __copy_to_guest(arg, &a, 1) )
+      goto out;
+    rc = 0;
+
+ out:
+    smp_wmb();
+    domain_unpause(d);
+    rcu_unlock_domain(d);
+
+    return rc;
+}
+
+DEFINE_XEN_GUEST_HANDLE(compat_hvm_vmtrace_op_t);
+
 static int hvmop_get_mem_type(
     XEN_GUEST_HANDLE_PARAM(xen_hvm_get_mem_type_t) arg)
 {
@@ -5099,6 +5265,10 @@ long do_hvm_op(unsigned long op, XEN_GUEST_HANDLE_PARAM(void) arg)
 
     case HVMOP_altp2m:
         rc = current->hcall_compat ? compat_altp2m_op(arg) : do_altp2m_op(arg);
+        break;
+
+    case HVMOP_vmtrace:
+        rc = do_vmtrace_op(arg);
         break;
 
     default:
