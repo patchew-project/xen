@@ -200,11 +200,24 @@ struct arm_smccc_res {
  * We have an output list that is not necessarily used, and GCC feels
  * entitled to optimise the whole sequence away. "volatile" is what
  * makes it stick.
+ *
+ * Some of the SMC callers are passing directly values that are
+ * controlled by the guest. To mitigate against straight-line
+ * speculation, a speculation barrier is required. As it may be
+ * expensive to architecturally execute the speculation barrier, we are
+ * using a B instruction to architecturally skip it.
+ *
+ * Note that the speculation barrier is technically not necessary as the
+ * B instruction should already block straight-line speculation. But
+ * better be safe than sorry ;).
  */
 #define arm_smccc_1_1_smc(...)                                  \
     do {                                                        \
         __declare_args(__count_args(__VA_ARGS__), __VA_ARGS__); \
         asm volatile("smc #0\n"                                 \
+                     "b 1f\n"                                   \
+                     ASM_SB                                     \
+                     "1:\n"                                     \
                      __constraints(__count_args(__VA_ARGS__))); \
         if ( ___res )                                           \
         *___res = (typeof(*___res)){r0, r1, r2, r3};            \

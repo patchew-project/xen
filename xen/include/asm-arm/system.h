@@ -34,6 +34,14 @@
 #define smp_mb__after_atomic()     smp_mb()
 
 /*
+ * Speculative barrier
+ * XXX: Add support for the 'sb' instruction
+ */
+#define ASM_SB "dsb nsh \n isb \n"
+
+#define sb()    asm volatile(ASM_SB)
+
+/*
  * This is used to ensure the compiler did actually allocate the register we
  * asked it for some inline assembly sequences.  Apparently we can't trust
  * the compiler from one version to another so a bit of paranoia won't hurt.
