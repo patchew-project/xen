@@ -471,6 +471,8 @@ static int vmx_vcpu_initialise(struct vcpu *v)
 
     vmx_install_vlapic_mapping(v);
 
+    v->arch.hvm.vmx.ipt_state = NULL;
+
     return 0;
 }
 
