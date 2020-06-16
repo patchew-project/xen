@@ -748,12 +748,19 @@ static void hap_update_paging_modes(struct vcpu *v)
     struct domain *d = v->domain;
     unsigned long cr3_gfn = v->arch.hvm.guest_cr[3] >> PAGE_SHIFT;
     p2m_type_t t;
+    p2m_query_t q = P2M_ALLOC;
 
-    /* We hold onto the cr3 as it may be modified later, and
-     * we need to respect lock ordering. No need for 
-     * checks here as they are performed by vmx_load_pdptrs
-     * (the potential user of the cr3) */
-    (void)get_gfn(d, cr3_gfn, &t);
+    /*
+     * We hold onto the cr3 as it may be modified later, and
+     * we need to respect lock ordering. Unshare here if we have to as to avoid
+     * a lock-order violation later while we are holding the paging_lock.
+     * Further checks are performed by vmx_load_pdptrs (the potential user of
+     * the cr3).
+     */
+    if ( hvm_pae_enabled(v) && !hvm_long_mode_active(v) )
+        q |= P2M_UNSHARE;
+
+    (void)get_gfn_type(d, cr3_gfn, &t, q);
     paging_lock(d);
 
     v->arch.paging.mode = hap_paging_get_mode(v);
