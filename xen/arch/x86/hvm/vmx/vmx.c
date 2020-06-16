@@ -2484,6 +2484,7 @@ static bool __init has_if_pschange_mc(void)
 
 const struct hvm_function_table * __init start_vmx(void)
 {
+    u64 _vmx_misc_cap;
     set_in_cr4(X86_CR4_VMXE);
 
     if ( vmx_vmcs_init() )
@@ -2555,6 +2556,29 @@ const struct hvm_function_table * __init start_vmx(void)
     {
         vmx_function_table.set_guest_bndcfgs = vmx_set_guest_bndcfgs;
         vmx_function_table.get_guest_bndcfgs = vmx_get_guest_bndcfgs;
+    }
+
+    /* Check whether IPT is supported in VMX operation */
+    vmx_function_table.ipt_supported = 1;
+
+    if ( !cpu_has_ipt )
+    {
+        vmx_function_table.ipt_supported = 0;
+        printk("VMX: Missing support for Intel Processor Trace x86 feature.\n");
+    }
+
+    rdmsrl(MSR_IA32_VMX_MISC, _vmx_misc_cap);
+
+    if ( !( _vmx_misc_cap & VMX_MISC_PT_SUPPORTED ) )
+    {
+        vmx_function_table.ipt_supported = 0;
+        printk("VMX: Missing support for Intel Processor Trace in VMX operation, VMX_MISC caps: %llx\n",
+               (unsigned long long)_vmx_misc_cap);
+    }
+
+    if (vmx_function_table.ipt_supported)
+    {
+        printk("VMX: Intel Processor Trace is SUPPORTED");
     }
 
     lbr_tsx_fixup_check();

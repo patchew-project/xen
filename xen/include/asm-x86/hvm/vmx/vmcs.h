@@ -285,6 +285,7 @@ extern u64 vmx_ept_vpid_cap;
 
 #define VMX_MISC_CR3_TARGET                     0x01ff0000
 #define VMX_MISC_VMWRITE_ALL                    0x20000000
+#define VMX_MISC_PT_SUPPORTED                   0x00004000
 
 #define VMX_TSC_MULTIPLIER_MAX                  0xffffffffffffffffULL
 
