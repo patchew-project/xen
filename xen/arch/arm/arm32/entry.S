@@ -442,6 +442,7 @@ ENTRY(__context_switch)
 
         add     r4, r1, #VCPU_arch_saved_context
         ldmia   r4, {r4 - sl, fp, sp, pc}       /* Load registers and return */
+        sb
 
 /*
  * Local variables:

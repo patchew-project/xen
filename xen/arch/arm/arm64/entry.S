@@ -522,6 +522,7 @@ abort_guest_exit_end:
         cset    x19, ne
 
         ret
+        sb
 ENDPROC(check_pending_guest_serror)
 
 /*
@@ -583,6 +584,7 @@ ENTRY(__context_switch)
         ldr     lr, [x8]
         mov     sp, x9
         ret
+        sb
 
 /*
  * Local variables:
