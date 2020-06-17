@@ -45,9 +45,7 @@
 #include "vtpmmgr.h"
 #include "tcg.h"
 
-struct tpm_hardware_version hardware_version = {
-    .hw_version = TPM1_HARDWARE,
-};
+static int hardware_version;
 
 int parse_cmdline_hw(int argc, char** argv)
 {
@@ -55,7 +53,7 @@ int parse_cmdline_hw(int argc, char** argv)
 
     for (i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], TPM2_EXTRA_OPT)) {
-            hardware_version.hw_version = TPM2_HARDWARE;
+            hardware_version = 2;
             break;
         }
     }
@@ -64,7 +62,7 @@ int parse_cmdline_hw(int argc, char** argv)
 
 int hw_is_tpm2(void)
 {
-    return (hardware_version.hw_version == TPM2_HARDWARE) ? 1 : 0;
+    return hardware_version == 2 ? 1 : 0;
 }
 
 void main_loop(void) {

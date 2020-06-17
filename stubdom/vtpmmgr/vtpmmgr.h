@@ -50,16 +50,7 @@
 #define RSA_KEY_SIZE 0x0800
 #define RSA_CIPHER_SIZE (RSA_KEY_SIZE / 8)
 
-enum {
-    TPM1_HARDWARE = 1,
-    TPM2_HARDWARE,
-} tpm_version;
 
-struct tpm_hardware_version {
-    int hw_version;
-};
-
-extern struct tpm_hardware_version hardware_version;
 
 struct vtpm_globals {
    int tpm_fd;
