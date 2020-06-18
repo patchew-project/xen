@@ -315,6 +315,10 @@ static int vmx_init_vmcs_config(void)
         if ( opt_ept_pml )
             opt |= SECONDARY_EXEC_ENABLE_PML;
 
+        /* Check whether IPT is supported in VMX operation */
+        hvm_funcs.pt_supported = cpu_has_ipt &&
+            ( _vmx_misc_cap & VMX_MISC_PT_SUPPORTED );
+
         /*
          * "APIC Register Virtualization" and "Virtual Interrupt Delivery"
          * can be set only when "use TPR shadow" is set

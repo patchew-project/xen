@@ -96,6 +96,9 @@ struct hvm_function_table {
     /* Necessary hardware support for alternate p2m's? */
     bool altp2m_supported;
 
+    /* Hardware support for processor tracing? */
+    bool pt_supported;
+
     /* Hardware virtual interrupt delivery enable? */
     bool virtual_intr_delivery_enabled;
 
@@ -628,6 +631,12 @@ static inline bool hvm_hap_supported(void)
 static inline bool hvm_altp2m_supported(void)
 {
     return hvm_funcs.altp2m_supported;
+}
+
+/* returns true if hardware supports Intel Processor Trace */
+static inline bool hvm_pt_supported(void)
+{
+    return hvm_funcs.pt_supported;
 }
 
 /* updates the current hardware p2m */
