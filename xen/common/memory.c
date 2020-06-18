@@ -1050,12 +1050,7 @@ static int acquire_resource(
 {
     struct domain *d, *currd = current->domain;
     xen_mem_acquire_resource_t xmar;
-    /*
-     * The mfn_list and gfn_list (below) arrays are ok on stack for the
-     * moment since they are small, but if they need to grow in future
-     * use-cases then per-CPU arrays or heap allocations may be required.
-     */
-    xen_pfn_t mfn_list[32];
+    xen_pfn_t *mfn_list;
     int rc;
 
     if ( copy_from_guest(&xmar, arg, 1) )
@@ -1064,25 +1059,17 @@ static int acquire_resource(
     if ( xmar.pad != 0 )
         return -EINVAL;
 
-    if ( guest_handle_is_null(xmar.frame_list) )
-    {
-        if ( xmar.nr_frames )
-            return -EINVAL;
+    mfn_list = xmalloc_array(xen_pfn_t, xmar.nr_frames);
 
-        xmar.nr_frames = ARRAY_SIZE(mfn_list);
-
-        if ( __copy_field_to_guest(arg, &xmar, nr_frames) )
-            return -EFAULT;
-
-        return 0;
-    }
-
-    if ( xmar.nr_frames > ARRAY_SIZE(mfn_list) )
-        return -E2BIG;
+    if ( ! mfn_list )
+        return -EFAULT;
 
     rc = rcu_lock_remote_domain_by_id(xmar.domid, &d);
     if ( rc )
+    {
+        xfree(mfn_list);
         return rc;
+    }
 
     rc = xsm_domain_resource_map(XSM_DM_PRIV, d);
     if ( rc )
@@ -1111,7 +1098,7 @@ static int acquire_resource(
     }
     else
     {
-        xen_pfn_t gfn_list[ARRAY_SIZE(mfn_list)];
+        xen_pfn_t *gfn_list;
         unsigned int i;
 
         /*
@@ -1120,7 +1107,12 @@ static int acquire_resource(
          *        resource pages unless the caller is the hardware domain.
          */
         if ( !is_hardware_domain(currd) )
-            return -EACCES;
+        {
+            rc = -EACCES;
+            goto out;
+        }
+
+        gfn_list = xmalloc_array(xen_pfn_t, xmar.nr_frames);
 
         if ( copy_from_guest(gfn_list, xmar.frame_list, xmar.nr_frames) )
             rc = -EFAULT;
@@ -1133,9 +1125,12 @@ static int acquire_resource(
             if ( rc && i )
                 rc = -EIO;
         }
+
+        xfree(gfn_list);
     }
 
  out:
+    xfree(mfn_list);
     rcu_unlock_domain(d);
 
     return rc;
