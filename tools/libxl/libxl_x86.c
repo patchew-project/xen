@@ -404,6 +404,11 @@ static int hvm_set_conf_params(libxl__gc *gc, uint32_t domid,
             libxl_defbool_val(info->u.hvm.altp2m))
             altp2m = libxl_defbool_val(info->u.hvm.altp2m);
 
+        if (xc_hvm_param_set(xch, domid, HVM_PARAM_VMTRACE_PT_SIZE,
+                             info->vmtrace_pt_size)) {
+            LOG(ERROR, "Couldn't set HVM_PARAM_VMTRACE_PT_SIZE");
+            goto out;
+        }
         if (xc_hvm_param_set(xch, domid, HVM_PARAM_HPET_ENABLED,
                              libxl_defbool_val(info->u.hvm.hpet))) {
             LOG(ERROR, "Couldn't set HVM_PARAM_HPET_ENABLED");
