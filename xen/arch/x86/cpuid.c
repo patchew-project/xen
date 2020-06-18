@@ -811,9 +811,11 @@ void guest_cpuid(const struct vcpu *v, uint32_t leaf,
 
     case 0x1:
         /* TODO: Rework topology logic. */
-        res->b &= 0x00ffffffu;
+        res->b &= 0x0000ffffu;
         if ( is_hvm_domain(d) )
             res->b |= (v->vcpu_id * 2) << 24;
+
+        res->b |= (d->max_vcpus & 0xff) << 16;
 
         /* TODO: Rework vPMU control in terms of toolstack choices. */
         if ( vpmu_available(v) &&
