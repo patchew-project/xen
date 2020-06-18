@@ -1060,7 +1060,7 @@ static struct page_info *alloc_heap_pages(
     }
 
     if ( need_tlbflush )
-        filtered_flush_tlb_mask(tlbflush_timestamp);
+        filtered_flush_tlb_mask(tlbflush_timestamp, true);
 
     return pg;
 }
