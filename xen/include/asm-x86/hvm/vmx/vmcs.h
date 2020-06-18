@@ -104,6 +104,19 @@ struct pi_blocking_vcpu {
     spinlock_t           *lock;
 };
 
+struct ipt_state {
+    uint64_t active;
+    uint64_t status;
+    uint64_t output_base;
+    union {
+        uint64_t raw;
+        struct {
+            uint32_t size;
+            uint32_t offset;
+        };
+    } output_mask;
+};
+
 struct vmx_vcpu {
     /* Physical address of VMCS. */
     paddr_t              vmcs_pa;
@@ -186,6 +199,9 @@ struct vmx_vcpu {
      * pCPU and wakeup the related vCPU.
      */
     struct pi_blocking_vcpu pi_blocking;
+
+    /* State of Intel Processor Trace feature */
+    struct ipt_state     *ipt_state;
 };
 
 int vmx_create_vmcs(struct vcpu *v);

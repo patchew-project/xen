@@ -457,6 +457,9 @@ struct domain
     unsigned    pbuf_idx;
     spinlock_t  pbuf_lock;
 
+    /* Used by vmtrace domctls */
+    spinlock_t  vmtrace_lock;
+
     /* OProfile support. */
     struct xenoprof *xenoprof;
 
