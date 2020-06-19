@@ -1104,10 +1104,14 @@ int libxl__domain_config_setdefault(libxl__gc *gc,
 
     bool iommu_enabled = physinfo.cap_hvm_directio;
     if (c_info->passthrough != LIBXL_PASSTHROUGH_DISABLED && !iommu_enabled) {
-        LOGD(ERROR, domid,
-             "passthrough not supported on this platform\n");
-        ret = ERROR_INVAL;
-        goto error_out;
+        if (c_info->type != LIBXL_DOMAIN_TYPE_PV) {
+            LOGD(ERROR, domid,
+                 "passthrough not supported on this platform\n");
+            ret = ERROR_INVAL;
+            goto error_out;
+        }
+        LOGD(WARN, domid,
+             "passthrough is enabled but IOMMU is not present/enabled\n");
     }
 
     if (c_info->passthrough == LIBXL_PASSTHROUGH_DISABLED && need_pt) {
