@@ -142,6 +142,7 @@
 #include <asm/pci.h>
 #include <asm/guest.h>
 #include <asm/hvm/ioreq.h>
+#include <asm/hvm/vmx/vmx.h>
 
 #include <asm/hvm/grant_table.h>
 #include <asm/pv/domain.h>
@@ -4622,6 +4623,33 @@ int arch_acquire_resource(struct domain *d, unsigned int type,
 
             mfn_list[i] = mfn_x(mfn);
         }
+        break;
+    }
+
+    case XENMEM_resource_vmtrace_buf:
+    {
+        mfn_t mfn;
+        unsigned int i;
+        struct pt_state *pt;
+        rc = -EINVAL;
+
+        if ( id >= d->max_vcpus )
+            break;
+
+        pt = d->vcpu[id]->arch.hvm.vmx.pt_state;
+
+        if ( !pt )
+            break;
+
+        mfn = _mfn(pt->output_base >> PAGE_SHIFT);
+
+        if ( frame + nr_frames > (pt->output_mask.size >> PAGE_SHIFT) + 1 )
+            break;
+
+        rc = 0;
+        for ( i = 0; i < nr_frames; i++ )
+            mfn_list[i] = mfn_x(mfn_add(mfn, frame + i));
+
         break;
     }
 #endif

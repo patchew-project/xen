@@ -382,6 +382,32 @@ struct xen_hvm_altp2m_op {
 typedef struct xen_hvm_altp2m_op xen_hvm_altp2m_op_t;
 DEFINE_XEN_GUEST_HANDLE(xen_hvm_altp2m_op_t);
 
+#if defined(__XEN__) || defined(__XEN_TOOLS__)
+
+/* HVMOP_vmtrace: Perform VM tracing related operation */
+#define HVMOP_vmtrace 26
+
+struct xen_hvm_vmtrace_op {
+    /* IN variable */
+    uint32_t cmd;
+/* Enable/disable external vmtrace for given domain */
+#define HVMOP_vmtrace_pt_enable      1
+#define HVMOP_vmtrace_pt_disable     2
+#define HVMOP_vmtrace_pt_get_offset  3
+    domid_t domain;
+    uint16_t pad1;
+    uint32_t vcpu;
+    uint32_t pad2;
+    uint64_t size;
+
+    /* OUT variable */
+    uint64_t offset;
+};
+typedef struct xen_hvm_vmtrace_op xen_hvm_vmtrace_op_t;
+DEFINE_XEN_GUEST_HANDLE(xen_hvm_vmtrace_op_t);
+
+#endif /* defined(__XEN__) || defined(__XEN_TOOLS__) */
+
 #endif /* __XEN_PUBLIC_HVM_HVM_OP_H__ */
 
 /*

@@ -300,6 +300,6 @@
 #define XEN_HVM_MCA_CAP_LMCE   (xen_mk_ullong(1) << 0)
 #define XEN_HVM_MCA_CAP_MASK   XEN_HVM_MCA_CAP_LMCE
 
-#define HVM_NR_PARAMS 39
+#define HVM_NR_PARAMS 40
 
 #endif /* __XEN_PUBLIC_HVM_PARAMS_H__ */

@@ -457,6 +457,10 @@ struct domain
     unsigned    pbuf_idx;
     spinlock_t  pbuf_lock;
 
+    /* Used by vmtrace features */
+    spinlock_t  vmtrace_lock;
+    uint64_t    vmtrace_pt_size;
+
     /* OProfile support. */
     struct xenoprof *xenoprof;
 

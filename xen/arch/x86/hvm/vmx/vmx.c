@@ -508,11 +508,24 @@ static void vmx_restore_host_msrs(void)
 
 static void vmx_save_guest_msrs(struct vcpu *v)
 {
+    uint64_t rtit_ctl;
+
     /*
      * We cannot cache SHADOW_GS_BASE while the VCPU runs, as it can
      * be updated at any time via SWAPGS, which we cannot trap.
      */
     v->arch.hvm.vmx.shadow_gs = rdgsshadow();
+
+    if ( unlikely(v->arch.hvm.vmx.pt_state &&
+                  v->arch.hvm.vmx.pt_state->active) )
+    {
+        rdmsrl(MSR_RTIT_CTL, rtit_ctl);
+        BUG_ON(rtit_ctl & RTIT_CTL_TRACEEN);
+
+        rdmsrl(MSR_RTIT_STATUS, v->arch.hvm.vmx.pt_state->status);
+        rdmsrl(MSR_RTIT_OUTPUT_MASK,
+               v->arch.hvm.vmx.pt_state->output_mask.raw);
+    }
 }
 
 static void vmx_restore_guest_msrs(struct vcpu *v)
@@ -524,6 +537,17 @@ static void vmx_restore_guest_msrs(struct vcpu *v)
 
     if ( cpu_has_msr_tsc_aux )
         wrmsr_tsc_aux(v->arch.msrs->tsc_aux);
+
+    if ( unlikely(v->arch.hvm.vmx.pt_state &&
+                  v->arch.hvm.vmx.pt_state->active) )
+    {
+        wrmsrl(MSR_RTIT_OUTPUT_BASE,
+               v->arch.hvm.vmx.pt_state->output_base);
+        wrmsrl(MSR_RTIT_OUTPUT_MASK,
+               v->arch.hvm.vmx.pt_state->output_mask.raw);
+        wrmsrl(MSR_RTIT_STATUS,
+               v->arch.hvm.vmx.pt_state->status);
+    }
 }
 
 void vmx_update_cpu_exec_control(struct vcpu *v)
@@ -3673,6 +3697,13 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
     __vmread(GUEST_RFLAGS, &regs->rflags);
 
     hvm_invalidate_regs_fields(regs);
+
+    if ( unlikely(v->arch.hvm.vmx.pt_state &&
+                  v->arch.hvm.vmx.pt_state->active) )
+    {
+        rdmsrl(MSR_RTIT_OUTPUT_MASK,
+               v->arch.hvm.vmx.pt_state->output_mask.raw);
+    }
 
     if ( paging_mode_hap(v->domain) )
     {
