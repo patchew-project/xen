@@ -1046,10 +1046,12 @@ static int acquire_grant_table(struct domain *d, unsigned int id,
 }
 
 static int acquire_resource(
-    XEN_GUEST_HANDLE_PARAM(xen_mem_acquire_resource_t) arg)
+    XEN_GUEST_HANDLE_PARAM(xen_mem_acquire_resource_t) arg,
+    unsigned long *start_extent)
 {
     struct domain *d, *currd = current->domain;
     xen_mem_acquire_resource_t xmar;
+    uint32_t total_frames;
     /*
      * The mfn_list and gfn_list (below) arrays are ok on stack for the
      * moment since they are small, but if they need to grow in future
@@ -1077,8 +1079,17 @@ static int acquire_resource(
         return 0;
     }
 
+    total_frames = xmar.nr_frames;
+
+    if ( *start_extent )
+    {
+        xmar.frame += *start_extent;
+        xmar.nr_frames -= *start_extent;
+        guest_handle_add_offset(xmar.frame_list, *start_extent);
+    }
+
     if ( xmar.nr_frames > ARRAY_SIZE(mfn_list) )
-        return -E2BIG;
+        xmar.nr_frames = ARRAY_SIZE(mfn_list);
 
     rc = rcu_lock_remote_domain_by_id(xmar.domid, &d);
     if ( rc )
@@ -1133,6 +1144,14 @@ static int acquire_resource(
             if ( rc && i )
                 rc = -EIO;
         }
+    }
+
+    if ( !rc )
+    {
+        *start_extent += xmar.nr_frames;
+
+        if ( *start_extent != total_frames )
+            rc = -ERESTART;
     }
 
  out:
@@ -1600,7 +1619,14 @@ long do_memory_op(unsigned long cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
 
     case XENMEM_acquire_resource:
         rc = acquire_resource(
-            guest_handle_cast(arg, xen_mem_acquire_resource_t));
+            guest_handle_cast(arg, xen_mem_acquire_resource_t),
+            &start_extent);
+
+        if ( rc == -ERESTART )
+            return hypercall_create_continuation(
+                __HYPERVISOR_memory_op, "lh",
+                op | (start_extent << MEMOP_EXTENT_SHIFT), arg);
+
         break;
 
     default:
