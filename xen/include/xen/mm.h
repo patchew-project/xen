@@ -639,7 +639,8 @@ static inline void accumulate_tlbflush(bool *need_tlbflush,
     }
 }
 
-static inline void filtered_flush_tlb_mask(uint32_t tlbflush_timestamp)
+static inline void filtered_flush_tlb_mask(uint32_t tlbflush_timestamp,
+                                           bool sync)
 {
     cpumask_t mask;
 
@@ -648,7 +649,10 @@ static inline void filtered_flush_tlb_mask(uint32_t tlbflush_timestamp)
     if ( !cpumask_empty(&mask) )
     {
         perfc_incr(need_flush_tlb_flush);
-        flush_tlb_mask(&mask);
+        if ( sync )
+            flush_tlb_mask_sync(&mask);
+        else
+            flush_tlb_mask(&mask);
     }
 }
 
