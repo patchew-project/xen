@@ -610,6 +610,8 @@ struct xen_reserved_device_memory_map {
 typedef struct xen_reserved_device_memory_map xen_reserved_device_memory_map_t;
 DEFINE_XEN_GUEST_HANDLE(xen_reserved_device_memory_map_t);
 
+#endif /* defined(__XEN__) || defined(__XEN_TOOLS__) */
+
 /*
  * Get the pages for a particular guest resource, so that they can be
  * mapped directly by a tools domain.
@@ -648,7 +650,7 @@ struct xen_mem_acquire_resource {
      * IN - the index of the initial frame to be mapped. This parameter
      *      is ignored if nr_frames is 0.
      */
-    uint64_aligned_t frame;
+    uint64_t frame;
 
 #define XENMEM_resource_ioreq_server_frame_bufioreq 0
 #define XENMEM_resource_ioreq_server_frame_ioreq(n) (1 + (n))
@@ -665,11 +667,13 @@ struct xen_mem_acquire_resource {
      *          This parameter may be NULL if nr_frames is 0.
      */
     XEN_GUEST_HANDLE(xen_pfn_t) frame_list;
+
+#ifdef __i386__
+    uint32_t pad2;
+#endif
 };
 typedef struct xen_mem_acquire_resource xen_mem_acquire_resource_t;
 DEFINE_XEN_GUEST_HANDLE(xen_mem_acquire_resource_t);
-
-#endif /* defined(__XEN__) || defined(__XEN_TOOLS__) */
 
 /*
  * XENMEM_get_vnumainfo used by guest to get
