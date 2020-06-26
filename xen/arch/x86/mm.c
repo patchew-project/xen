@@ -2894,7 +2894,17 @@ static int _get_page_type(struct page_info *page, unsigned long type,
                       ((nx & PGT_type_mask) == PGT_writable_page)) )
                 {
                     perfc_incr(need_flush_tlb_flush);
-                    flush_tlb_mask(mask);
+                    if ( (x & PGT_type_mask) &&
+                         (x & PGT_type_mask) <= PGT_root_page_table )
+                        /*
+                         * If page was a page table make sure the flush is
+                         * performed using an IPI in order to avoid changing
+                         * the type of a page table page under the feet of
+                         * spurious_page_fault.
+                         */
+                        flush_tlb_mask_sync(mask);
+                    else
+                        flush_tlb_mask(mask);
                 }
 
                 /* We lose existing type and validity. */

@@ -126,6 +126,16 @@ void switch_cr3_cr4(unsigned long cr3, unsigned long cr4);
 #else
 #define FLUSH_HVM_ASID_CORE 0
 #endif
+#if defined(CONFIG_PV) || defined(CONFIG_SHADOW_PAGING)
+/*
+ * Force an IPI to be sent. Note that adding this to the flags passed to
+ * flush_area_mask will prevent using the assisted flush without having any
+ * other side effect.
+ */
+# define FLUSH_FORCE_IPI 0x8000
+#else
+# define FLUSH_FORCE_IPI 0
+#endif
 
 /* Flush local TLBs/caches. */
 unsigned int flush_area_local(const void *va, unsigned int flags);
@@ -148,8 +158,23 @@ void flush_area_mask(const cpumask_t *, const void *va, unsigned int flags);
 /* Flush specified CPUs' TLBs */
 #define flush_tlb_mask(mask)                    \
     flush_mask(mask, FLUSH_TLB)
+/*
+ * Flush specified CPUs' TLBs and force the usage of an IPI to do so. This is
+ * required for certain operations that rely on page tables themselves not
+ * being freed and reused when interrupts are blocked, as the flush IPI won't
+ * be fulfilled until exiting from that critical region.
+ */
+#define flush_tlb_mask_sync(mask)               \
+    flush_mask(mask, FLUSH_TLB | FLUSH_FORCE_IPI)
 #define flush_tlb_one_mask(mask,v)              \
     flush_area_mask(mask, (const void *)(v), FLUSH_TLB|FLUSH_ORDER(0))
+
+/*
+ * Alias the common code TLB flush helper to the sync one in order to be on the
+ * safe side. Note that not all calls from common code strictly require the
+ * _sync variant.
+ */
+#define arch_flush_tlb_mask flush_tlb_mask_sync
 
 /* Flush all CPUs' TLBs */
 #define flush_tlb_all()                         \
