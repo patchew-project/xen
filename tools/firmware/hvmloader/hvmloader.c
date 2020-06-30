@@ -256,7 +256,7 @@ static const struct bios_config *detect_bios(void)
 
 static void acpi_enable_sci(void)
 {
-    uint8_t pm1a_cnt_val;
+    uint16_t pm1a_cnt_val;
 
 #define PIIX4_SMI_CMD_IOPORT 0xb2
 #define PIIX4_ACPI_ENABLE    0xf1
@@ -265,11 +265,11 @@ static void acpi_enable_sci(void)
      * PIIX4 emulation in QEMU has SCI_EN=0 by default. We have no legacy
      * SMM implementation, so give ACPI control to the OSPM immediately.
      */
-    pm1a_cnt_val = inb(ACPI_PM1A_CNT_BLK_ADDRESS_V1);
+    pm1a_cnt_val = inw(ACPI_PM1A_CNT_BLK_ADDRESS_V1);
     if ( !(pm1a_cnt_val & ACPI_PM1C_SCI_EN) )
         outb(PIIX4_SMI_CMD_IOPORT, PIIX4_ACPI_ENABLE);
 
-    pm1a_cnt_val = inb(ACPI_PM1A_CNT_BLK_ADDRESS_V1);
+    pm1a_cnt_val = inw(ACPI_PM1A_CNT_BLK_ADDRESS_V1);
     BUG_ON(!(pm1a_cnt_val & ACPI_PM1C_SCI_EN));
 }
 
