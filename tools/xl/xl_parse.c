@@ -1861,6 +1861,28 @@ void parse_config_data(const char *config_source,
         }
     }
 
+    if (!xlu_cfg_get_long(config, "processor_trace_buffer_size", &l, 1) && l) {
+        int32_t shift = 0;
+
+        if (l & (l - 1))
+        {
+            fprintf(stderr, "ERROR: processor_trace_buffer_size "
+			    "- must be a power of 2\n");
+            exit(1);
+        }
+
+        while (l >>= 1) ++shift;
+
+        if (shift <= XEN_PAGE_SHIFT)
+        {
+            fprintf(stderr, "ERROR: processor_trace_buffer_size "
+			    "- value is too small\n");
+            exit(1);
+        }
+
+        b_info->vmtrace_pt_order = shift - XEN_PAGE_SHIFT;
+    }
+
     if (!xlu_cfg_get_list(config, "ioports", &ioports, &num_ioports, 0)) {
         b_info->num_ioports = num_ioports;
         b_info->ioports = calloc(num_ioports, sizeof(*b_info->ioports));

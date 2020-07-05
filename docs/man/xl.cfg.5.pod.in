@@ -278,6 +278,17 @@ memory=8096 will report significantly less memory available for use
 than a system with maxmem=8096 memory=8096 due to the memory overhead
 of having to track the unused pages.
 
+=item B<processor_trace_buffer_size=BYTES>
+
+Specifies the size of processor trace buffer that would be allocated
+for each vCPU belonging to this domain. Disabled (i.e.
+B<processor_trace_buffer_size=0> by default. This must be set to
+non-zero value in order to be able to use processor tracing features
+with this domain.
+
+B<NOTE>: The size value must be between 4 kB and 4 GB and it must
+be also a power of 2.
+
 =back
 
 =head3 Guest Virtual NUMA Configuration

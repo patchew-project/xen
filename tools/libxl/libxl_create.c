@@ -608,6 +608,7 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
             .max_evtchn_port = b_info->event_channels,
             .max_grant_frames = b_info->max_grant_frames,
             .max_maptrack_frames = b_info->max_maptrack_frames,
+            .vmtrace_pt_order = b_info->vmtrace_pt_order,
         };
 
         if (info->type != LIBXL_DOMAIN_TYPE_PV) {
