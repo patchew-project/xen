@@ -2199,6 +2199,25 @@ int domain_relinquish_resources(struct domain *d)
                 altp2m_vcpu_disable_ve(v);
         }
 
+        for_each_vcpu ( d, v )
+        {
+            unsigned int i;
+
+            if ( !v->vmtrace.pt_buf )
+                continue;
+
+            for ( i = 0; i < (v->domain->vmtrace_pt_size >> PAGE_SHIFT); i++ )
+            {
+                struct page_info *pg = mfn_to_page(
+                    mfn_add(page_to_mfn(v->vmtrace.pt_buf), i));
+                if ( (pg->count_info & PGC_count_mask) != 1 )
+                    return -EBUSY;
+            }
+
+            free_domheap_pages(v->vmtrace.pt_buf,
+                get_order_from_bytes(v->domain->vmtrace_pt_size));
+        }
+
         if ( is_pv_domain(d) )
         {
             for_each_vcpu ( d, v )
