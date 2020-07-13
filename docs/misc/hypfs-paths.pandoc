@@ -5,6 +5,9 @@ in the Xen hypervisor file system (hypfs).
 
 The hypervisor file system can be accessed via the xenhypfs tool.
 
+The availability of the hypervisor file system depends on the hypervisor
+config option CONFIG_HYPFS, which is on per default.
+
 ## Notation
 
 The hypervisor file system is similar to the Linux kernel's sysfs.
@@ -54,6 +57,11 @@ tags enclosed in square brackets.
 * HVM -- Path is valid for HVM capable hypervisors only.
 * CONFIG_* -- Path is valid only in case the hypervisor was built with
   the respective config option.
+
+Path availability is subject to change, e.g. a specific path specified
+for a single architecture now might be made available for other architectures
+in future, or it could be made conditional by an additional config option
+of the hypervisor.
 
 So an entry could look like this:
 
