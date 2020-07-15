@@ -21,11 +21,11 @@ XEN_libxenforeignmemory = $(XEN_ROOT)/tools/libs/foreignmemory
 XEN_libxendevicemodel = $(XEN_ROOT)/tools/libs/devicemodel
 XEN_libxenhypfs    = $(XEN_ROOT)/tools/libs/hypfs
 XEN_libxenctrl     = $(XEN_ROOT)/tools/libs/ctrl
+XEN_libxenstore    = $(XEN_ROOT)/tools/libs/store
 XEN_libxenguest    = $(XEN_ROOT)/tools/libxc
 XEN_libxenlight    = $(XEN_ROOT)/tools/libxl
 # Currently libxlutil lives in the same directory as libxenlight
 XEN_libxlutil      = $(XEN_libxenlight)
-XEN_libxenstore    = $(XEN_ROOT)/tools/xenstore
 XEN_libxenstat     = $(XEN_ROOT)/tools/xenstat/libxenstat/src
 XEN_libxenvchan    = $(XEN_ROOT)/tools/libvchan
 

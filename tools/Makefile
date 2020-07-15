@@ -47,7 +47,7 @@ SUBDIRS-$(OCAML_TOOLS) += ocaml
 endif
 
 ifeq ($(CONFIG_RUMP),y)
-SUBDIRS-y := libs libxc xenstore
+SUBDIRS-y := libs libxc
 endif
 
 # For the sake of linking, set the sys-root
@@ -256,12 +256,12 @@ subdir-all-qemu-xen-dir: qemu-xen-dir-find
 		-I$(XEN_ROOT)/tools/libs/foreignmemory/include \
 		-I$(XEN_ROOT)/tools/libs/devicemodel/include \
 		-I$(XEN_ROOT)/tools/libs/ctrl/include \
+		-I$(XEN_ROOT)/tools/libs/store/include \
+		-I$(XEN_ROOT)/tools/libs/store/compat/include \
 		-I$(XEN_ROOT)/tools/libxc/include \
-		-I$(XEN_ROOT)/tools/xenstore/include \
-		-I$(XEN_ROOT)/tools/xenstore/compat/include \
 		$(EXTRA_CFLAGS_QEMU_XEN)" \
 		--extra-ldflags="-L$(XEN_ROOT)/tools/libxc \
-		-L$(XEN_ROOT)/tools/xenstore \
+		-L$(XEN_ROOT)/tools/libs/store \
 		-L$(XEN_ROOT)/tools/libs/toolcore \
 		-L$(XEN_ROOT)/tools/libs/evtchn \
 		-L$(XEN_ROOT)/tools/libs/gnttab \
