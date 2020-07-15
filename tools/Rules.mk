@@ -22,12 +22,12 @@ XEN_libxendevicemodel = $(XEN_ROOT)/tools/libs/devicemodel
 XEN_libxenhypfs    = $(XEN_ROOT)/tools/libs/hypfs
 XEN_libxenctrl     = $(XEN_ROOT)/tools/libs/ctrl
 XEN_libxenstore    = $(XEN_ROOT)/tools/libs/store
+XEN_libxenstat     = $(XEN_ROOT)/tools/libs/stat
 XEN_libxenvchan    = $(XEN_ROOT)/tools/libs/vchan
 XEN_libxenguest    = $(XEN_ROOT)/tools/libxc
 XEN_libxenlight    = $(XEN_ROOT)/tools/libxl
 # Currently libxlutil lives in the same directory as libxenlight
 XEN_libxlutil      = $(XEN_libxenlight)
-XEN_libxenstat     = $(XEN_ROOT)/tools/xenstat/libxenstat/src
 
 CFLAGS_xeninclude = -I$(XEN_INCLUDE)
 
@@ -158,7 +158,7 @@ ifeq ($(CONFIG_Linux),y)
 LDLIBS_libxenstore += -ldl
 endif
 
-CFLAGS_libxenstat  = -I$(XEN_libxenstat)
+CFLAGS_libxenstat  = -I$(XEN_libxenstat)/include
 SHDEPS_libxenstat  = $(SHLIB_libxenctrl) $(SHLIB_libxenstore)
 LDLIBS_libxenstat  = $(SHDEPS_libxenstat) $(XEN_libxenstat)/libxenstat$(libextension)
 SHLIB_libxenstat   = $(SHDEPS_libxenstat) -Wl,-rpath-link=$(XEN_libxenstat)

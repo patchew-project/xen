@@ -15,80 +15,29 @@
 XEN_ROOT=$(CURDIR)/../../..
 include $(XEN_ROOT)/tools/Rules.mk
 
-LDCONFIG=ldconfig
-MAKE_LINK=ln -sf
+MAJOR = 4.14
+MINOR = 0
+LIBNAME  := stat
+USELIBS  := ctrl store
 
-MAJOR=4.14
-MINOR=0
+CFLAGS += $(CFLAGS_libxenctrl) $(CFLAGS_libxenstore) $(CFLAGS_xeninclude) -include $(XEN_ROOT)/tools/config.h
 
-LIB=src/libxenstat.a
-SHLIB=src/libxenstat.so.$(MAJOR).$(MINOR)
-SHLIB_LINKS=src/libxenstat.so.$(MAJOR) src/libxenstat.so
-OBJECTS-y=src/xenstat.o src/xenstat_qmp.o
-OBJECTS-$(CONFIG_Linux) += src/xenstat_linux.o
-OBJECTS-$(CONFIG_SunOS) += src/xenstat_solaris.o
-OBJECTS-$(CONFIG_NetBSD) += src/xenstat_netbsd.o
-OBJECTS-$(CONFIG_FreeBSD) += src/xenstat_freebsd.o
-SONAME_FLAGS=-Wl,$(SONAME_LDFLAG) -Wl,libxenstat.so.$(MAJOR)
+SRCS-y += xenstat.c
+SRCS-y += xenstat_qmp.c
+SRCS-$(CONFIG_Linux) += xenstat_linux.c
+SRCS-$(CONFIG_SunOS) += xenstat_solaris.c
+SRCS-$(CONFIG_NetBSD) += xenstat_netbsd.c
+SRCS-$(CONFIG_FreeBSD) += xenstat_freebsd.c
 
-CFLAGS+=-fPIC -Werror
-CFLAGS+=-Isrc $(CFLAGS_libxenctrl) $(CFLAGS_libxenstore) $(CFLAGS_xeninclude) -include $(XEN_ROOT)/tools/config.h
-
-LDLIBS-y = $(LDLIBS_libxenstore) $(LDLIBS_libxenctrl) -lyajl
+LDLIBS-y += -lyajl
 LDLIBS-$(CONFIG_SunOS) += -lkstat
+APPEND_LDFLAGS += $(LDLIBS-y)
 
-PKG_CONFIG := xenstat.pc
-PKG_CONFIG_VERSION := $(MAJOR).$(MINOR)
+include $(XEN_ROOT)/tools/libs/libs.mk
 
-ifneq ($(CONFIG_LIBXC_MINIOS),y)
-PKG_CONFIG_INST := $(PKG_CONFIG)
-$(PKG_CONFIG_INST): PKG_CONFIG_PREFIX = $(prefix)
-$(PKG_CONFIG_INST): PKG_CONFIG_INCDIR = $(includedir)
-$(PKG_CONFIG_INST): PKG_CONFIG_LIBDIR = $(libdir)
-endif
+$(PKG_CONFIG_LOCAL): PKG_CONFIG_INCDIR = $(XEN_libxenstat)/include
 
-PKG_CONFIG_LOCAL := $(foreach pc,$(PKG_CONFIG),$(PKG_CONFIG_DIR)/$(pc))
-
-$(PKG_CONFIG_LOCAL): PKG_CONFIG_PREFIX = $(XEN_ROOT)
-$(PKG_CONFIG_LOCAL): PKG_CONFIG_INCDIR = $(XEN_libxenstat)
-$(PKG_CONFIG_LOCAL): PKG_CONFIG_LIBDIR = $(CURDIR)
-
-.PHONY: all
-all: $(LIB) $(SHLIB) $(SHLIB_LINKS) $(PKG_CONFIG_INST) $(PKG_CONFIG_LOCAL)
-
-$(OBJECTS-y): src/_paths.h
-
-$(LIB): $(OBJECTS-y)
-	$(AR) rc $@ $^
-	$(RANLIB) $@
-
-$(SHLIB): $(OBJECTS-y)
-	$(CC) $(LDFLAGS) $(SONAME_FLAGS) $(SHLIB_LDFLAGS) -o $@ \
-	    $(OBJECTS-y) $(LDLIBS-y) $(APPEND_LDFLAGS)
-
-src/libxenstat.so.$(MAJOR): $(SHLIB)
-	$(MAKE_LINK) $(<F) $@
-
-src/libxenstat.so: src/libxenstat.so.$(MAJOR)
-	$(MAKE_LINK) $(<F) $@
-
-.PHONY: install
-install: all
-	$(INSTALL_DATA) src/xenstat.h $(DESTDIR)$(includedir)
-	$(INSTALL_DATA) $(LIB) $(DESTDIR)$(libdir)/libxenstat.a
-	$(INSTALL_PROG) src/libxenstat.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)
-	ln -sf libxenstat.so.$(MAJOR).$(MINOR) $(DESTDIR)$(libdir)/libxenstat.so.$(MAJOR)
-	ln -sf libxenstat.so.$(MAJOR) $(DESTDIR)$(libdir)/libxenstat.so
-	$(INSTALL_DATA) xenstat.pc $(DESTDIR)$(PKG_INSTALLDIR)
-
-.PHONY: uninstall
-uninstall:
-	rm -f $(DESTDIR)$(PKG_INSTALLDIR)/xenstat.pc
-	rm -f $(DESTDIR)$(libdir)/libxenstat.so
-	rm -f $(DESTDIR)$(libdir)/libxenstat.so.$(MAJOR)
-	rm -f $(DESTDIR)$(libdir)/libxenstat.so.$(MAJOR).$(MINOR)
-	rm -f $(DESTDIR)$(libdir)/libxenstat.a
-	rm -f $(DESTDIR)$(includedir)/xenstat.h
+$(LIB_OBJS): _paths.h
 
 PYLIB=bindings/swig/python/_xenstat.so
 PYMOD=bindings/swig/python/xenstat.py
@@ -109,9 +58,9 @@ install-bindings: install-perl-bindings install-python-bindings
 .PHONY: uninstall-bindings
 uninstall-bindings: uninstall-perl-bindings uninstall-python-bindings
 
-$(BINDINGS): $(SHLIB) $(SHLIB_LINKS) src/xenstat.h
+$(BINDINGS): $(SHLIB) $(SHLIB_LINKS) include/xenstat.h
 
-SWIG_FLAGS=-module xenstat -Isrc
+SWIG_FLAGS=-module xenstat -Iinclude -I.
 
 # Python bindings
 PYTHON_VERSION=$(PYTHON:python%=%)
@@ -177,14 +126,9 @@ endif
 
 .PHONY: clean
 clean:
-	rm -f $(LIB) $(SHLIB) $(SHLIB_LINKS) $(OBJECTS-y) \
-	      $(BINDINGS) $(BINDINGSRC) $(DEPS_RM) src/_paths.h
-	rm -f xenstat.pc
-
-.PHONY: distclean
-distclean: clean
+	rm -f $(BINDINGS) $(BINDINGSRC) $(DEPS_RM) _paths.h
 
 -include $(DEPS_INCLUDE)
 
-genpath-target = $(call buildmakevars2header,src/_paths.h)
+genpath-target = $(call buildmakevars2header,_paths.h)
 $(eval $(genpath-target))
