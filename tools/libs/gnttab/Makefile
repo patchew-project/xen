@@ -4,7 +4,6 @@ include $(XEN_ROOT)/tools/Rules.mk
 MAJOR    = 1
 MINOR    = 2
 LIBNAME  := gnttab
-USELIBS  := toollog toolcore
 
 SRCS-GNTTAB            += gnttab_core.c
 SRCS-GNTSHR            += gntshr_core.c

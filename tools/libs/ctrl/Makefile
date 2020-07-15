@@ -4,7 +4,6 @@ include $(XEN_ROOT)/tools/Rules.mk
 MAJOR    = 4.14
 MINOR    = 0
 LIBNAME  := ctrl
-USELIBS  := toollog call evtchn gnttab foreignmemory devicemodel
 
 SRCS-y       += xc_altp2m.c
 SRCS-y       += xc_core.c

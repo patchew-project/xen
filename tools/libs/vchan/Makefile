@@ -4,7 +4,6 @@ include $(XEN_ROOT)/tools/Rules.mk
 MAJOR = 4.14
 MINOR = 0
 LIBNAME  := vchan
-USELIBS  := toollog store evtchn gnttab
 
 CFLAGS += $(CFLAGS_libxenctrl)
 

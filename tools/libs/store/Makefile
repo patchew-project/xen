@@ -4,7 +4,6 @@ include $(XEN_ROOT)/tools/Rules.mk
 MAJOR = 3.0
 MINOR = 3
 LIBNAME  := store
-USELIBS  := toolcore
 
 ifeq ($(CONFIG_Linux),y)
 APPEND_LDFLAGS += -ldl

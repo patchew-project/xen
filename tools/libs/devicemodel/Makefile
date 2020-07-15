@@ -4,7 +4,6 @@ include $(XEN_ROOT)/tools/Rules.mk
 MAJOR    = 1
 MINOR    = 3
 LIBNAME  := devicemodel
-USELIBS  := toollog toolcore call
 
 SRCS-y                 += core.c
 SRCS-$(CONFIG_Linux)   += linux.c
