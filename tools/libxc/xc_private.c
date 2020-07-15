@@ -18,8 +18,7 @@
  */
 
 #include "xc_private.h"
-#include "xg_private.h"
-#include "xc_dom.h"
+#include "xenctrl_dom.h"
 #include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
