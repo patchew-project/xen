@@ -1,0 +1,16 @@
+VERS_4.14.0 {
+	global:
+		libxenvchan_server_init;
+		libxenvchan_client_init;
+		libxenvchan_close;
+		libxenvchan_recv;
+		libxenvchan_read;
+		libxenvchan_send;
+		libxenvchan_write;
+		libxenvchan_wait;
+		libxenvchan_fd_for_select;
+		libxenvchan_is_open;
+		libxenvchan_data_ready;
+		libxenvchan_buffer_space;
+	local: *; /* Do not expose anything by default */
+};

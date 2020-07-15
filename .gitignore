@@ -126,6 +126,8 @@ tools/libs/store/utils.h
 tools/libs/store/xenstore.pc
 tools/libs/store/xs_lib.c
 tools/libs/store/include/xenstore_lib.h
+tools/libs/vchan/headers.chk
+tools/libs/vchan/xenvchan.pc
 tools/console/xenconsole
 tools/console/xenconsoled
 tools/console/client/_paths.h
@@ -201,7 +203,6 @@ tools/include/xen/*
 tools/include/xen-xsm/*
 tools/include/xen-foreign/*.(c|h|size)
 tools/include/xen-foreign/checker
-tools/libvchan/xenvchan.pc
 tools/libxc/*.pc
 tools/libxc/xc_bitops.h
 tools/libxc/xc_core.h
@@ -387,8 +388,8 @@ tools/misc/xenhypfs
 tools/misc/xenwatchdogd
 tools/misc/xen-hvmcrash
 tools/misc/xen-lowmemd
-tools/libvchan/vchan-node[12]
-tools/libvchan/vchan-socket-proxy
+tools/vchan/vchan-node[12]
+tools/vchan/vchan-socket-proxy
 tools/ocaml/*/.ocamldep.make
 tools/ocaml/*/*.cm[ixao]
 tools/ocaml/*/*.cmxa
