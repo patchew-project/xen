@@ -255,6 +255,7 @@ subdir-all-qemu-xen-dir: qemu-xen-dir-find
 		-I$(XEN_ROOT)/tools/libs/gnttab/include \
 		-I$(XEN_ROOT)/tools/libs/foreignmemory/include \
 		-I$(XEN_ROOT)/tools/libs/devicemodel/include \
+		-I$(XEN_ROOT)/tools/libs/ctrl/include \
 		-I$(XEN_ROOT)/tools/libxc/include \
 		-I$(XEN_ROOT)/tools/xenstore/include \
 		-I$(XEN_ROOT)/tools/xenstore/compat/include \
@@ -266,6 +267,7 @@ subdir-all-qemu-xen-dir: qemu-xen-dir-find
 		-L$(XEN_ROOT)/tools/libs/gnttab \
 		-L$(XEN_ROOT)/tools/libs/foreignmemory \
 		-L$(XEN_ROOT)/tools/libs/devicemodel \
+		-L$(XEN_ROOT)/tools/libs/ctrl \
 		-Wl,-rpath-link=$(XEN_ROOT)/tools/libs/toolcore \
 		-Wl,-rpath-link=$(XEN_ROOT)/tools/libs/toollog \
 		-Wl,-rpath-link=$(XEN_ROOT)/tools/libs/evtchn \
@@ -273,6 +275,7 @@ subdir-all-qemu-xen-dir: qemu-xen-dir-find
 		-Wl,-rpath-link=$(XEN_ROOT)/tools/libs/call \
 		-Wl,-rpath-link=$(XEN_ROOT)/tools/libs/foreignmemory \
 		-Wl,-rpath-link=$(XEN_ROOT)/tools/libs/devicemodel \
+		-Wl,-rpath-link=$(XEN_ROOT)/tools/libs/ctrl \
 		$(QEMU_UPSTREAM_RPATH)" \
 		--bindir=$(LIBEXEC_BIN) \
 		--datadir=$(SHAREDIR)/qemu-xen \
