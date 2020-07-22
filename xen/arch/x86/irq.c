@@ -1187,7 +1187,7 @@ struct irq_desc *pirq_spin_lock_irq_desc(
 
     for ( ; ; )
     {
-        int irq = pirq->arch.irq;
+        int irq = read_atomic(&pirq->arch.irq);
 
         if ( irq <= 0 )
             return NULL;
