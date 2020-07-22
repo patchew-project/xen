@@ -154,6 +154,7 @@ int guest_rdmsr(struct vcpu *v, uint32_t msr, uint64_t *val)
     const struct cpuid_policy *cp = d->arch.cpuid;
     const struct msr_policy *mp = d->arch.msr;
     const struct vcpu_msrs *msrs = v->arch.msrs;
+    bool want_rdmsr_safe = false;
     int ret = X86EMUL_OKAY;
 
     switch ( msr )
@@ -204,10 +205,9 @@ int guest_rdmsr(struct vcpu *v, uint32_t msr, uint64_t *val)
          */
         if ( !(cp->x86_vendor & (X86_VENDOR_INTEL | X86_VENDOR_AMD)) ||
              !(boot_cpu_data.x86_vendor &
-               (X86_VENDOR_INTEL | X86_VENDOR_AMD)) ||
-             rdmsr_safe(MSR_AMD_PATCHLEVEL, *val) )
+               (X86_VENDOR_INTEL | X86_VENDOR_AMD)) )
             goto gp_fault;
-        break;
+        goto read_from_hw_safe;
 
     case MSR_SPEC_CTRL:
         if ( !cp->feat.ibrsb )
@@ -278,7 +278,7 @@ int guest_rdmsr(struct vcpu *v, uint32_t msr, uint64_t *val)
          */
 #ifdef CONFIG_HVM
         if ( v == current && is_hvm_domain(d) && v->arch.hvm.flag_dr_dirty )
-            rdmsrl(msr, *val);
+            goto read_from_hw;
         else
 #endif
             *val = msrs->dr_mask[
@@ -302,6 +302,23 @@ int guest_rdmsr(struct vcpu *v, uint32_t msr, uint64_t *val)
     ASSERT(ret != X86EMUL_UNHANDLEABLE);
 
     return ret;
+
+ read_from_hw_safe:
+    want_rdmsr_safe = true;
+ read_from_hw:
+    if ( !rdmsr_safe(msr, *val) )
+        return X86EMUL_OKAY;
+
+    /*
+     * Paths which didn't want rdmsr_safe() and get here took a #GP fault.
+     * Something is broken with the above logic, so make it obvious in debug
+     * builds, and fail safe by handing #GP back to guests in release builds.
+     */
+    if ( !want_rdmsr_safe )
+    {
+        gprintk(XENLOG_ERR, "Bad rdmsr %#x\n", msr);
+        ASSERT_UNREACHABLE();
+    }
 
  gp_fault:
     return X86EMUL_EXCEPTION;
@@ -402,9 +419,7 @@ int guest_wrmsr(struct vcpu *v, uint32_t msr, uint64_t val)
         if ( val & ~PRED_CMD_IBPB )
             goto gp_fault; /* Rsvd bit set? */
 
-        if ( v == curr )
-            wrmsrl(MSR_PRED_CMD, val);
-        break;
+        goto maybe_write_to_hw;
 
     case MSR_FLUSH_CMD:
         if ( !cp->feat.l1d_flush )
@@ -413,9 +428,7 @@ int guest_wrmsr(struct vcpu *v, uint32_t msr, uint64_t val)
         if ( val & ~FLUSH_CMD_L1D )
             goto gp_fault; /* Rsvd bit set? */
 
-        if ( v == curr )
-            wrmsrl(MSR_FLUSH_CMD, val);
-        break;
+        goto maybe_write_to_hw;
 
     case MSR_INTEL_MISC_FEATURES_ENABLES:
     {
@@ -493,8 +506,8 @@ int guest_wrmsr(struct vcpu *v, uint32_t msr, uint64_t val)
                                ? 0 : (msr - MSR_AMD64_DR1_ADDRESS_MASK + 1),
                                ARRAY_SIZE(msrs->dr_mask))] = val;
 
-        if ( v == curr && (curr->arch.dr7 & DR7_ACTIVE_MASK) )
-            wrmsrl(msr, val);
+        if ( curr->arch.dr7 & DR7_ACTIVE_MASK )
+            goto maybe_write_to_hw;
         break;
 
     default:
@@ -508,6 +521,23 @@ int guest_wrmsr(struct vcpu *v, uint32_t msr, uint64_t val)
     ASSERT(ret != X86EMUL_UNHANDLEABLE);
 
     return ret;
+
+ maybe_write_to_hw:
+    /*
+     * All paths potentially updating a value in hardware need to check
+     * whether the call is in current context or not, so the logic is
+     * implemented here.  Remote context need do nothing more.
+     */
+    if ( v != curr || !wrmsr_safe(msr, val) )
+        return X86EMUL_OKAY;
+
+    /*
+     * Paths which end up here took a #GP fault in wrmsr_safe().  Something is
+     * broken with the logic above, so make it obvious in debug builds, and
+     * fail safe by handing #GP back to the guests in release builds.
+     */
+    gprintk(XENLOG_ERR, "Bad wrmsr %#x val %016"PRIx64"\n", msr, val);
+    ASSERT_UNREACHABLE();
 
  gp_fault:
     return X86EMUL_EXCEPTION;
