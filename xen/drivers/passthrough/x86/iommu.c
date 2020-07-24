@@ -140,11 +140,19 @@ int arch_iommu_domain_init(struct domain *d)
 
     spin_lock_init(&hd->arch.mapping_lock);
 
+    INIT_PAGE_LIST_HEAD(&hd->arch.pgtables.list);
+    spin_lock_init(&hd->arch.pgtables.lock);
+
     return 0;
 }
 
 void arch_iommu_domain_destroy(struct domain *d)
 {
+    struct domain_iommu *hd = dom_iommu(d);
+    struct page_info *pg;
+
+    while ( (pg = page_list_remove_head(&hd->arch.pgtables.list)) )
+        free_domheap_page(pg);
 }
 
 static bool __hwdom_init hwdom_iommu_map(const struct domain *d,
@@ -255,6 +263,39 @@ void __hwdom_init arch_iommu_hwdom_init(struct domain *d)
     /* Use if to avoid compiler warning */
     if ( iommu_iotlb_flush_all(d, flush_flags) )
         return;
+}
+
+struct page_info *iommu_alloc_pgtable(struct domain *d)
+{
+    struct domain_iommu *hd = dom_iommu(d);
+#ifdef CONFIG_NUMA
+    unsigned int memflags = (hd->node == NUMA_NO_NODE) ?
+        0 : MEMF_node(hd->node);
+#else
+    unsigned int memflags = 0;
+#endif
+    struct page_info *pg;
+    void *p;
+
+    BUG_ON(!iommu_enabled);
+
+    pg = alloc_domheap_page(NULL, memflags);
+    if ( !pg )
+        return NULL;
+
+    p = __map_domain_page(pg);
+    clear_page(p);
+
+    if ( hd->platform_ops->sync_cache )
+        iommu_vcall(hd->platform_ops, sync_cache, p, PAGE_SIZE);
+
+    unmap_domain_page(p);
+
+    spin_lock(&hd->arch.pgtables.lock);
+    page_list_add(pg, &hd->arch.pgtables.list);
+    spin_unlock(&hd->arch.pgtables.lock);
+
+    return pg;
 }
 
 /*
