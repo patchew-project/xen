@@ -1413,21 +1413,36 @@ int memory_add(unsigned long spfn, unsigned long epfn, unsigned int pxm)
          !iommu_use_hap_pt(hardware_domain) &&
          !need_iommu_pt_sync(hardware_domain) )
     {
+        unsigned int flush_flags = 0;
+        bool failed = false;
+        unsigned int n;
+
         for ( i = spfn; i < epfn; i++ )
-            if ( iommu_legacy_map(hardware_domain, _dfn(i), _mfn(i),
-                                  PAGE_ORDER_4K,
-                                  IOMMUF_readable | IOMMUF_writable) )
+            if ( iommu_map(hardware_domain, _dfn(i), _mfn(i),
+                           PAGE_ORDER_4K, IOMMUF_readable | IOMMUF_writable,
+                           &flush_flags) )
                 break;
         if ( i != epfn )
         {
+            failed = true;
+
             while (i-- > old_max)
                 /* If statement to satisfy __must_check. */
-                if ( iommu_legacy_unmap(hardware_domain, _dfn(i),
-                                        PAGE_ORDER_4K) )
+                if ( iommu_unmap(hardware_domain, _dfn(i), PAGE_ORDER_4K,
+                                 &flush_flags) )
                     continue;
-
-            goto destroy_m2p;
         }
+
+        for ( i = spfn; i < epfn; i += n )
+        {
+            n = epfn - i; /* may truncate */
+
+            /* If statement to satisfy __must_check. */
+            if ( iommu_iotlb_flush(hardware_domain, _dfn(i), n, flush_flags) )
+                continue;
+        }
+        if ( failed )
+            goto destroy_m2p;
     }
 
     /* We can't revert any more */

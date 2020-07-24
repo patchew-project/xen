@@ -842,15 +842,21 @@ out:
     if ( rc == 0 && p2m_is_hostp2m(p2m) &&
          need_modify_vtd_table )
     {
-        if ( iommu_use_hap_pt(d) )
-            rc = iommu_iotlb_flush(d, _dfn(gfn), (1u << order),
-                                   (iommu_flags ? IOMMU_FLUSHF_added : 0) |
-                                   (vtd_pte_present ? IOMMU_FLUSHF_modified
-                                                    : 0));
-        else if ( need_iommu_pt_sync(d) )
+        unsigned int flush_flags = 0;
+        int err;
+
+        if ( need_iommu_pt_sync(d) )
             rc = iommu_flags ?
-                iommu_legacy_map(d, _dfn(gfn), mfn, order, iommu_flags) :
-                iommu_legacy_unmap(d, _dfn(gfn), order);
+                iommu_map(d, _dfn(gfn), mfn, order, iommu_flags, &flush_flags) :
+                iommu_unmap(d, _dfn(gfn), order, &flush_flags);
+        else if ( iommu_use_hap_pt(d) )
+            flush_flags =
+                (iommu_flags ? IOMMU_FLUSHF_added : 0) |
+                (vtd_pte_present ? IOMMU_FLUSHF_modified : 0);
+
+        err = iommu_iotlb_flush(d, _dfn(gfn), 1u << order, flush_flags);
+        if ( !rc )
+            rc = err;
     }
 
     unmap_domain_page(table);

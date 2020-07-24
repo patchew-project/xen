@@ -1225,11 +1225,25 @@ map_grant_ref(
             kind = IOMMUF_readable;
         else
             kind = 0;
-        if ( kind && iommu_legacy_map(ld, _dfn(mfn_x(mfn)), mfn, 0, kind) )
+        if ( kind )
         {
-            double_gt_unlock(lgt, rgt);
-            rc = GNTST_general_error;
-            goto undo_out;
+            dfn_t dfn = _dfn(mfn_x(mfn));
+            unsigned int flush_flags = 0;
+            int err;
+
+            err = iommu_map(ld, dfn, mfn, 0, kind, &flush_flags);
+            if ( err )
+                rc = GNTST_general_error;
+
+            err = iommu_iotlb_flush(ld, dfn, 1, flush_flags);
+            if ( err )
+                rc = GNTST_general_error;
+
+            if ( rc != GNTST_okay )
+            {
+                double_gt_unlock(lgt, rgt);
+                goto undo_out;
+            }
         }
     }
 
@@ -1473,21 +1487,27 @@ unmap_common(
     if ( rc == GNTST_okay && gnttab_need_iommu_mapping(ld) )
     {
         unsigned int kind;
+        dfn_t dfn = _dfn(mfn_x(op->mfn));
+        unsigned int flush_flags = 0;
         int err = 0;
 
         double_gt_lock(lgt, rgt);
 
         kind = mapkind(lgt, rd, op->mfn);
         if ( !kind )
-            err = iommu_legacy_unmap(ld, _dfn(mfn_x(op->mfn)), 0);
+            err = iommu_unmap(ld, dfn, 0, &flush_flags);
         else if ( !(kind & MAPKIND_WRITE) )
-            err = iommu_legacy_map(ld, _dfn(mfn_x(op->mfn)), op->mfn, 0,
-                                   IOMMUF_readable);
-
-        double_gt_unlock(lgt, rgt);
+            err = iommu_map(ld, dfn, op->mfn, 0, IOMMUF_readable,
+                            &flush_flags);
 
         if ( err )
             rc = GNTST_general_error;
+
+        err = iommu_iotlb_flush(ld, dfn, 1, flush_flags);
+        if ( err )
+            rc = GNTST_general_error;
+
+        double_gt_unlock(lgt, rgt);
     }
 
     /* If just unmapped a writable mapping, mark as dirtied */

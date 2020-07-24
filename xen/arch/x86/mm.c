@@ -2446,10 +2446,16 @@ static int cleanup_page_mappings(struct page_info *page)
 
         if ( d && unlikely(need_iommu_pt_sync(d)) && is_pv_domain(d) )
         {
-            int rc2 = iommu_legacy_unmap(d, _dfn(mfn), PAGE_ORDER_4K);
+            unsigned int flush_flags = 0;
+            int err;
 
+            err = iommu_unmap(d, _dfn(mfn), PAGE_ORDER_4K, &flush_flags);
             if ( !rc )
-                rc = rc2;
+                rc = err;
+
+            err = iommu_iotlb_flush(d, _dfn(mfn), 1, flush_flags);
+            if ( !rc )
+                rc = err;
         }
 
         if ( likely(!is_special_page(page)) )
@@ -2971,13 +2977,19 @@ static int _get_page_type(struct page_info *page, unsigned long type,
         if ( d && unlikely(need_iommu_pt_sync(d)) && is_pv_domain(d) )
         {
             mfn_t mfn = page_to_mfn(page);
+            dfn_t dfn = _dfn(mfn_x(mfn));
+            unsigned int flush_flags = 0;
+            int err;
 
             if ( (x & PGT_type_mask) == PGT_writable_page )
-                rc = iommu_legacy_unmap(d, _dfn(mfn_x(mfn)), PAGE_ORDER_4K);
+                rc = iommu_unmap(d, dfn, PAGE_ORDER_4K, &flush_flags);
             else
-                rc = iommu_legacy_map(d, _dfn(mfn_x(mfn)), mfn, PAGE_ORDER_4K,
-                                      IOMMUF_readable | IOMMUF_writable);
+                rc = iommu_map(d, dfn, mfn, PAGE_ORDER_4K,
+                               IOMMUF_readable | IOMMUF_writable, &flush_flags);
 
+            err = iommu_iotlb_flush(d, dfn, 1, flush_flags);
+            if ( !rc )
+                rc = err;
             if ( unlikely(rc) )
             {
                 _put_page_type(page, 0, NULL);

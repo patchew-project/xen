@@ -151,13 +151,6 @@ int __must_check iommu_map(struct domain *d, dfn_t dfn, mfn_t mfn,
 int __must_check iommu_unmap(struct domain *d, dfn_t dfn,
                              unsigned int page_order,
                              unsigned int *flush_flags);
-
-int __must_check iommu_legacy_map(struct domain *d, dfn_t dfn, mfn_t mfn,
-                                  unsigned int page_order,
-                                  unsigned int flags);
-int __must_check iommu_legacy_unmap(struct domain *d, dfn_t dfn,
-                                    unsigned int page_order);
-
 int __must_check iommu_iotlb_flush(struct domain *d, dfn_t dfn,
                                    unsigned int page_count,
                                    unsigned int flush_flags);
@@ -364,15 +357,12 @@ void iommu_dev_iotlb_flush_timeout(struct domain *d, struct pci_dev *pdev);
 
 /*
  * The purpose of the iommu_dont_flush_iotlb optional cpu flag is to
- * avoid unecessary iotlb_flush in the low level IOMMU code.
- *
- * iommu_map_page/iommu_unmap_page must flush the iotlb but somethimes
- * this operation can be really expensive. This flag will be set by the
- * caller to notify the low level IOMMU code to avoid the iotlb flushes.
- * iommu_iotlb_flush/iommu_iotlb_flush_all will be explicitly called by
- * the caller.
+ * avoid unecessary IOMMU flushing while updating the P2M.
+ * Setting the value to true will cause iommu_iotlb_flush() to return without
+ * actually performing a flush. A batch flush must therefore be done by the
+ * calling code after setting the value back to false.
  */
-DECLARE_PER_CPU(bool_t, iommu_dont_flush_iotlb);
+DECLARE_PER_CPU(bool, iommu_dont_flush_iotlb);
 
 #endif /* _IOMMU_H_ */
 
