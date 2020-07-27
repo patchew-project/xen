@@ -622,7 +622,7 @@ void __init paging_init(void)
     UNMAP_DOMAIN_PAGE(l3_ro_mpt);
 
     /* Create user-accessible L2 directory to map the MPT for compat guests. */
-    mfn = alloc_xen_pagetable_new();
+    mfn = alloc_xen_pagetable();
     if ( mfn_eq(mfn, INVALID_MFN) )
         goto nomem;
     compat_idle_pg_table_l2 = map_domain_page_global(mfn);
