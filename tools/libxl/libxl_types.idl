@@ -769,6 +769,12 @@ libxl_device_nic = Struct("device_nic", [
     ("colo_checkpoint_port", string)
     ])
 
+libxl_device_nic_add = DeviceFunction("device_nic_add",
+    ("nic", libxl_device_nic))
+
+libxl_device_nic_remove = DeviceFunction("device_nic_remove",
+    ("nic", libxl_device_nic))
+
 libxl_device_pci = Struct("device_pci", [
     ("func",      uint8),
     ("dev",       uint8),

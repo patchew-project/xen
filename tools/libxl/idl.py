@@ -386,6 +386,14 @@ class CtxFunction(Function):
 
         Function.__init__(self, name, params, return_type, return_is_status)
 
+class DeviceFunction(CtxFunction):
+    """ A function that modifies a device. """
+    def __init__(self, name=None, device_param=None):
+        params = [ ("domid", uint32), device_param ]
+
+        CtxFunction.__init__(self, name=name, params=params, return_type=integer,
+                             return_is_status=True, is_asyncop=True)
+
 def parse(f):
     print("Parsing %s" % f, file=sys.stderr)
 
