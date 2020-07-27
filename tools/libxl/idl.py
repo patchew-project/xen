@@ -347,6 +347,45 @@ class OrderedDict(dict):
     def ordered_items(self):
         return [(x,self[x]) for x in self.__ordered]
 
+class Function(object):
+    """
+    A general description of a function signature.
+
+    Attributes:
+      name (str): name of the function, excluding namespace.
+      params (list of (str,Type)): list of function parameters.
+      return_type (Type): the Type (if any), returned by the function.
+      return_is_status (bool): Indicates that the return value should be
+                               interpreted as an error/status code.
+    """
+    def __init__(self, name=None, params=None, return_type=None,
+                 return_is_status=False, namespace=None):
+
+        if namespace is None:
+            self.namespace = _get_default_namespace()
+        else:
+            self.namespace = namespace
+
+        self.name = self.namespace + name
+        self.params = params
+        self.return_type = return_type
+        self.return_is_status = return_is_status
+
+class CtxFunction(Function):
+    """
+    A function that requires a libxl_ctx.
+
+    Attributes:
+      is_asyncop (bool): indicates that the function accepts a
+                         libxl_asyncop_how parameter.
+    """
+    def __init__(self, name=None, params=None, return_type=None,
+                 return_is_status=False, is_asyncop=False):
+
+        self.is_asyncop = is_asyncop
+
+        Function.__init__(self, name, params, return_type, return_is_status)
+
 def parse(f):
     print("Parsing %s" % f, file=sys.stderr)
 
@@ -357,6 +396,10 @@ def parse(f):
         if isinstance(t, Type):
             globs[n] = t
         elif isinstance(t,type(object)) and issubclass(t, Type):
+            globs[n] = t
+        elif isinstance(t, Function):
+            globs[n] = t
+        elif isinstance(t,type(object)) and issubclass(t, Function):
             globs[n] = t
         elif n in ['PASS_BY_REFERENCE', 'PASS_BY_VALUE',
                    'DIR_NONE', 'DIR_IN', 'DIR_OUT', 'DIR_BOTH',
@@ -370,8 +413,9 @@ def parse(f):
                           % (e.lineno, f, e.text))
 
     types = [t for t in locs.ordered_values() if isinstance(t,Type)]
+    funcs = [f for f in locs.ordered_values() if isinstance(f,Function)]
 
     builtins = [t for t in types if isinstance(t,Builtin)]
     types = [t for t in types if not isinstance(t,Builtin)]
 
-    return (builtins,types)
+    return (builtins,types,funcs)

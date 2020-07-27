@@ -718,7 +718,7 @@ def xenlight_golang_fmt_name(name, exported = True):
 if __name__ == '__main__':
     idlname = sys.argv[1]
 
-    (builtins, types) = idl.parse(idlname)
+    (builtins, types, _) = idl.parse(idlname)
 
     for b in builtins:
         name = b.typename

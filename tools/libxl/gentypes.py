@@ -592,7 +592,7 @@ if __name__ == '__main__':
 
     (_, idlname, header, header_private, header_json, impl) = sys.argv
 
-    (builtins,types) = idl.parse(idlname)
+    (builtins,types,_) = idl.parse(idlname)
 
     print("outputting libxl type definitions to %s" % header)
 
