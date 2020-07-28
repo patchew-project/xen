@@ -1007,6 +1007,26 @@ static long xatp_permission_check(struct domain *d, unsigned int space)
     return xsm_add_to_physmap(XSM_TARGET, current->domain, d);
 }
 
+/*
+ * Return 0 on any kind of error.  Caller converts to -EINVAL.
+ *
+ * All nonzero values should be repeatable (i.e. derived from some fixed
+ * proerty of the domain), and describe the full resource (i.e. mapping the
+ * result of this call will be the entire resource).
+ */
+static unsigned int resource_max_frames(struct domain *d,
+                                        unsigned int type, unsigned int id)
+{
+    switch ( type )
+    {
+    case XENMEM_resource_grant_table:
+        return gnttab_resource_max_frames(d, id);
+
+    default:
+        return arch_resource_max_frames(d, type, id);
+    }
+}
+
 static int acquire_resource(
     XEN_GUEST_HANDLE_PARAM(xen_mem_acquire_resource_t) arg)
 {
@@ -1018,6 +1038,7 @@ static int acquire_resource(
      * use-cases then per-CPU arrays or heap allocations may be required.
      */
     xen_pfn_t mfn_list[32];
+    unsigned int max_frames;
     int rc;
 
     if ( copy_from_guest(&xmar, arg, 1) )
@@ -1025,19 +1046,6 @@ static int acquire_resource(
 
     if ( xmar.pad != 0 )
         return -EINVAL;
-
-    if ( guest_handle_is_null(xmar.frame_list) )
-    {
-        if ( xmar.nr_frames )
-            return -EINVAL;
-
-        xmar.nr_frames = ARRAY_SIZE(mfn_list);
-
-        if ( __copy_field_to_guest(arg, &xmar, nr_frames) )
-            return -EFAULT;
-
-        return 0;
-    }
 
     if ( xmar.nr_frames > ARRAY_SIZE(mfn_list) )
         return -E2BIG;
@@ -1049,6 +1057,27 @@ static int acquire_resource(
     rc = xsm_domain_resource_map(XSM_DM_PRIV, d);
     if ( rc )
         goto out;
+
+    max_frames = resource_max_frames(d, xmar.type, xmar.id);
+
+    rc = -EINVAL;
+    if ( !max_frames )
+        goto out;
+
+    if ( guest_handle_is_null(xmar.frame_list) )
+    {
+        if ( xmar.nr_frames )
+            goto out;
+
+        xmar.nr_frames = max_frames;
+
+        rc = -EFAULT;
+        if ( __copy_field_to_guest(arg, &xmar, nr_frames) )
+            goto out;
+
+        rc = 0;
+        goto out;
+    }
 
     switch ( xmar.type )
     {
