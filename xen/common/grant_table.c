@@ -4013,6 +4013,72 @@ static int gnttab_get_shared_frame_mfn(struct domain *d,
     return 0;
 }
 
+int gnttab_acquire_resource(
+    struct domain *d, unsigned int id, unsigned long frame,
+    unsigned int nr_frames, xen_pfn_t mfn_list[])
+{
+    struct grant_table *gt = d->grant_table;
+    unsigned int i = nr_frames, tot_frames;
+    void **vaddrs;
+    int rc = 0;
+
+    /* Input sanity. */
+    if ( !nr_frames )
+        return -EINVAL;
+
+    /* Overflow checks */
+    if ( frame + nr_frames < frame )
+        return -EINVAL;
+
+    tot_frames = frame + nr_frames;
+    if ( tot_frames != frame + nr_frames )
+        return -EINVAL;
+
+    /* Grow table if necessary. */
+    grant_write_lock(gt);
+    switch ( id )
+    {
+        mfn_t tmp;
+
+    case XENMEM_resource_grant_table_id_shared:
+        rc = gnttab_get_shared_frame_mfn(d, tot_frames - 1, &tmp);
+        break;
+
+    case XENMEM_resource_grant_table_id_status:
+        if ( gt->gt_version != 2 )
+        {
+    default:
+            rc = -EINVAL;
+            break;
+        }
+        rc = gnttab_get_status_frame_mfn(d, tot_frames - 1, &tmp);
+        break;
+    }
+
+    /* Any errors from growing the table? */
+    if ( rc )
+        goto out;
+
+    switch ( id )
+    {
+    case XENMEM_resource_grant_table_id_shared:
+        vaddrs = gt->shared_raw;
+        break;
+
+    case XENMEM_resource_grant_table_id_status:
+        vaddrs = (void **)gt->status;
+        break;
+    }
+
+    for ( i = 0; i < nr_frames; ++i )
+        mfn_list[i] = virt_to_mfn(vaddrs[frame + i]);
+
+ out:
+    grant_write_unlock(gt);
+
+    return rc;
+}
+
 int gnttab_map_frame(struct domain *d, unsigned long idx, gfn_t gfn, mfn_t *mfn)
 {
     int rc = 0;
@@ -4042,33 +4108,6 @@ int gnttab_map_frame(struct domain *d, unsigned long idx, gfn_t gfn, mfn_t *mfn)
     if ( !rc )
         gnttab_set_frame_gfn(gt, status, idx, gfn);
 
-    grant_write_unlock(gt);
-
-    return rc;
-}
-
-int gnttab_get_shared_frame(struct domain *d, unsigned long idx,
-                            mfn_t *mfn)
-{
-    struct grant_table *gt = d->grant_table;
-    int rc;
-
-    grant_write_lock(gt);
-    rc = gnttab_get_shared_frame_mfn(d, idx, mfn);
-    grant_write_unlock(gt);
-
-    return rc;
-}
-
-int gnttab_get_status_frame(struct domain *d, unsigned long idx,
-                            mfn_t *mfn)
-{
-    struct grant_table *gt = d->grant_table;
-    int rc;
-
-    grant_write_lock(gt);
-    rc = (gt->gt_version == 2) ?
-        gnttab_get_status_frame_mfn(d, idx, mfn) : -EINVAL;
     grant_write_unlock(gt);
 
     return rc;

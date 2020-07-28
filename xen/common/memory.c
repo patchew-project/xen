@@ -1007,44 +1007,6 @@ static long xatp_permission_check(struct domain *d, unsigned int space)
     return xsm_add_to_physmap(XSM_TARGET, current->domain, d);
 }
 
-static int acquire_grant_table(struct domain *d, unsigned int id,
-                               unsigned long frame,
-                               unsigned int nr_frames,
-                               xen_pfn_t mfn_list[])
-{
-    unsigned int i = nr_frames;
-
-    /* Iterate backwards in case table needs to grow */
-    while ( i-- != 0 )
-    {
-        mfn_t mfn = INVALID_MFN;
-        int rc;
-
-        switch ( id )
-        {
-        case XENMEM_resource_grant_table_id_shared:
-            rc = gnttab_get_shared_frame(d, frame + i, &mfn);
-            break;
-
-        case XENMEM_resource_grant_table_id_status:
-            rc = gnttab_get_status_frame(d, frame + i, &mfn);
-            break;
-
-        default:
-            rc = -EINVAL;
-            break;
-        }
-
-        if ( rc )
-            return rc;
-
-        ASSERT(!mfn_eq(mfn, INVALID_MFN));
-        mfn_list[i] = mfn_x(mfn);
-    }
-
-    return 0;
-}
-
 static int acquire_resource(
     XEN_GUEST_HANDLE_PARAM(xen_mem_acquire_resource_t) arg)
 {
@@ -1091,8 +1053,8 @@ static int acquire_resource(
     switch ( xmar.type )
     {
     case XENMEM_resource_grant_table:
-        rc = acquire_grant_table(d, xmar.id, xmar.frame, xmar.nr_frames,
-                                 mfn_list);
+        rc = gnttab_acquire_resource(d, xmar.id, xmar.frame, xmar.nr_frames,
+                                     mfn_list);
         break;
 
     default:
