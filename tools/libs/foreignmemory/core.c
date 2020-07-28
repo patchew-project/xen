@@ -53,6 +53,10 @@ xenforeignmemory_handle *xenforeignmemory_open(xentoollog_logger *logger,
         if (!fmem->logger) goto err;
     }
 
+    fmem->xcall = xencall_open(fmem->logger, 0);
+    if ( !fmem->xcall )
+        goto err;
+
     rc = osdep_xenforeignmemory_open(fmem);
     if ( rc  < 0 ) goto err;
 
@@ -61,6 +65,7 @@ xenforeignmemory_handle *xenforeignmemory_open(xentoollog_logger *logger,
 err:
     xentoolcore__deregister_active_handle(&fmem->tc_ah);
     osdep_xenforeignmemory_close(fmem);
+    xencall_close(fmem->xcall);
     xtl_logger_destroy(fmem->logger_tofree);
     free(fmem);
     return NULL;
@@ -75,6 +80,7 @@ int xenforeignmemory_close(xenforeignmemory_handle *fmem)
 
     xentoolcore__deregister_active_handle(&fmem->tc_ah);
     rc = osdep_xenforeignmemory_close(fmem);
+    xencall_close(fmem->xcall);
     xtl_logger_destroy(fmem->logger_tofree);
     free(fmem);
     return rc;
@@ -186,6 +192,14 @@ int xenforeignmemory_unmap_resource(
 
     free(fres);
     return rc;
+}
+
+int xenforeignmemory_resource_size(
+    xenforeignmemory_handle *fmem, domid_t domid, unsigned int type,
+    unsigned int id, unsigned long *nr_frames)
+{
+    return osdep_xenforeignmemory_resource_size(fmem, domid, type,
+                                                id, nr_frames);
 }
 
 /*

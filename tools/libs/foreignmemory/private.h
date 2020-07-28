@@ -4,6 +4,7 @@
 #include <xentoollog.h>
 
 #include <xenforeignmemory.h>
+#include <xencall.h>
 
 #include <xentoolcore_internal.h>
 
@@ -20,6 +21,7 @@
 
 struct xenforeignmemory_handle {
     xentoollog_logger *logger, *logger_tofree;
+    xencall_handle *xcall;
     unsigned flags;
     int fd;
     Xentoolcore__Active_Handle tc_ah;
@@ -74,6 +76,15 @@ static inline int osdep_xenforeignmemory_unmap_resource(
 {
     return 0;
 }
+
+static inline int osdep_xenforeignmemory_resource_size(
+    xenforeignmemory_handle *fmem, domid_t domid, unsigned int type,
+    unsigned int id, unsigned long *nr_frames)
+{
+    errno = EOPNOTSUPP;
+    return -1;
+}
+
 #else
 int osdep_xenforeignmemory_restrict(xenforeignmemory_handle *fmem,
                                     domid_t domid);
@@ -81,6 +92,9 @@ int osdep_xenforeignmemory_map_resource(
     xenforeignmemory_handle *fmem, xenforeignmemory_resource_handle *fres);
 int osdep_xenforeignmemory_unmap_resource(
     xenforeignmemory_handle *fmem, xenforeignmemory_resource_handle *fres);
+int osdep_xenforeignmemory_resource_size(
+    xenforeignmemory_handle *fmem, domid_t domid, unsigned int type,
+    unsigned int id, unsigned long *nr_frames);
 #endif
 
 #define PERROR(_f...) \
