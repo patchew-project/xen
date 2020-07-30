@@ -164,9 +164,21 @@ remove_from_bridge () {
 set_mtu () {
     local bridge=$1
     local dev=$2
+    local type_if=$3
+
     mtu="`ip link show dev ${bridge}| awk '/mtu/ { print $5 }'`"
     if [ -n "$mtu" ] && [ "$mtu" -gt 0 ]
     then
-            ip link set dev ${dev} mtu $mtu || :
+            ip link set dev ${dev} mtu ${mtu} || :
+    fi
+
+    if [ ${type_if} = vif ]
+    then
+       dev_=${dev#vif}
+       domid=${dev_%.*}
+       devid=${dev_#*.}
+
+       XENBUS_PATH="/local/domain/$domid/device/vif/$devid"
+       xenstore_write "$XENBUS_PATH/mtu" ${mtu}
     fi
 }
