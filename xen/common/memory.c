@@ -824,8 +824,7 @@ int xenmem_add_to_physmap(struct domain *d, struct xen_add_to_physmap *xatp,
     xatp->gpfn += start;
     xatp->size -= start;
 
-    if ( is_iommu_enabled(d) )
-       this_cpu(iommu_dont_flush_iotlb) = 1;
+    this_cpu(iommu_dont_flush_iotlb) = true;
 
     while ( xatp->size > done )
     {
@@ -844,6 +843,8 @@ int xenmem_add_to_physmap(struct domain *d, struct xen_add_to_physmap *xatp,
             break;
         }
     }
+
+    this_cpu(iommu_dont_flush_iotlb) = false;
 
     if ( is_iommu_enabled(d) )
     {
