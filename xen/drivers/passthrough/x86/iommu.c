@@ -244,7 +244,7 @@ void __hwdom_init arch_iommu_hwdom_init(struct domain *d)
         else if ( paging_mode_translate(d) )
             rc = set_identity_p2m_entry(d, pfn, p2m_access_rw, 0);
         else
-            rc = iommu_map(d, _dfn(pfn), _mfn(pfn), PAGE_ORDER_4K,
+            rc = iommu_map(d, _dfn(pfn), _mfn(pfn), PAGE_ORDER_4K, 1,
                            IOMMUF_readable | IOMMUF_writable, &flush_flags);
 
         if ( rc )

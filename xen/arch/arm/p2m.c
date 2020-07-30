@@ -1061,7 +1061,7 @@ static int __p2m_set_entry(struct p2m_domain *p2m,
             flush_flags |= IOMMU_FLUSHF_added;
 
         rc = iommu_iotlb_flush(p2m->domain, _dfn(gfn_x(sgfn)),
-                               1UL << page_order, flush_flags);
+                               page_order, 1, flush_flags);
     }
     else
         rc = 0;
