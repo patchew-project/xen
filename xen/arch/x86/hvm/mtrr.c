@@ -830,7 +830,8 @@ int epte_get_entry_emt(struct domain *d, unsigned long gfn, mfn_t mfn,
         return MTRR_TYPE_UNCACHABLE;
     }
 
-    if ( !is_iommu_enabled(d) && !cache_flush_permitted(d) )
+    if ( (!is_iommu_enabled(d) && !cache_flush_permitted(d)) ||
+         is_special_page(mfn_to_page(mfn)) )
     {
         *ipat = 1;
         return MTRR_TYPE_WRBACK;
