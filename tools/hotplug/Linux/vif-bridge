@@ -77,25 +77,17 @@ then
 fi
 
 case "$command" in
+    add)
+        ;&
     online)
         setup_virtual_bridge_port "$dev"
         set_mtu "$bridge" "$dev"
         add_to_bridge "$bridge" "$dev"
         ;;
-
+    remove)
+        ;&
     offline)
-        if which brctl >&/dev/null; then
-            do_without_error brctl delif "$bridge" "$dev"
-        else
-            do_without_error ip link set "$dev" nomaster
-        fi
-        do_without_error ifconfig "$dev" down
-        ;;
-
-    add)
-        setup_virtual_bridge_port "$dev"
-        set_mtu "$bridge" "$dev"
-        add_to_bridge "$bridge" "$dev"
+        remove_from_bridge "$bridge" "$dev"
         ;;
 esac
 
