@@ -126,17 +126,38 @@ add_to_bridge () {
     local bridge=$1
     local dev=$2
 
-    # Don't add $dev to $bridge if it's already on a bridge.
-    if [ -e "/sys/class/net/${bridge}/brif/${dev}" ]; then
-	ip link set dev ${dev} up || true
-	return
-    fi
-    if which brctl >&/dev/null; then
-        brctl addif ${bridge} ${dev}
+    # Don't add $dev to $bridge if it's already on the bridge.
+    if [ ! -e "/sys/class/net/${bridge}/brif/${dev}" ]; then
+	log debug "adding $dev to bridge $bridge"
+	if which brctl >&/dev/null; then
+            brctl addif ${bridge} ${dev}
+	else
+            ip link set ${dev} master ${bridge}
+	fi
     else
-        ip link set ${dev} master ${bridge}
+	log debug "$dev already on bridge $bridge"
     fi
+
     ip link set dev ${dev} up
+}
+
+remove_from_bridge () {
+    local bridge=$1
+    local dev=$2
+
+    ip link set dev ${dev} down || :
+
+    # Don't remove $dev from $bridge if it's not on the bridge.
+    if [ -e "/sys/class/net/${bridge}/brif/${dev}" ]; then
+	log debug "removing $dev from bridge $bridge"
+	if which brctl >&/dev/null; then
+            brctl delif ${bridge} ${dev}
+	else
+            ip link set ${dev} nomaster
+	fi
+    else
+	log debug "$dev not on bridge $bridge"
+    fi
 }
 
 # Usage: set_mtu bridge dev
