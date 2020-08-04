@@ -283,29 +283,40 @@ struct context_entry {
  * 12-63: Host physcial address
  */
 struct dma_pte {
-    u64 val;
+    union {
+        uint64_t val;
+        struct {
+            uint64_t r:1;
+            uint64_t w:1;
+            uint64_t reserved0:1;
+            uint64_t ignored0:4;
+            uint64_t ps:1;
+            uint64_t ignored1:3;
+            uint64_t snp:1;
+            uint64_t addr:52;
+        };
+    };
 };
-#define DMA_PTE_READ (1)
-#define DMA_PTE_WRITE (2)
-#define DMA_PTE_PROT (DMA_PTE_READ | DMA_PTE_WRITE)
-#define DMA_PTE_SP   (1 << 7)
-#define DMA_PTE_SNP  (1 << 11)
-#define dma_clear_pte(p)    do {(p).val = 0;} while(0)
-#define dma_set_pte_readable(p) do {(p).val |= DMA_PTE_READ;} while(0)
-#define dma_set_pte_writable(p) do {(p).val |= DMA_PTE_WRITE;} while(0)
-#define dma_set_pte_superpage(p) do {(p).val |= DMA_PTE_SP;} while(0)
-#define dma_set_pte_snp(p)  do {(p).val |= DMA_PTE_SNP;} while(0)
-#define dma_set_pte_prot(p, prot) do { \
-        (p).val = ((p).val & ~DMA_PTE_PROT) | ((prot) & DMA_PTE_PROT); \
-    } while (0)
-#define dma_pte_prot(p) ((p).val & DMA_PTE_PROT)
-#define dma_pte_read(p) (dma_pte_prot(p) & DMA_PTE_READ)
-#define dma_pte_write(p) (dma_pte_prot(p) & DMA_PTE_WRITE)
-#define dma_pte_addr(p) ((p).val & PADDR_MASK & PAGE_MASK_4K)
-#define dma_set_pte_addr(p, addr) do {\
-            (p).val |= ((addr) & PAGE_MASK_4K); } while (0)
-#define dma_pte_present(p) (((p).val & DMA_PTE_PROT) != 0)
-#define dma_pte_superpage(p) (((p).val & DMA_PTE_SP) != 0)
+
+#define dma_pte_read(p) ((p).r)
+#define dma_set_pte_readable(p) do { (p).r = 1; } while (0)
+
+#define dma_pte_write(p) ((p).w)
+#define dma_set_pte_writable(p) do { (p).w = 1; } while (0)
+
+#define dma_pte_addr(p) ((p).addr << PAGE_SHIFT_4K)
+#define dma_set_pte_addr(p, val) \
+    do { (p).addr =  (val) >> PAGE_SHIFT_4K; } while (0)
+
+#define dma_pte_present(p) ((p).r || (p).w)
+
+#define dma_pte_superpage(p) ((p).ps)
+#define dma_set_pte_superpage(p) do { (p).ps = 1; } while (0)
+
+#define dma_pte_snoop(p) ((p).snp)
+#define dma_set_pte_snoop(p)  do { (p).snp = 1; } while (0)
+
+#define dma_clear_pte(p) do { (p).val = 0; } while (0)
 
 /* interrupt remap entry */
 struct iremap_entry {

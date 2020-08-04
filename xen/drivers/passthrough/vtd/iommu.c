@@ -1772,13 +1772,14 @@ static int __must_check intel_iommu_map_page(struct domain *d, dfn_t dfn,
     old = *pte;
 
     dma_set_pte_addr(new, mfn_to_maddr(mfn));
-    dma_set_pte_prot(new,
-                     ((flags & IOMMUF_readable) ? DMA_PTE_READ  : 0) |
-                     ((flags & IOMMUF_writable) ? DMA_PTE_WRITE : 0));
+    if ( flags & IOMMUF_readable )
+        dma_set_pte_readable(new);
+    if ( flags & IOMMUF_writable )
+        dma_set_pte_writable(new);
 
     /* Set the SNP on leaf page table if Snoop Control available */
     if ( iommu_snoop )
-        dma_set_pte_snp(new);
+        dma_set_pte_snoop(new);
 
     if ( old.val == new.val )
     {
