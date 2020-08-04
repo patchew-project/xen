@@ -245,11 +245,11 @@ static u64 bus_to_context_maddr(struct vtd_iommu *iommu, u8 bus)
             unmap_vtd_domain_page(root_entries);
             return 0;
         }
-        set_root_value(*root, maddr);
+        set_root_ctp(*root, maddr);
         set_root_present(*root);
         iommu_sync_cache(root, sizeof(struct root_entry));
     }
-    maddr = (u64) get_context_addr(*root);
+    maddr = root_ctp(*root);
     unmap_vtd_domain_page(root_entries);
     return maddr;
 }
