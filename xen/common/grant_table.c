@@ -979,7 +979,7 @@ static unsigned int mapkind(
 
 static void
 map_grant_ref(
-    struct gnttab_map_grant_ref *op)
+    struct gnttab_map_grant_ref *op, unsigned int *flush_flags)
 {
     struct domain *ld, *rd, *owner = NULL;
     struct grant_table *lgt, *rgt;
@@ -1228,17 +1228,12 @@ map_grant_ref(
         if ( kind )
         {
             dfn_t dfn = _dfn(mfn_x(mfn));
-            unsigned int flush_flags = 0;
             int err;
 
-            err = iommu_map(ld, dfn, mfn, 0, 1, kind, &flush_flags);
-            if ( !err )
-                err = iommu_iotlb_flush(ld, dfn, 0, 1, flush_flags);
+            err = iommu_map(ld, dfn, mfn, 0, 1, kind, flush_flags);
             if ( err )
-                rc = GNTST_general_error;
-
-            if ( rc != GNTST_okay )
             {
+                rc = GNTST_general_error;
                 double_gt_unlock(lgt, rgt);
                 goto undo_out;
             }
@@ -1322,6 +1317,8 @@ gnttab_map_grant_ref(
 {
     int i;
     struct gnttab_map_grant_ref op;
+    unsigned int flush_flags = 0;
+    int err, rc = 0;
 
     for ( i = 0; i < count; i++ )
     {
@@ -1329,20 +1326,30 @@ gnttab_map_grant_ref(
             return i;
 
         if ( unlikely(__copy_from_guest_offset(&op, uop, i, 1)) )
-            return -EFAULT;
+        {
+            rc = -EFAULT;
+            break;
+        }
 
-        map_grant_ref(&op);
+        map_grant_ref(&op, &flush_flags);
 
         if ( unlikely(__copy_to_guest_offset(uop, i, &op, 1)) )
-            return -EFAULT;
+        {
+            rc = -EFAULT;
+            break;
+        }
     }
 
-    return 0;
+    err = iommu_iotlb_flush_all(current->domain, flush_flags);
+    if ( !rc )
+        rc = err;
+
+    return rc;
 }
 
 static void
 unmap_common(
-    struct gnttab_unmap_common *op)
+    struct gnttab_unmap_common *op, unsigned int *flush_flags)
 {
     domid_t          dom;
     struct domain   *ld, *rd;
@@ -1486,20 +1493,16 @@ unmap_common(
     {
         unsigned int kind;
         dfn_t dfn = _dfn(mfn_x(op->mfn));
-        unsigned int flush_flags = 0;
         int err = 0;
 
         double_gt_lock(lgt, rgt);
 
         kind = mapkind(lgt, rd, op->mfn);
         if ( !kind )
-            err = iommu_unmap(ld, dfn, 0, 1, &flush_flags);
+            err = iommu_unmap(ld, dfn, 0, 1, flush_flags);
         else if ( !(kind & MAPKIND_WRITE) )
             err = iommu_map(ld, dfn, op->mfn, 0, 1, IOMMUF_readable,
-                            &flush_flags);
-
-        if ( !err )
-            err = iommu_iotlb_flush(ld, dfn, 0, 1, flush_flags);
+                            flush_flags);
         if ( err )
             rc = GNTST_general_error;
 
@@ -1600,8 +1603,8 @@ unmap_common_complete(struct gnttab_unmap_common *op)
 
 static void
 unmap_grant_ref(
-    struct gnttab_unmap_grant_ref *op,
-    struct gnttab_unmap_common *common)
+    struct gnttab_unmap_grant_ref *op, struct gnttab_unmap_common *common,
+    unsigned int *flush_flags)
 {
     common->host_addr = op->host_addr;
     common->dev_bus_addr = op->dev_bus_addr;
@@ -1613,7 +1616,7 @@ unmap_grant_ref(
     common->rd = NULL;
     common->mfn = INVALID_MFN;
 
-    unmap_common(common);
+    unmap_common(common, flush_flags);
     op->status = common->status;
 }
 
@@ -1622,30 +1625,49 @@ static long
 gnttab_unmap_grant_ref(
     XEN_GUEST_HANDLE_PARAM(gnttab_unmap_grant_ref_t) uop, unsigned int count)
 {
-    int i, c, partial_done, done = 0;
+    struct domain *currd = current->domain;
     struct gnttab_unmap_grant_ref op;
     struct gnttab_unmap_common common[GNTTAB_UNMAP_BATCH_SIZE];
+    int rc = 0;
 
     while ( count != 0 )
     {
+        unsigned int i, c, partial_done = 0, done = 0;
+        unsigned int flush_flags = 0;
+        int err;
+
         c = min(count, (unsigned int)GNTTAB_UNMAP_BATCH_SIZE);
-        partial_done = 0;
 
         for ( i = 0; i < c; i++ )
         {
             if ( unlikely(__copy_from_guest(&op, uop, 1)) )
-                goto fault;
-            unmap_grant_ref(&op, &common[i]);
+            {
+                rc = -EFAULT;
+                break;
+            }
+
+            unmap_grant_ref(&op, &common[i], &flush_flags);
             ++partial_done;
+
             if ( unlikely(__copy_field_to_guest(uop, &op, status)) )
-                goto fault;
+            {
+                rc = -EFAULT;
+                break;
+            }
+
             guest_handle_add_offset(uop, 1);
         }
 
-        gnttab_flush_tlb(current->domain);
+        gnttab_flush_tlb(currd);
+        err = iommu_iotlb_flush_all(currd, flush_flags);
+        if ( !rc )
+            rc = err;
 
         for ( i = 0; i < partial_done; i++ )
             unmap_common_complete(&common[i]);
+
+        if ( rc )
+            break;
 
         count -= c;
         done += c;
@@ -1654,20 +1676,14 @@ gnttab_unmap_grant_ref(
             return done;
     }
 
-    return 0;
-
-fault:
-    gnttab_flush_tlb(current->domain);
-
-    for ( i = 0; i < partial_done; i++ )
-        unmap_common_complete(&common[i]);
-    return -EFAULT;
+    return rc;
 }
 
 static void
 unmap_and_replace(
     struct gnttab_unmap_and_replace *op,
-    struct gnttab_unmap_common *common)
+    struct gnttab_unmap_common *common,
+    unsigned int *flush_flags)
 {
     common->host_addr = op->host_addr;
     common->new_addr = op->new_addr;
@@ -1679,7 +1695,7 @@ unmap_and_replace(
     common->rd = NULL;
     common->mfn = INVALID_MFN;
 
-    unmap_common(common);
+    unmap_common(common, flush_flags);
     op->status = common->status;
 }
 
@@ -1687,30 +1703,49 @@ static long
 gnttab_unmap_and_replace(
     XEN_GUEST_HANDLE_PARAM(gnttab_unmap_and_replace_t) uop, unsigned int count)
 {
-    int i, c, partial_done, done = 0;
+    struct domain *currd = current->domain;
     struct gnttab_unmap_and_replace op;
     struct gnttab_unmap_common common[GNTTAB_UNMAP_BATCH_SIZE];
+    int rc = 0;
 
     while ( count != 0 )
     {
+        unsigned int i, c, partial_done = 0, done = 0;
+        unsigned int flush_flags = 0;
+        int err;
+
         c = min(count, (unsigned int)GNTTAB_UNMAP_BATCH_SIZE);
-        partial_done = 0;
 
         for ( i = 0; i < c; i++ )
         {
             if ( unlikely(__copy_from_guest(&op, uop, 1)) )
-                goto fault;
-            unmap_and_replace(&op, &common[i]);
+            {
+                rc = -EFAULT;
+                break;
+            }
+
+            unmap_and_replace(&op, &common[i], &flush_flags);
             ++partial_done;
+
             if ( unlikely(__copy_field_to_guest(uop, &op, status)) )
-                goto fault;
+            {
+                rc = -EFAULT;
+                break;
+            }
+
             guest_handle_add_offset(uop, 1);
         }
 
-        gnttab_flush_tlb(current->domain);
+        gnttab_flush_tlb(currd);
+        err = iommu_iotlb_flush_all(currd, flush_flags);
+        if ( !rc )
+            rc = err;
 
         for ( i = 0; i < partial_done; i++ )
             unmap_common_complete(&common[i]);
+
+        if ( rc )
+            break;
 
         count -= c;
         done += c;
@@ -1719,14 +1754,7 @@ gnttab_unmap_and_replace(
             return done;
     }
 
-    return 0;
-
-fault:
-    gnttab_flush_tlb(current->domain);
-
-    for ( i = 0; i < partial_done; i++ )
-        unmap_common_complete(&common[i]);
-    return -EFAULT;
+    return rc;
 }
 
 static int
