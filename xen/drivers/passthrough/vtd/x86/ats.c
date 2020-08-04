@@ -92,7 +92,7 @@ static bool device_in_domain(const struct vtd_iommu *iommu,
 
     context_entries = map_vtd_domain_page(root_ctp(*root_entry));
     context_entry = &context_entries[pdev->devfn];
-    if ( context_domain_id(*context_entry) != did )
+    if ( context_did(*context_entry) != did )
         goto out;
 
     tt = context_translation_type(*context_entry);

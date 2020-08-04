@@ -129,9 +129,8 @@ void print_vtd_entries(struct vtd_iommu *iommu, int bus, int devfn, u64 gmfn)
         return;
     }
 
-    val = ctxt_entry[devfn].lo;
-    printk("    context[%02x] = %"PRIx64"_%"PRIx64"\n",
-           devfn, ctxt_entry[devfn].hi, val);
+    printk("    context[%02x] = %"PRIx64"_%"PRIx64"\n", devfn,
+           ctxt_entry[devfn].hi, ctxt_entry[devfn].lo);
     if ( !context_present(ctxt_entry[devfn]) )
     {
         unmap_vtd_domain_page(ctxt_entry);
@@ -140,6 +139,7 @@ void print_vtd_entries(struct vtd_iommu *iommu, int bus, int devfn, u64 gmfn)
     }
 
     level = agaw_to_level(context_address_width(ctxt_entry[devfn]));
+    val = context_slptp(ctxt_entry[devfn]);
     unmap_vtd_domain_page(ctxt_entry);
     if ( level != VTD_PAGE_TABLE_LEVEL_3 &&
          level != VTD_PAGE_TABLE_LEVEL_4)

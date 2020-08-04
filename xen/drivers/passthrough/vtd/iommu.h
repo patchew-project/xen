@@ -199,6 +199,7 @@ struct root_entry {
         };
     };
 };
+#define ROOT_ENTRY_NR (PAGE_SIZE_4K / sizeof(struct root_entry))
 
 #define root_present(r) (r).p
 #define set_root_present(r) do { (r).p = 1; } while (0)
@@ -208,35 +209,53 @@ struct root_entry {
     do { (r).ctp = ((val) >> PAGE_SHIFT_4K); } while (0)
 
 struct context_entry {
-    u64 lo;
-    u64 hi;
+    union {
+        __uint128_t val;
+        struct { uint64_t lo, hi; };
+        struct {
+            /* 0 - 63 */
+            uint64_t p:1;
+            uint64_t fpd:1;
+            uint64_t tt:2;
+            uint64_t reserved0:8;
+            uint64_t slptp:52;
+
+            /* 64 - 127 */
+            uint64_t aw:3;
+            uint64_t ignored:4;
+            uint64_t reserved1:1;
+            uint64_t did:16;
+            uint64_t reserved2:40;
+        };
+    };
 };
-#define ROOT_ENTRY_NR (PAGE_SIZE_4K/sizeof(struct root_entry))
-#define context_present(c) ((c).lo & 1)
-#define context_fault_disable(c) (((c).lo >> 1) & 1)
-#define context_translation_type(c) (((c).lo >> 2) & 3)
-#define context_address_root(c) ((c).lo & PAGE_MASK_4K)
-#define context_address_width(c) ((c).hi &  7)
-#define context_domain_id(c) (((c).hi >> 8) & ((1 << 16) - 1))
 
-#define context_set_present(c) do {(c).lo |= 1;} while(0)
-#define context_clear_present(c) do {(c).lo &= ~1;} while(0)
-#define context_set_fault_enable(c) \
-    do {(c).lo &= (((u64)-1) << 2) | 1;} while(0)
+#define context_present(c) (c).p
+#define context_set_present(c) do { (c).p = 1; } while (0)
+#define context_clear_present(c) do { (c).p = 0; } while (0)
 
-#define context_set_translation_type(c, val) do { \
-        (c).lo &= (((u64)-1) << 4) | 3; \
-        (c).lo |= (val & 3) << 2; \
-    } while(0)
+#define context_fault_disable(c) (c).fpd
+#define context_set_fault_enable(c) do { (c).fpd = 1; } while (0)
+
+#define context_translation_type(c) (c).tt
+#define context_set_translation_type(c, val) do { (c).tt = val; } while (0)
 #define CONTEXT_TT_MULTI_LEVEL 0
 #define CONTEXT_TT_DEV_IOTLB   1
 #define CONTEXT_TT_PASS_THRU   2
 
-#define context_set_address_root(c, val) \
-    do {(c).lo &= 0xfff; (c).lo |= (val) & PAGE_MASK_4K ;} while(0)
+#define context_slptp(c) ((c).slptp << PAGE_SHIFT_4K)
+#define context_set_slptp(c, val) \
+    do { (c).slptp = (val) >> PAGE_SHIFT_4K; } while (0)
+
+#define context_address_width(c) (c).aw
 #define context_set_address_width(c, val) \
-    do {(c).hi &= 0xfffffff8; (c).hi |= (val) & 7;} while(0)
-#define context_clear_entry(c) do {(c).lo = 0; (c).hi = 0;} while(0)
+    do { (c).aw = (val); } while (0)
+
+#define context_did(c) (c).did
+#define context_set_did(c, val) \
+    do { (c).did = (val); } while (0)
+
+#define context_clear_entry(c) do { (c).val = 0; } while (0)
 
 /* page table handling */
 #define LEVEL_STRIDE       (9)

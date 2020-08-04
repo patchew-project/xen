@@ -86,8 +86,6 @@ static int domain_iommu_domid(struct domain *d,
     return -1;
 }
 
-#define DID_FIELD_WIDTH 16
-#define DID_HIGH_OFFSET 8
 static int context_set_domain_id(struct context_entry *context,
                                  struct domain *d,
                                  struct vtd_iommu *iommu)
@@ -121,7 +119,7 @@ static int context_set_domain_id(struct context_entry *context,
     }
 
     set_bit(i, iommu->domid_bitmap);
-    context->hi |= (i & ((1 << DID_FIELD_WIDTH) - 1)) << DID_HIGH_OFFSET;
+    context_set_did(*context, i);
     return 0;
 }
 
@@ -135,7 +133,7 @@ static int context_get_domain_id(struct context_entry *context,
     {
         nr_dom = cap_ndoms(iommu->cap);
 
-        dom_index = context_domain_id(*context);
+        dom_index = context_did(*context);
 
         if ( dom_index < nr_dom && iommu->domid_map )
             domid = iommu->domid_map[dom_index];
@@ -1396,7 +1394,7 @@ int domain_context_mapping_one(
             return -ENOMEM;
         }
 
-        context_set_address_root(*context, pgd_maddr);
+        context_set_slptp(*context, pgd_maddr);
         if ( ats_enabled && ecap_dev_iotlb(iommu->ecap) )
             context_set_translation_type(*context, CONTEXT_TT_DEV_IOTLB);
         else
