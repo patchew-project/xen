@@ -843,7 +843,7 @@ out:
          need_modify_vtd_table )
     {
         if ( iommu_use_hap_pt(d) )
-            rc = iommu_iotlb_flush(d, _dfn(gfn), (1u << order),
+            rc = iommu_iotlb_flush(d, _dfn(gfn), (1u << order), 1,
                                    (iommu_flags ? IOMMU_FLUSHF_added : 0) |
                                    (vtd_pte_present ? IOMMU_FLUSHF_modified
                                                     : 0));
