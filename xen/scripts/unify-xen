@@ -1,0 +1,68 @@
+#!/bin/bash
+# Merge a Linux kernel, initrd and commandline into xen.efi to produce a single signed
+# EFI executable.
+#
+# turn off "expressions don't expand in single quotes"
+# and "can't follow non-constant sources"
+# shellcheck disable=SC2016 disable=SC1090
+set -e -o pipefail
+export LC_ALL=C
+
+die() { echo "$@" >&2 ; exit 1 ; }
+warn() { echo "$@" >&2 ; }
+debug() { [ "$VERBOSE" == 1 ] && echo "$@" >&2 ; }
+
+cleanup() {
+	rm -rf "$TMP"
+}
+
+TMP=$(mktemp -d)
+TMP_MOUNT=n
+trap cleanup EXIT
+
+########################################
+
+# Usage
+# unify xen.efi xen.cfg bzimage initrd
+# Xen goes up to a pad at 00400000
+
+XEN="$1"
+CONFIG="$2"
+KERNEL="$3"
+RAMDISK="$4"
+#	--change-section-vma  .config=0x0500000 \
+#	--change-section-vma  .kernel=0x0510000 \
+#	--change-section-vma .ramdisk=0x3000000 \
+
+objcopy \
+	--add-section .kernel="$KERNEL" \
+	--add-section .ramdisk="$RAMDISK" \
+	--add-section .config="$CONFIG" \
+	--change-section-vma  .config=0xffff82d041000000 \
+	--change-section-vma  .kernel=0xffff82d041010000 \
+	--change-section-vma .ramdisk=0xffff82d042000000 \
+	"$XEN" \
+	"$TMP/xen.efi" \
+|| die "$TMP/xen.efi: unable to create"
+
+KEY_ENGINE=""
+KEY="/etc/safeboot/signing.key"
+CERT="/etc/safeboot/cert.pem"
+
+for try in 1 2 3 ; do
+	warn "$TMP/xen.efi: Signing (ignore warnings about gaps)"
+	sbsign.safeboot \
+		$KEY_ENGINE \
+		--key "$KEY" \
+		--cert "$CERT" \
+		--output "xen.signed.efi" \
+		"$TMP/xen.efi" \
+	&& break
+
+	if [ "$try" == 3 ]; then
+		die "xen.signed.efi: failed after $try tries"
+	fi
+
+	warn "$OUTDIR/linux.efi: signature failed! Try $try."
+done
+
