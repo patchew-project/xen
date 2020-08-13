@@ -466,8 +466,6 @@ void vlapic_handle_EOI(struct vlapic *vlapic, u8 vector)
 
     if ( vlapic_test_vector(vector, &vlapic->regs->data[APIC_TMR]) )
         vioapic_update_EOI(d, vector);
-    else if ( has_viridian_synic(d) )
-        viridian_synic_ack_sint(v, vector);
 
     hvm_dpci_msi_eoi(d, vector);
 }
