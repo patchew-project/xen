@@ -12,14 +12,24 @@ INSTALL = $(XEN_ROOT)/tools/cross-install
 LDFLAGS += $(PREPEND_LDFLAGS_XEN_TOOLS)
 
 XEN_INCLUDE        = $(XEN_ROOT)/tools/include
-XEN_libxentoolcore = $(XEN_ROOT)/tools/libs/toolcore
-XEN_libxentoollog  = $(XEN_ROOT)/tools/libs/toollog
-XEN_libxenevtchn   = $(XEN_ROOT)/tools/libs/evtchn
-XEN_libxengnttab   = $(XEN_ROOT)/tools/libs/gnttab
-XEN_libxencall     = $(XEN_ROOT)/tools/libs/call
-XEN_libxenforeignmemory = $(XEN_ROOT)/tools/libs/foreignmemory
-XEN_libxendevicemodel = $(XEN_ROOT)/tools/libs/devicemodel
-XEN_libxenhypfs    = $(XEN_ROOT)/tools/libs/hypfs
+
+LIBS_LIBS += toolcore
+USELIBS_toolcore :=
+LIBS_LIBS += toollog
+USELIBS_toollog :=
+LIBS_LIBS += evtchn
+USELIBS_evtchn := toollog toolcore
+LIBS_LIBS += gnttab
+USELIBS_gnttab := toollog toolcore
+LIBS_LIBS += call
+USELIBS_call := toollog toolcore
+LIBS_LIBS += foreignmemory
+USELIBS_foreignmemory := toollog toolcore
+LIBS_LIBS += devicemodel
+USELIBS_devicemodel := toollog toolcore call
+LIBS_LIBS += hypfs
+USELIBS_hypfs := toollog toolcore call
+
 XEN_libxenctrl     = $(XEN_ROOT)/tools/libxc
 # Currently libxenguest lives in the same directory as libxenctrl
 XEN_libxenguest    = $(XEN_libxenctrl)
@@ -99,45 +109,11 @@ endif
 # Consumers of libfoo should not directly use $(SHDEPS_libfoo) or
 # $(SHLIB_libfoo)
 
-CFLAGS_libxentoollog = -I$(XEN_libxentoollog)/include $(CFLAGS_xeninclude)
-SHDEPS_libxentoollog =
-LDLIBS_libxentoollog = $(SHDEPS_libxentoollog) $(XEN_libxentoollog)/libxentoollog$(libextension)
-SHLIB_libxentoollog  = $(SHDEPS_libxentoollog) -Wl,-rpath-link=$(XEN_libxentoollog)
-
-CFLAGS_libxentoolcore = -I$(XEN_libxentoolcore)/include $(CFLAGS_xeninclude)
-SHDEPS_libxentoolcore =
-LDLIBS_libxentoolcore = $(SHDEPS_libxentoolcore) $(XEN_libxentoolcore)/libxentoolcore$(libextension)
-SHLIB_libxentoolcore  = $(SHDEPS_libxentoolcore) -Wl,-rpath-link=$(XEN_libxentoolcore)
-
-CFLAGS_libxenevtchn = -I$(XEN_libxenevtchn)/include $(CFLAGS_xeninclude)
-SHDEPS_libxenevtchn = $(SHLIB_libxentoolcore)
-LDLIBS_libxenevtchn = $(SHDEPS_libxenevtchn) $(XEN_libxenevtchn)/libxenevtchn$(libextension)
-SHLIB_libxenevtchn  = $(SHDEPS_libxenevtchn) -Wl,-rpath-link=$(XEN_libxenevtchn)
-
-CFLAGS_libxengnttab = -I$(XEN_libxengnttab)/include $(CFLAGS_xeninclude)
-SHDEPS_libxengnttab = $(SHLIB_libxentoollog) $(SHLIB_libxentoolcore)
-LDLIBS_libxengnttab = $(SHDEPS_libxengnttab) $(XEN_libxengnttab)/libxengnttab$(libextension)
-SHLIB_libxengnttab  = $(SHDEPS_libxengnttab) -Wl,-rpath-link=$(XEN_libxengnttab)
-
-CFLAGS_libxencall = -I$(XEN_libxencall)/include $(CFLAGS_xeninclude)
-SHDEPS_libxencall = $(SHLIB_libxentoolcore)
-LDLIBS_libxencall = $(SHDEPS_libxencall) $(XEN_libxencall)/libxencall$(libextension)
-SHLIB_libxencall  = $(SHDEPS_libxencall) -Wl,-rpath-link=$(XEN_libxencall)
-
-CFLAGS_libxenforeignmemory = -I$(XEN_libxenforeignmemory)/include $(CFLAGS_xeninclude)
-SHDEPS_libxenforeignmemory = $(SHLIB_libxentoolcore)
-LDLIBS_libxenforeignmemory = $(SHDEPS_libxenforeignmemory) $(XEN_libxenforeignmemory)/libxenforeignmemory$(libextension)
-SHLIB_libxenforeignmemory  = $(SHDEPS_libxenforeignmemory) -Wl,-rpath-link=$(XEN_libxenforeignmemory)
-
-CFLAGS_libxendevicemodel = -I$(XEN_libxendevicemodel)/include $(CFLAGS_xeninclude)
-SHDEPS_libxendevicemodel = $(SHLIB_libxentoollog) $(SHLIB_libxentoolcore) $(SHLIB_libxencall)
-LDLIBS_libxendevicemodel = $(SHDEPS_libxendevicemodel) $(XEN_libxendevicemodel)/libxendevicemodel$(libextension)
-SHLIB_libxendevicemodel  = $(SHDEPS_libxendevicemodel) -Wl,-rpath-link=$(XEN_libxendevicemodel)
-
-CFLAGS_libxenhypfs = -I$(XEN_libxenhypfs)/include $(CFLAGS_xeninclude)
-SHDEPS_libxenhypfs = $(SHLIB_libxentoollog) $(SHLIB_libxentoolcore) $(SHLIB_libxencall)
-LDLIBS_libxenhypfs = $(SHDEPS_libxenhypfs) $(XEN_libxenhypfs)/libxenhypfs$(libextension)
-SHLIB_libxenhypfs  = $(SHDEPS_libxenhypfs) -Wl,-rpath-link=$(XEN_libxenhypfs)
+$(foreach lib,$(LIBS_LIBS),$(eval XEN_libxen$(lib) = $(XEN_ROOT)/tools/libs/$(lib)))
+$(foreach lib,$(LIBS_LIBS),$(eval CFLAGS_libxen$(lib) = -I$(XEN_libxen$(lib))/include $(CFLAGS_xeninclude)))
+$(foreach lib,$(LIBS_LIBS),$(eval SHDEPS_libxen$(lib) = $(foreach use,$(USELIBS_$(lib)),$(SHLIB_libxen$(use)))))
+$(foreach lib,$(LIBS_LIBS),$(eval LDLIBS_libxen$(lib) = $(SHDEPS_libxen$(lib)) $(XEN_libxen$(lib))/libxen$(lib)$(libextension)))
+$(foreach lib,$(LIBS_LIBS),$(eval SHLIB_libxen$(lib) = $(SHDEPS_libxen$(lib)) -Wl,-rpath-link=$(XEN_libxen$(lib))))
 
 # code which compiles against libxenctrl get __XEN_TOOLS__ and
 # therefore sees the unstable hypercall interfaces.
