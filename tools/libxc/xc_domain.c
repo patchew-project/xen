@@ -537,6 +537,62 @@ int xc_domain_hvm_setcontext(xc_interface *xch,
     return ret;
 }
 
+int xc_domain_getcontext(xc_interface *xch, uint32_t domid,
+                         void *ctxt_buf, size_t *size)
+{
+    int ret;
+    DECLARE_DOMCTL = {
+        .cmd = XEN_DOMCTL_getdomaincontext,
+        .domain = domid,
+        .u.getdomaincontext.size = *size,
+    };
+    DECLARE_HYPERCALL_BOUNCE(ctxt_buf, *size, XC_HYPERCALL_BUFFER_BOUNCE_OUT);
+
+    if ( xc_hypercall_bounce_pre(xch, ctxt_buf) )
+        return -1;
+
+    set_xen_guest_handle(domctl.u.setdomaincontext.buffer, ctxt_buf);
+
+    ret = do_domctl(xch, &domctl);
+
+    xc_hypercall_bounce_post(xch, ctxt_buf);
+
+    if ( ret )
+        return ret;
+
+    *size = domctl.u.getdomaincontext.size;
+    if ( *size != domctl.u.getdomaincontext.size )
+    {
+        errno = EOVERFLOW;
+        return -1;
+    }
+
+    return 0;
+}
+
+int xc_domain_setcontext(xc_interface *xch, uint32_t domid,
+                         const void *ctxt_buf, size_t size)
+{
+    int ret;
+    DECLARE_DOMCTL = {
+        .cmd = XEN_DOMCTL_setdomaincontext,
+        .domain = domid,
+        .u.setdomaincontext.size = size,
+    };
+    DECLARE_HYPERCALL_BOUNCE_IN(ctxt_buf, size);
+
+    if ( xc_hypercall_bounce_pre(xch, ctxt_buf) )
+        return -1;
+
+    set_xen_guest_handle(domctl.u.setdomaincontext.buffer, ctxt_buf);
+
+    ret = do_domctl(xch, &domctl);
+
+    xc_hypercall_bounce_post(xch, ctxt_buf);
+
+    return ret;
+}
+
 int xc_vcpu_getcontext(xc_interface *xch,
                        uint32_t domid,
                        uint32_t vcpu,
