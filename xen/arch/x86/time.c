@@ -26,6 +26,7 @@
 #include <xen/symbols.h>
 #include <xen/keyhandler.h>
 #include <xen/guest_access.h>
+#include <xen/save.h>
 #include <asm/io.h>
 #include <asm/iocap.h>
 #include <asm/msr.h>
@@ -2334,7 +2335,7 @@ int host_tsc_is_safe(void)
  * called to collect tsc-related data only for save file or live
  * migrate; called after last rdtsc is done on this incarnation
  */
-void tsc_get_info(struct domain *d, uint32_t *tsc_mode,
+void tsc_get_info(const struct domain *d, uint32_t *tsc_mode,
                   uint64_t *elapsed_nsec, uint32_t *gtsc_khz,
                   uint32_t *incarnation)
 {
@@ -2452,6 +2453,37 @@ int tsc_set_info(struct domain *d,
 
     return 0;
 }
+
+static int save_tsc_info(const struct domain *d, struct domain_context *c,
+                         bool dry_run)
+{
+    struct domain_tsc_info_context ctxt;
+
+    if ( !dry_run )
+        tsc_get_info(d, &ctxt.mode, &ctxt.elapsed_nsec, &ctxt.khz,
+                     &ctxt.incarnation);
+
+    return DOMAIN_SAVE_ENTRY(TSC_INFO, c, 0, &ctxt, sizeof(ctxt));
+}
+
+static int load_tsc_info(struct domain *d, struct domain_context *c)
+{
+    struct domain_tsc_info_context ctxt;
+    unsigned int i;
+    int rc;
+
+    rc = DOMAIN_LOAD_ENTRY(TSC_INFO, c, &i, &ctxt, sizeof(ctxt));
+    if ( rc )
+        return rc;
+
+    if ( i ) /* expect only a single instance */
+        return -ENXIO;
+
+    return tsc_set_info(d, ctxt.mode, ctxt.elapsed_nsec, ctxt.khz,
+                        ctxt.incarnation);
+}
+
+DOMAIN_REGISTER_SAVE_LOAD(TSC_INFO, save_tsc_info, load_tsc_info);
 
 /* vtsc may incur measurable performance degradation, diagnose with this */
 static void dump_softtsc(unsigned char key)
