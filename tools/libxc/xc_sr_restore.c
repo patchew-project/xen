@@ -35,9 +35,9 @@ static int read_headers(struct xc_sr_context *ctx)
         return -1;
     }
 
-    if ( ihdr.version < 2 || ihdr.version > 3 )
+    if ( ihdr.version < 2 || ihdr.version > 4 )
     {
-        ERROR("Invalid Version: Expected 2 <= ver <= 3, Got %d",
+        ERROR("Invalid Version: Expected 2 <= ver <= 4, Got %d",
               ihdr.version);
         return -1;
     }
@@ -529,6 +529,20 @@ static int send_checkpoint_dirty_pfn_list(struct xc_sr_context *ctx)
     return rc;
 }
 
+static int stream_complete(struct xc_sr_context *ctx)
+{
+    xc_interface *xch = ctx->xch;
+    int rc;
+
+    rc = xc_domain_setcontext(xch, ctx->domid,
+                              ctx->restore.context.ptr,
+                              ctx->restore.context.size);
+    if ( rc < 0 )
+        PERROR("Unable to restore domain context");
+
+    return rc;
+}
+
 static int process_record(struct xc_sr_context *ctx, struct xc_sr_record *rec);
 static int handle_checkpoint(struct xc_sr_context *ctx)
 {
@@ -597,6 +611,10 @@ static int handle_checkpoint(struct xc_sr_context *ctx)
         /* COLO */
 
         /* We need to resume guest */
+        rc = stream_complete(ctx);
+        if ( rc )
+            goto err;
+
         rc = ctx->restore.ops.stream_complete(ctx);
         if ( rc )
             goto err;
@@ -682,6 +700,21 @@ int handle_static_data_end(struct xc_sr_context *ctx)
     return rc;
 }
 
+/*
+ * Process a DOMAIN_CONTEXT record from the stream.
+ */
+static int handle_domain_context(struct xc_sr_context *ctx,
+                                 struct xc_sr_record *rec)
+{
+    xc_interface *xch = ctx->xch;
+    int rc = update_blob(&ctx->restore.context, rec->data, rec->length);
+
+    if ( rc )
+        ERROR("Unable to allocate %u bytes for domain context", rec->length);
+
+    return rc;
+}
+
 static int process_record(struct xc_sr_context *ctx, struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
@@ -707,6 +740,10 @@ static int process_record(struct xc_sr_context *ctx, struct xc_sr_record *rec)
 
     case REC_TYPE_STATIC_DATA_END:
         rc = handle_static_data_end(ctx);
+        break;
+
+    case REC_TYPE_DOMAIN_CONTEXT:
+        rc = handle_domain_context(ctx, rec);
         break;
 
     default:
@@ -860,6 +897,10 @@ static int restore(struct xc_sr_context *ctx)
      * With Remus, if we reach here, there must be some error on primary,
      * failover from the last checkpoint state.
      */
+    rc = stream_complete(ctx);
+    if ( rc )
+        goto err;
+
     rc = ctx->restore.ops.stream_complete(ctx);
     if ( rc )
         goto err;

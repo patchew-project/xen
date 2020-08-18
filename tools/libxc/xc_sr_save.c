@@ -13,7 +13,7 @@ static int write_headers(struct xc_sr_context *ctx, uint16_t guest_type)
     struct xc_sr_ihdr ihdr = {
         .marker  = IHDR_MARKER,
         .id      = htonl(IHDR_ID),
-        .version = htonl(3),
+        .version = htonl(4),
         .options = htons(IHDR_OPT_LITTLE_ENDIAN),
     };
     struct xc_sr_dhdr dhdr = {
@@ -42,6 +42,52 @@ static int write_headers(struct xc_sr_context *ctx, uint16_t guest_type)
     }
 
     return 0;
+}
+
+/*
+ * Writes a DOMAIN_CONTEXT record into the stream.
+ */
+static int write_domain_context_record(struct xc_sr_context *ctx)
+{
+    xc_interface *xch = ctx->xch;
+    struct xc_sr_record rec = {
+        .type = REC_TYPE_DOMAIN_CONTEXT,
+    };
+    size_t len = 0;
+    int rc;
+
+    rc = xc_domain_getcontext(xch, ctx->domid, NULL, &len);
+    if ( rc < 0 )
+    {
+        PERROR("can't get record length for dom %u\n", ctx->domid);
+        goto out;
+    }
+
+    rec.data = malloc(len);
+
+    rc = -1;
+    if ( !rec.data )
+    {
+        PERROR("can't allocate %lu bytes\n", len);
+        goto out;
+    }
+
+    rc = xc_domain_getcontext(xch, ctx->domid, rec.data, &len);
+    if ( rc < 0 )
+    {
+        PERROR("can't get domain record for dom %u\n", ctx->domid);
+        goto out;
+    }
+
+    rec.length = len;
+    rc = write_record(ctx, &rec);
+    if ( rc < 0 )
+        PERROR("failed to write DOMAIN_CONTEXT record");
+
+ out:
+    free(rec.data);
+
+    return rc;
 }
 
 /*
@@ -904,6 +950,10 @@ static int save(struct xc_sr_context *ctx, uint16_t guest_type)
             rc = -1;
             goto err;
         }
+
+        rc = write_domain_context_record(ctx);
+        if ( rc )
+            goto err;
 
         rc = ctx->save.ops.end_of_checkpoint(ctx);
         if ( rc )
