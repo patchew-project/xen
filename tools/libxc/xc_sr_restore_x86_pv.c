@@ -880,7 +880,6 @@ static int handle_shared_info(struct xc_sr_context *ctx,
                               struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
-    unsigned int i;
     int rc = -1;
     shared_info_any_t *guest_shinfo = NULL;
     const shared_info_any_t *old_shinfo = rec->data;
@@ -910,6 +909,32 @@ static int handle_shared_info(struct xc_sr_context *ctx,
 
     MEMCPY_FIELD(guest_shinfo, old_shinfo, vcpu_info, ctx->x86.pv.width);
     MEMCPY_FIELD(guest_shinfo, old_shinfo, arch, ctx->x86.pv.width);
+
+    rc = 0;
+
+ err:
+    if ( guest_shinfo )
+        munmap(guest_shinfo, PAGE_SIZE);
+
+    return rc;
+}
+
+static int update_shared_info(struct xc_sr_context *ctx)
+{
+    xc_interface *xch = ctx->xch;
+    unsigned int i;
+    int rc = -1;
+    shared_info_any_t *guest_shinfo = NULL;
+
+    guest_shinfo = xc_map_foreign_range(
+        xch, ctx->domid, PAGE_SIZE, PROT_READ | PROT_WRITE,
+        ctx->dominfo.shared_info_frame);
+    if ( !guest_shinfo )
+    {
+        PERROR("Failed to map Shared Info at mfn %#lx",
+               ctx->dominfo.shared_info_frame);
+        goto err;
+    }
 
     SET_FIELD(guest_shinfo, arch.pfn_to_mfn_frame_list_list,
               0, ctx->x86.pv.width);
@@ -1121,6 +1146,10 @@ static int x86_pv_stream_complete(struct xc_sr_context *ctx)
 {
     xc_interface *xch = ctx->xch;
     int rc;
+
+    rc = update_shared_info(ctx);
+    if ( rc )
+        return rc;
 
     rc = update_vcpu_context(ctx);
     if ( rc )
