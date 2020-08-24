@@ -99,6 +99,28 @@ static const char * __initdata processor_implementers[] = {
     ['i'] = "Intel Corporation",
 };
 
+static const char * __initdata fp_implements[] = {
+    "Floating-point",
+    "Floating-point + half-precision floating-point arithmetic",
+    "Floating-point Unknown ID 0x2",
+    "Floating-point Unknown ID 0x3",
+    "Floating-point Unknown ID 0x4",
+    "Floating-point Unknown ID 0x5",
+    "Floating-point Unknown ID 0x6",
+    "Floating-point Unknown ID 0x7",
+};
+
+static const char * __initdata advsimd_implements[] = {
+    "AdvancedSIMD",
+    "AdvancedSIMD + half-precision floating-point arithmetic",
+    "AdvancedSIMD Unknown ID 0x2",
+    "AdvancedSIMD Unknown ID 0x3",
+    "AdvancedSIMD Unknown ID 0x4",
+    "AdvancedSIMD Unknown ID 0x5",
+    "AdvancedSIMD Unknown ID 0x6",
+    "AdvancedSIMD Unknown ID 0x7",
+};
+
 static void __init processor_id(void)
 {
     const char *implementer = "Unknown";
@@ -129,8 +151,8 @@ static void __init processor_id(void)
            cpu_has_el1_32 ? "64+32" : cpu_has_el1_64 ? "64" : "No",
            cpu_has_el0_32 ? "64+32" : cpu_has_el0_64 ? "64" : "No");
     printk("    Extensions:%s%s%s\n",
-           cpu_has_fp ? " FloatingPoint" : "",
-           cpu_has_simd ? " AdvancedSIMD" : "",
+           cpu_has_fp ? fp_implements[boot_cpu_feature64(fp)] : "",
+           cpu_has_simd ? advsimd_implements[boot_cpu_feature64(simd)] : "",
            cpu_has_gicv3 ? " GICv3-SysReg" : "");
 
     printk("  Debug Features: %016"PRIx64" %016"PRIx64"\n",
