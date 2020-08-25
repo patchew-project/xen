@@ -16,6 +16,8 @@
 #define cpu_has_fp        (boot_cpu_feature64(fp) < 8)
 #define cpu_has_simd      (boot_cpu_feature64(simd) < 8)
 #define cpu_has_gicv3     (boot_cpu_feature64(gic) == 1)
+#define cpu_has_unknown_fp   (cpu_has_fp && (boot_cpu_feature64(fp) >= 2))
+#define cpu_has_unknown_simd (cpu_has_simd && (boot_cpu_feature64(simd) >= 2))
 #endif
 
 #define cpu_feature32(c, feat)         ((c)->pfr32.feat)
