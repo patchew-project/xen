@@ -156,6 +156,7 @@ SECTIONS
        __note_gnu_build_id_end = .;
   } :note :text
 #elif defined(BUILD_ID_EFI)
+  . = ALIGN(32); /* workaround binutils section overlap bug */
   DECL_SECTION(.buildid) {
        __note_gnu_build_id_start = .;
        *(.buildid)

@@ -395,7 +395,7 @@ static void __init efi_arch_cfg_file_early(EFI_FILE_HANDLE dir_handle, char *sec
         blexit(L"Unable to create new FDT");
 }
 
-static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *section)
+static void __init efi_arch_cfg_file_late(EFI_LOADED_IMAGE * image, EFI_FILE_HANDLE dir_handle, char *section)
 {
 }
 
