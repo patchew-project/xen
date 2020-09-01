@@ -436,7 +436,7 @@ var connectionPty ChannelinfoConnectionUnionPty
 if err := connectionPty.fromC(xc);err != nil {
  return fmt.Errorf("converting field connectionPty: %v", err)
 }
-x.ConnectionUnion = connectionPty
+x.ConnectionUnion = &connectionPty
 case ChannelConnectionSocket:
 x.ConnectionUnion = nil
 case ChannelConnectionUnknown:
@@ -476,7 +476,7 @@ switch x.Connection{
 case ChannelConnectionUnknown:
 break
 case ChannelConnectionPty:
-tmp, ok := x.ConnectionUnion.(ChannelinfoConnectionUnionPty)
+tmp, ok := x.ConnectionUnion.(*ChannelinfoConnectionUnionPty)
 if !ok {
 return errors.New("wrong type for union key connection")
 }
@@ -1097,7 +1097,7 @@ var typeHvm DomainBuildInfoTypeUnionHvm
 if err := typeHvm.fromC(xc);err != nil {
  return fmt.Errorf("converting field typeHvm: %v", err)
 }
-x.TypeUnion = typeHvm
+x.TypeUnion = &typeHvm
 case DomainTypeInvalid:
 x.TypeUnion = nil
 case DomainTypePv:
@@ -1105,13 +1105,13 @@ var typePv DomainBuildInfoTypeUnionPv
 if err := typePv.fromC(xc);err != nil {
  return fmt.Errorf("converting field typePv: %v", err)
 }
-x.TypeUnion = typePv
+x.TypeUnion = &typePv
 case DomainTypePvh:
 var typePvh DomainBuildInfoTypeUnionPvh
 if err := typePvh.fromC(xc);err != nil {
  return fmt.Errorf("converting field typePvh: %v", err)
 }
-x.TypeUnion = typePvh
+x.TypeUnion = &typePvh
 default:
 return fmt.Errorf("invalid union key '%v'", x.Type)}
 x.ArchArm.GicVersion = GicVersion(xc.arch_arm.gic_version)
@@ -1426,7 +1426,7 @@ xc.tee = C.libxl_tee_type(x.Tee)
 xc._type = C.libxl_domain_type(x.Type)
 switch x.Type{
 case DomainTypeHvm:
-tmp, ok := x.TypeUnion.(DomainBuildInfoTypeUnionHvm)
+tmp, ok := x.TypeUnion.(*DomainBuildInfoTypeUnionHvm)
 if !ok {
 return errors.New("wrong type for union key type")
 }
@@ -1544,7 +1544,7 @@ hvm.mca_caps = C.uint64_t(tmp.McaCaps)
 hvmBytes := C.GoBytes(unsafe.Pointer(&hvm),C.sizeof_libxl_domain_build_info_type_union_hvm)
 copy(xc.u[:],hvmBytes)
 case DomainTypePv:
-tmp, ok := x.TypeUnion.(DomainBuildInfoTypeUnionPv)
+tmp, ok := x.TypeUnion.(*DomainBuildInfoTypeUnionPv)
 if !ok {
 return errors.New("wrong type for union key type")
 }
@@ -1569,7 +1569,7 @@ return fmt.Errorf("converting field E820Host: %v", err)
 pvBytes := C.GoBytes(unsafe.Pointer(&pv),C.sizeof_libxl_domain_build_info_type_union_pv)
 copy(xc.u[:],pvBytes)
 case DomainTypePvh:
-tmp, ok := x.TypeUnion.(DomainBuildInfoTypeUnionPvh)
+tmp, ok := x.TypeUnion.(*DomainBuildInfoTypeUnionPvh)
 if !ok {
 return errors.New("wrong type for union key type")
 }
@@ -2149,7 +2149,7 @@ var typeHostdev DeviceUsbdevTypeUnionHostdev
 if err := typeHostdev.fromC(xc);err != nil {
  return fmt.Errorf("converting field typeHostdev: %v", err)
 }
-x.TypeUnion = typeHostdev
+x.TypeUnion = &typeHostdev
 default:
 return fmt.Errorf("invalid union key '%v'", x.Type)}
 
@@ -2176,7 +2176,7 @@ xc.port = C.int(x.Port)
 xc._type = C.libxl_usbdev_type(x.Type)
 switch x.Type{
 case UsbdevTypeHostdev:
-tmp, ok := x.TypeUnion.(DeviceUsbdevTypeUnionHostdev)
+tmp, ok := x.TypeUnion.(*DeviceUsbdevTypeUnionHostdev)
 if !ok {
 return errors.New("wrong type for union key type")
 }
@@ -2367,7 +2367,7 @@ var connectionSocket DeviceChannelConnectionUnionSocket
 if err := connectionSocket.fromC(xc);err != nil {
  return fmt.Errorf("converting field connectionSocket: %v", err)
 }
-x.ConnectionUnion = connectionSocket
+x.ConnectionUnion = &connectionSocket
 case ChannelConnectionUnknown:
 x.ConnectionUnion = nil
 default:
@@ -2403,7 +2403,7 @@ break
 case ChannelConnectionPty:
 break
 case ChannelConnectionSocket:
-tmp, ok := x.ConnectionUnion.(DeviceChannelConnectionUnionSocket)
+tmp, ok := x.ConnectionUnion.(*DeviceChannelConnectionUnionSocket)
 if !ok {
 return errors.New("wrong type for union key connection")
 }
@@ -3938,7 +3938,7 @@ var typeDiskEject EventTypeUnionDiskEject
 if err := typeDiskEject.fromC(xc);err != nil {
  return fmt.Errorf("converting field typeDiskEject: %v", err)
 }
-x.TypeUnion = typeDiskEject
+x.TypeUnion = &typeDiskEject
 case EventTypeDomainCreateConsoleAvailable:
 x.TypeUnion = nil
 case EventTypeDomainDeath:
@@ -3948,13 +3948,13 @@ var typeDomainShutdown EventTypeUnionDomainShutdown
 if err := typeDomainShutdown.fromC(xc);err != nil {
  return fmt.Errorf("converting field typeDomainShutdown: %v", err)
 }
-x.TypeUnion = typeDomainShutdown
+x.TypeUnion = &typeDomainShutdown
 case EventTypeOperationComplete:
 var typeOperationComplete EventTypeUnionOperationComplete
 if err := typeOperationComplete.fromC(xc);err != nil {
  return fmt.Errorf("converting field typeOperationComplete: %v", err)
 }
-x.TypeUnion = typeOperationComplete
+x.TypeUnion = &typeOperationComplete
 default:
 return fmt.Errorf("invalid union key '%v'", x.Type)}
 
@@ -4009,7 +4009,7 @@ xc.for_user = C.uint64_t(x.ForUser)
 xc._type = C.libxl_event_type(x.Type)
 switch x.Type{
 case EventTypeDomainShutdown:
-tmp, ok := x.TypeUnion.(EventTypeUnionDomainShutdown)
+tmp, ok := x.TypeUnion.(*EventTypeUnionDomainShutdown)
 if !ok {
 return errors.New("wrong type for union key type")
 }
@@ -4020,7 +4020,7 @@ copy(xc.u[:],domain_shutdownBytes)
 case EventTypeDomainDeath:
 break
 case EventTypeDiskEject:
-tmp, ok := x.TypeUnion.(EventTypeUnionDiskEject)
+tmp, ok := x.TypeUnion.(*EventTypeUnionDiskEject)
 if !ok {
 return errors.New("wrong type for union key type")
 }
@@ -4033,7 +4033,7 @@ return fmt.Errorf("converting field Disk: %v", err)
 disk_ejectBytes := C.GoBytes(unsafe.Pointer(&disk_eject),C.sizeof_libxl_event_type_union_disk_eject)
 copy(xc.u[:],disk_ejectBytes)
 case EventTypeOperationComplete:
-tmp, ok := x.TypeUnion.(EventTypeUnionOperationComplete)
+tmp, ok := x.TypeUnion.(*EventTypeUnionOperationComplete)
 if !ok {
 return errors.New("wrong type for union key type")
 }
@@ -4108,13 +4108,13 @@ var typeCat PsrHwInfoTypeUnionCat
 if err := typeCat.fromC(xc);err != nil {
  return fmt.Errorf("converting field typeCat: %v", err)
 }
-x.TypeUnion = typeCat
+x.TypeUnion = &typeCat
 case PsrFeatTypeMba:
 var typeMba PsrHwInfoTypeUnionMba
 if err := typeMba.fromC(xc);err != nil {
  return fmt.Errorf("converting field typeMba: %v", err)
 }
-x.TypeUnion = typeMba
+x.TypeUnion = &typeMba
 default:
 return fmt.Errorf("invalid union key '%v'", x.Type)}
 
@@ -4153,7 +4153,7 @@ xc.id = C.uint32_t(x.Id)
 xc._type = C.libxl_psr_feat_type(x.Type)
 switch x.Type{
 case PsrFeatTypeCat:
-tmp, ok := x.TypeUnion.(PsrHwInfoTypeUnionCat)
+tmp, ok := x.TypeUnion.(*PsrHwInfoTypeUnionCat)
 if !ok {
 return errors.New("wrong type for union key type")
 }
@@ -4164,7 +4164,7 @@ cat.cdp_enabled = C.bool(tmp.CdpEnabled)
 catBytes := C.GoBytes(unsafe.Pointer(&cat),C.sizeof_libxl_psr_hw_info_type_union_cat)
 copy(xc.u[:],catBytes)
 case PsrFeatTypeMba:
-tmp, ok := x.TypeUnion.(PsrHwInfoTypeUnionMba)
+tmp, ok := x.TypeUnion.(*PsrHwInfoTypeUnionMba)
 if !ok {
 return errors.New("wrong type for union key type")
 }
