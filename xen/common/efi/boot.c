@@ -1521,7 +1521,9 @@ void __init efi_init_memory(void)
         }
 
         if ( !efi_enabled(EFI_RS) ||
-             (!(desc->Attribute & EFI_MEMORY_RUNTIME) &&
+             ((!(desc->Attribute & EFI_MEMORY_RUNTIME) &&
+                (desc->Type != EfiRuntimeServicesCode &&
+                 desc->Type != EfiRuntimeServicesData)) &&
               (!map_bs ||
                (desc->Type != EfiBootServicesCode &&
                 desc->Type != EfiBootServicesData))) )
