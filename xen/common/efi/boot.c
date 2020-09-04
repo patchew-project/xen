@@ -1100,7 +1100,9 @@ static void __init efi_exit_boot(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *Syste
     {
         EFI_MEMORY_DESCRIPTOR *desc = efi_memmap + i;
 
-        if ( desc->Attribute & EFI_MEMORY_RUNTIME )
+        if ( (desc->Attribute & EFI_MEMORY_RUNTIME) ||
+              desc->Type == EfiRuntimeServicesCode  ||
+              desc->Type == EfiRuntimeServicesData )
             desc->VirtualStart = desc->PhysicalStart;
         else
             desc->VirtualStart = INVALID_VIRTUAL_ADDRESS;
@@ -1509,6 +1511,21 @@ void __init efi_init_memory(void)
                            " type=%u attr=%016" PRIx64 "\n",
                desc->PhysicalStart, desc->PhysicalStart + len - 1,
                desc->Type, desc->Attribute);
+
+        if (efi_enabled(EFI_RS) &&
+             (!(desc->Attribute & EFI_MEMORY_RUNTIME) &&
+                (desc->Type == EfiRuntimeServicesCode ||
+                 desc->Type == EfiRuntimeServicesData))) {
+            printk(XENLOG_WARNING "Fixing memory attributes for area %013"
+                                   PRIx64 "-%013" PRIx64 "\n",
+                   desc->PhysicalStart, desc->PhysicalStart + len - 1);
+            desc->Attribute |= EFI_MEMORY_RUNTIME;
+            if ( !(desc->Attribute & EFI_MEMORY_CACHEABILITY_MASK) ) {
+                desc->Attribute |= (desc->Type == EfiRuntimeServicesCode) &&
+                                   (efi_bs_revision >= EFI_REVISION(2, 5)) ?
+                                        EFI_MEMORY_WP : EFI_MEMORY_UC;
+            }
+        }
 
         if ( (desc->Attribute & (EFI_MEMORY_WB | EFI_MEMORY_WT)) ||
              (efi_bs_revision >= EFI_REVISION(2, 5) &&
