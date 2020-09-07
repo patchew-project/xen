@@ -362,7 +362,7 @@ static unsigned long flush_count(unsigned long dfn, unsigned int page_count,
 }
 
 int amd_iommu_flush_iotlb_pages(struct domain *d, dfn_t dfn,
-                                unsigned int page_count,
+                                unsigned long page_count,
                                 unsigned int flush_flags)
 {
     unsigned long dfn_l = dfn_x(dfn);
