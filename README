@@ -57,7 +57,6 @@ provided by your OS distributor:
     * Development install of GLib v2.0 (e.g. libglib2.0-dev)
     * Development install of Pixman (e.g. libpixman-1-dev)
     * pkg-config
-    * bridge-utils package (/sbin/brctl)
     * iproute package (/sbin/ip)
     * GNU bison and GNU flex
     * GNU gettext
