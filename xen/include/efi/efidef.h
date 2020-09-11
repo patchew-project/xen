@@ -158,6 +158,12 @@ typedef enum {
 #define EFI_MEMORY_UCE          0x0000000000000010  
 #define EFI_MEMORY_WP           0x0000000000001000
 
+#define EFI_MEMORY_CACHEABILITY_MASK  ( EFI_MEMORY_UC | \
+                                        EFI_MEMORY_WC | \
+                                        EFI_MEMORY_WT | \
+                                        EFI_MEMORY_WB | \
+                                        EFI_MEMORY_UCE )
+
 // physical memory protection on range 
 #define EFI_MEMORY_RP           0x0000000000002000
 #define EFI_MEMORY_XP           0x0000000000004000
