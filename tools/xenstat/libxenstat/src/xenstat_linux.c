@@ -75,6 +75,12 @@ void getBridge(char *excludeName, char *result, size_t resultLen)
 	while ((de = readdir(d)) != NULL) {
 		if ((strlen(de->d_name) > 0) && (de->d_name[0] != '.')
 			&& (strstr(de->d_name, excludeName) == NULL)) {
+				if (strlen(de->d_name) > resultLen - 1) {
+					fprintf(stderr,
+						"bridge name %s too long\n",
+						de->d_name);
+					break;
+				}
 				sprintf(tmp, "/sys/class/net/%s/bridge", de->d_name);
 
 				if (access(tmp, F_OK) == 0) {
