@@ -50,7 +50,7 @@ typedef VOID            *EFI_EVENT;
 //
 
 #ifndef IN
-    #define IN
+    #define IN const
     #define OUT
     #define OPTIONAL
 #endif

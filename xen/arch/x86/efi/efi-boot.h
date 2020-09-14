@@ -280,10 +280,10 @@ static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *sect
 {
     union string name;
 
-    name.s = get_value(&cfg, section, "ucode");
-    if ( !name.s )
-        name.s = get_value(&cfg, "global", "ucode");
-    if ( name.s )
+    name.cs = get_value(&cfg, section, "ucode");
+    if ( !name.cs )
+        name.cs = get_value(&cfg, "global", "ucode");
+    if ( name.cs )
     {
         microcode_set_module(mbi.mods_count);
         split_string(name.s);
@@ -292,29 +292,29 @@ static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *sect
     }
 }
 
-static void __init efi_arch_handle_cmdline(CHAR16 *image_name,
-                                           CHAR16 *cmdline_options,
-                                           char *cfgfile_options)
+static void __init efi_arch_handle_cmdline(const CHAR16 *image_name,
+                                           const CHAR16 *cmdline_options,
+                                           const char *cfgfile_options)
 {
     union string name;
 
     if ( cmdline_options )
     {
-        name.w = cmdline_options;
+        name.cw = cmdline_options;
         w2s(&name);
-        place_string(&mbi.cmdline, name.s);
+        place_string(&mbi.cmdline, name.cs);
     }
     if ( cfgfile_options )
         place_string(&mbi.cmdline, cfgfile_options);
     /* Insert image name last, as it gets prefixed to the other options. */
     if ( image_name )
     {
-        name.w = image_name;
+        name.cw = image_name;
         w2s(&name);
     }
     else
-        name.s = "xen";
-    place_string(&mbi.cmdline, name.s);
+        name.cs = "xen";
+    place_string(&mbi.cmdline, name.cs);
 
     if ( mbi.cmdline )
         mbi.flags |= MBI_CMDLINE;
@@ -636,7 +636,7 @@ static void __init efi_arch_memory_setup(void)
 }
 
 static void __init efi_arch_handle_module(struct file *file, const CHAR16 *name,
-                                          char *options)
+                                          const char *options)
 {
     union string local_name;
     void *ptr;
