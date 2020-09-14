@@ -121,6 +121,8 @@ static CHAR16 *s2w(union string *str);
 static char *w2s(const union string *str);
 static bool read_file(EFI_FILE_HANDLE dir_handle, CHAR16 *name,
                       struct file *file, char *options);
+static bool read_section(const EFI_LOADED_IMAGE *image,
+                         char *name, struct file *file, char *options);
 static size_t wstrlen(const CHAR16 * s);
 static int set_color(u32 mask, int bpp, u8 *pos, u8 *sz);
 static bool match_guid(const EFI_GUID *guid1, const EFI_GUID *guid2);
@@ -619,6 +621,27 @@ static bool __init read_file(EFI_FILE_HANDLE dir_handle, CHAR16 *name,
     }
 
     efi_arch_flush_dcache_area(file->ptr, file->size);
+
+    return true;
+}
+
+static bool __init read_section(const EFI_LOADED_IMAGE *image,
+                                char *const name, struct file *file,
+                                char *options)
+{
+    /* skip the leading "." in the section name */
+    union string name_string = { .s = name + 1 };
+
+    file->ptr = (void *)pe_find_section(image->ImageBase, image->ImageSize,
+                                        name, &file->size);
+    if ( !file->ptr )
+        return false;
+
+    file->need_to_free = false;
+
+    s2w(&name_string);
+    handle_file_info(name_string.w, file, options);
+    efi_bs->FreePool(name_string.w);
 
     return true;
 }
@@ -1207,9 +1230,13 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         /* Get the file system interface. */
         dir_handle = get_parent_handle(loaded_image, &file_name);
 
-        /* Read and parse the config file. */
-        if ( !cfg_file_name )
+        if ( read_section(loaded_image, ".config", &cfg, NULL) )
         {
+            PrintStr(L"Using unified config file\r\n");
+        }
+        else if ( !cfg_file_name )
+        {
+            /* Read and parse the config file. */
             CHAR16 *tail;
 
             while ( (tail = point_tail(file_name)) != NULL )
@@ -1258,29 +1285,39 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         if ( !name.s )
             blexit(L"No Dom0 kernel image specified.");
 
-        efi_arch_cfg_file_early(dir_handle, section.s);
+        efi_arch_cfg_file_early(loaded_image, dir_handle, section.s);
 
         option_str = split_string(name.s);
-        read_file(dir_handle, s2w(&name), &kernel, option_str);
-        efi_bs->FreePool(name.w);
 
-        if ( !EFI_ERROR(efi_bs->LocateProtocol(&shim_lock_guid, NULL,
-                        (void **)&shim_lock)) &&
-             (status = shim_lock->Verify(kernel.ptr, kernel.size)) != EFI_SUCCESS )
-            PrintErrMesg(L"Dom0 kernel image could not be verified", status);
-
-        name.s = get_value(&cfg, section.s, "ramdisk");
-        if ( name.s )
+        if ( !read_section(loaded_image, ".kernel", &kernel, option_str) )
         {
-            read_file(dir_handle, s2w(&name), &ramdisk, NULL);
+            read_file(dir_handle, s2w(&name), &kernel, option_str);
             efi_bs->FreePool(name.w);
+
+            if ( !EFI_ERROR(efi_bs->LocateProtocol(&shim_lock_guid, NULL,
+                            (void **)&shim_lock)) &&
+                 (status = shim_lock->Verify(kernel.ptr, kernel.size)) != EFI_SUCCESS )
+                PrintErrMesg(L"Dom0 kernel image could not be verified", status);
         }
 
-        name.s = get_value(&cfg, section.s, "xsm");
-        if ( name.s )
+        if ( !read_section(loaded_image, ".ramdisk", &ramdisk, NULL) )
         {
-            read_file(dir_handle, s2w(&name), &xsm, NULL);
-            efi_bs->FreePool(name.w);
+            name.s = get_value(&cfg, section.s, "ramdisk");
+            if ( name.s )
+            {
+                read_file(dir_handle, s2w(&name), &ramdisk, NULL);
+                efi_bs->FreePool(name.w);
+            }
+        }
+
+        if ( !read_section(loaded_image, ".xsm", &xsm, NULL) )
+        {
+            name.s = get_value(&cfg, section.s, "xsm");
+            if ( name.s )
+            {
+                read_file(dir_handle, s2w(&name), &xsm, NULL);
+                efi_bs->FreePool(name.w);
+            }
         }
 
         /*
@@ -1316,7 +1353,7 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
             }
         }
 
-        efi_arch_cfg_file_late(dir_handle, section.s);
+        efi_arch_cfg_file_late(loaded_image, dir_handle, section.s);
 
         efi_bs->FreePages(cfg.addr, PFN_UP(cfg.size));
         cfg.addr = 0;

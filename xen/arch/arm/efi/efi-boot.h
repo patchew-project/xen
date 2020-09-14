@@ -375,27 +375,36 @@ static void __init noreturn efi_arch_post_exit_boot(void)
     efi_xen_start(fdt, fdt_totalsize(fdt));
 }
 
-static void __init efi_arch_cfg_file_early(EFI_FILE_HANDLE dir_handle, char *section)
+static void __init efi_arch_cfg_file_early(const EFI_LOADED_IMAGE *image,
+                                           EFI_FILE_HANDLE dir_handle,
+                                           char *section)
 {
     union string name;
 
     /*
      * The DTB must be processed before any other entries in the configuration
-     * file, as the DTB is updated as modules are loaded.
+     * file, as the DTB is updated as modules are loaded.  Prefer the one
+     * stored as a PE section in a unified image, and fall back to a file
+     * on disk if the section is not present.
      */
-    name.s = get_value(&cfg, section, "dtb");
-    if ( name.s )
+    if ( !read_section(image, ".dtb", &dtbfile, NULL) )
     {
-        split_string(name.s);
-        read_file(dir_handle, s2w(&name), &dtbfile, NULL);
-        efi_bs->FreePool(name.w);
+        name.s = get_value(&cfg, section, "dtb");
+        if ( name.s )
+        {
+            split_string(name.s);
+            read_file(dir_handle, s2w(&name), &dtbfile, NULL);
+            efi_bs->FreePool(name.w);
+        }
     }
     fdt = fdt_increase_size(&dtbfile, cfg.size + EFI_PAGE_SIZE);
     if ( !fdt )
         blexit(L"Unable to create new FDT");
 }
 
-static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *section)
+static void __init efi_arch_cfg_file_late(const EFI_LOADED_IMAGE *image,
+                                          EFI_FILE_HANDLE dir_handle,
+                                          char *section)
 {
 }
 
