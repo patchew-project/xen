@@ -33,6 +33,7 @@
 #include <xen/xenoprof.h>
 #include <xen/irq.h>
 #include <xen/argo.h>
+#include <xen/save.h>
 #include <asm/debugger.h>
 #include <asm/p2m.h>
 #include <asm/processor.h>
@@ -1654,6 +1655,149 @@ int continue_hypercall_on_cpu(
     /* Dummy return value will be overwritten by tasklet. */
     return 0;
 }
+
+static int save_shared_info(const struct domain *d, struct domain_context *c,
+                            bool dry_run)
+{
+    struct domain_shared_info_context ctxt = {
+#ifdef CONFIG_COMPAT
+        .flags = has_32bit_shinfo(d) ? DOMAIN_SAVE_32BIT_SHINFO : 0,
+        .buffer_size = has_32bit_shinfo(d) ?
+                       sizeof(struct compat_shared_info) :
+                       sizeof(struct shared_info),
+#else
+        .buffer_size = sizeof(struct shared_info),
+#endif
+    };
+    size_t hdr_size = offsetof(typeof(ctxt), buffer);
+    int rc;
+
+    rc = DOMAIN_SAVE_BEGIN(SHARED_INFO, c, 0);
+    if ( rc )
+        return rc;
+
+    rc = domain_save_data(c, &ctxt, hdr_size);
+    if ( rc )
+        return rc;
+
+    rc = domain_save_data(c, d->shared_info, ctxt.buffer_size);
+    if ( rc )
+        return rc;
+
+    return domain_save_end(c);
+}
+
+static int load_shared_info(struct domain *d, struct domain_context *c)
+{
+    struct domain_shared_info_context ctxt;
+    size_t hdr_size = offsetof(typeof(ctxt), buffer);
+    unsigned int i;
+    int rc;
+
+    rc = DOMAIN_LOAD_BEGIN(SHARED_INFO, c, &i);
+    if ( rc )
+        return rc;
+
+    if ( i ) /* expect only a single instance */
+        return -ENXIO;
+
+    rc = domain_load_data(c, &ctxt, hdr_size);
+    if ( rc )
+        return rc;
+
+    if ( ctxt.buffer_size > sizeof(shared_info_t) ||
+         (ctxt.flags & ~DOMAIN_SAVE_32BIT_SHINFO) )
+        return -EINVAL;
+
+    if ( ctxt.flags & DOMAIN_SAVE_32BIT_SHINFO )
+    {
+#ifdef CONFIG_COMPAT
+        has_32bit_shinfo(d) = true;
+#else
+        return -EINVAL;
+#endif
+    }
+
+    if ( is_pv_domain(d) )
+    {
+        shared_info_t *shinfo = xmalloc(shared_info_t);
+
+        rc = domain_load_data(c, shinfo, sizeof(*shinfo));
+        if ( rc )
+        {
+            xfree(shinfo);
+            return rc;
+        }
+
+#ifdef CONFIG_COMPAT
+        if ( has_32bit_shinfo(d) )
+        {
+            memcpy(&d->shared_info->compat.vcpu_info,
+                   &shinfo->compat.vcpu_info,
+                   sizeof(d->shared_info->compat.vcpu_info));
+            memcpy(&d->shared_info->compat.arch,
+                   &shinfo->compat.arch,
+                   sizeof(d->shared_info->compat.vcpu_info));
+            memset(&d->shared_info->compat.evtchn_pending,
+                   0,
+                   sizeof(d->shared_info->compat.evtchn_pending));
+            memset(&d->shared_info->compat.evtchn_mask,
+                   0xff,
+                   sizeof(d->shared_info->compat.evtchn_mask));
+
+            d->shared_info->compat.arch.pfn_to_mfn_frame_list_list = 0;
+            for ( i = 0; i < XEN_LEGACY_MAX_VCPUS; i++ )
+                d->shared_info->compat.vcpu_info[i].evtchn_pending_sel = 0;
+        }
+        else
+        {
+            memcpy(&d->shared_info->native.vcpu_info,
+                   &shinfo->native.vcpu_info,
+                   sizeof(d->shared_info->native.vcpu_info));
+            memcpy(&d->shared_info->native.arch,
+                   &shinfo->native.arch,
+                   sizeof(d->shared_info->native.arch));
+            memset(&d->shared_info->native.evtchn_pending,
+                   0,
+                   sizeof(d->shared_info->compat.evtchn_pending));
+            memset(&d->shared_info->native.evtchn_mask,
+                   0xff,
+                   sizeof(d->shared_info->native.evtchn_mask));
+
+            d->shared_info->native.arch.pfn_to_mfn_frame_list_list = 0;
+            for ( i = 0; i < XEN_LEGACY_MAX_VCPUS; i++ )
+                d->shared_info->native.vcpu_info[i].evtchn_pending_sel = 0;
+        }
+#else
+        memcpy(&d->shared_info->vcpu_info,
+               &shinfo->vcpu_info,
+               sizeof(d->shared_info->vcpu_info));
+        memcpy(&d->shared_info->arch,
+               &shinfo->arch,
+               sizeof(d->shared_info->shared));
+        memset(&d->shared_info->evtchn_pending,
+               0,
+               sizeof(d->shared_info->evtchn_pending));
+        memset(&d->shared_info->evtchn_mask,
+               0xff,
+               sizeof(d->shared_info->evtchn_mask));
+
+        d->shared_info.arch.pfn_to_mfn_frame_list_list = 0;
+        for ( i = 0; i < XEN_LEGACY_MAX_VCPUS; i++ )
+            d->shared_info.vcpu_info[i].evtchn_pending_sel = 0;
+#endif
+
+        xfree(shinfo);
+
+        rc = domain_load_end(c, false);
+    }
+    else
+        rc = domain_load_end(c, true);
+
+    return rc;
+}
+
+DOMAIN_REGISTER_SAVE_LOAD(SHARED_INFO, save_shared_info, load_shared_info);
 
 /*
  * Local variables:
