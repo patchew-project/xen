@@ -98,13 +98,14 @@ union string {
     CHAR16 *w;
     char *s;
     const char *cs;
+    const CHAR16 *cw;
 };
 
 struct file {
     UINTN size;
     union {
         EFI_PHYSICAL_ADDRESS addr;
-        void *ptr;
+        const void *ptr;
     };
 };
 
@@ -113,13 +114,13 @@ static CHAR16 *FormatHex(UINT64 Val, UINTN Width, CHAR16 *Buffer);
 static void  DisplayUint(UINT64 Val, INTN Width);
 static CHAR16 *wstrcpy(CHAR16 *d, const CHAR16 *s);
 static void PrintErrMesg(const CHAR16 *mesg, EFI_STATUS ErrCode);
-static char *get_value(const struct file *cfg, const char *section,
-                              const char *item);
+static const char *get_value(const struct file *cfg, const char *section,
+                             const char *item);
 static char *split_string(char *s);
-static CHAR16 *s2w(union string *str);
-static char *w2s(const union string *str);
-static bool read_file(EFI_FILE_HANDLE dir_handle, CHAR16 *name,
-                      struct file *file, char *options);
+static const CHAR16 *s2w(union string *str);
+static const char *w2s(const union string *str);
+static bool read_file(EFI_FILE_HANDLE dir_handle, const CHAR16 *name,
+                      struct file *file, const char *options);
 static size_t wstrlen(const CHAR16 * s);
 static int set_color(u32 mask, int bpp, u8 *pos, u8 *sz);
 static bool match_guid(const EFI_GUID *guid1, const EFI_GUID *guid2);
@@ -149,10 +150,23 @@ static struct file __initdata cfg;
 static struct file __initdata kernel;
 static struct file __initdata ramdisk;
 static struct file __initdata xsm;
-static CHAR16 __initdata newline[] = L"\r\n";
+static const CHAR16 __initconst newline[] = L"\r\n";
 
-#define PrintStr(s) StdOut->OutputString(StdOut, s)
-#define PrintErr(s) StdErr->OutputString(StdErr, s)
+/* Cast away const-ness on EFI entry points */
+#define PrintStr(s) StdOut->OutputString(StdOut, (CHAR16 *)(s))
+#define PrintErr(s) StdErr->OutputString(StdErr, (CHAR16 *)(s))
+#define efi_file_open(file,handle,name,mode,attr) \
+    (file)->Open(file, handle, (CHAR16 *)(name), mode, attr)
+#define efi_handle_protocol(handle, protocol, interface) \
+    efi_bs->HandleProtocol(handle, (EFI_GUID *)(protocol), interface)
+#define efi_locate_protocol(protocol, registration, interface) \
+    efi_bs->LocateProtocol((EFI_GUID *)(protocol), (void *)(registration), \
+                           interface)
+#define efi_locate_handle(type, protocol, key, size, buffer) \
+    efi_bs->LocateHandle(type, (EFI_GUID *)(protocol), (void *)(key), \
+                         size, buffer)
+#define shim_verify(shim, ptr, len) \
+    (shim)->Verify((void *)(ptr), len)
 
 /*
  * Include architecture specific implementation here, which references the
@@ -230,7 +244,7 @@ static int __init wstrncmp(const CHAR16 *s1, const CHAR16 *s2, UINTN n)
     return n ? *s1 - *s2 : 0;
 }
 
-static CHAR16 *__init s2w(union string *str)
+static const CHAR16 *__init s2w(union string *str)
 {
     const char *s = str->s;
     CHAR16 *w;
@@ -245,12 +259,12 @@ static CHAR16 *__init s2w(union string *str)
         *w = *s++;
     } while ( *w++ );
 
-    return str->w;
+    return str->cw;
 }
 
-static char *__init w2s(const union string *str)
+static const char *__init w2s(const union string *str)
 {
-    const CHAR16 *w = str->w;
+    const CHAR16 *w = str->cw;
     char *s = str->s;
 
     do {
@@ -259,7 +273,7 @@ static char *__init w2s(const union string *str)
         *s = *w++;
     } while ( *s++ );
 
-    return str->s;
+    return str->cs;
 }
 
 static bool __init match_guid(const EFI_GUID *guid1, const EFI_GUID *guid2)
@@ -314,7 +328,7 @@ static void __init PrintErrMesg(const CHAR16 *mesg, EFI_STATUS ErrCode)
     EFI_STATUS ErrIdx = ErrCode & ~EFI_ERROR_MASK;
 
     StdOut = StdErr;
-    PrintErr((CHAR16 *)mesg);
+    PrintErr(mesg);
     PrintErr(L": ");
 
     if( (ErrIdx < ARRAY_SIZE(ErrCodeToStr)) && ErrCodeToStr[ErrIdx] )
@@ -330,7 +344,7 @@ static void __init PrintErrMesg(const CHAR16 *mesg, EFI_STATUS ErrCode)
 
 static unsigned int __init get_argv(unsigned int argc, CHAR16 **argv,
                                     VOID *data, UINTN size, UINTN *offset,
-                                    CHAR16 **options)
+                                    const CHAR16 **options)
 {
     CHAR16 *ptr = (CHAR16 *)(argv + argc + 1), *prev = NULL, *cmdline = NULL;
     bool prev_sep = true;
@@ -423,7 +437,7 @@ static unsigned int __init get_argv(unsigned int argc, CHAR16 **argv,
 static EFI_FILE_HANDLE __init get_parent_handle(EFI_LOADED_IMAGE *loaded_image,
                                                 CHAR16 **leaf)
 {
-    static EFI_GUID __initdata fs_protocol = SIMPLE_FILE_SYSTEM_PROTOCOL;
+    static const EFI_GUID __initconst fs_protocol = SIMPLE_FILE_SYSTEM_PROTOCOL;
     static CHAR16 __initdata buffer[512];
     EFI_FILE_HANDLE dir_handle;
     EFI_DEVICE_PATH *dp;
@@ -434,8 +448,8 @@ static EFI_FILE_HANDLE __init get_parent_handle(EFI_LOADED_IMAGE *loaded_image,
         EFI_FILE_IO_INTERFACE *fio;
 
         /* Get the file system interface. */
-        ret = efi_bs->HandleProtocol(loaded_image->DeviceHandle,
-                                     &fs_protocol, (void **)&fio);
+        ret = efi_handle_protocol(loaded_image->DeviceHandle,
+                                  &fs_protocol, (void **)&fio);
         if ( EFI_ERROR(ret) )
             PrintErrMesg(L"Couldn't obtain the File System Protocol Interface",
                          ret);
@@ -538,18 +552,19 @@ static char * __init split_string(char *s)
     return NULL;
 }
 
-static bool __init read_file(EFI_FILE_HANDLE dir_handle, CHAR16 *name,
-                             struct file *file, char *options)
+static bool __init read_file(EFI_FILE_HANDLE dir_handle, const CHAR16 *name,
+                             struct file *file, const char *options)
 {
     EFI_FILE_HANDLE FileHandle = NULL;
     UINT64 size;
     EFI_STATUS ret;
-    CHAR16 *what = NULL;
+    const CHAR16 *what = NULL;
+    EFI_PHYSICAL_ADDRESS addr = 0;
 
     if ( !name )
         PrintErrMesg(L"No filename", EFI_OUT_OF_RESOURCES);
-    ret = dir_handle->Open(dir_handle, &FileHandle, name,
-                           EFI_FILE_MODE_READ, 0);
+    ret = efi_file_open(dir_handle, &FileHandle, name,
+                        EFI_FILE_MODE_READ, 0);
     if ( file == &cfg && ret == EFI_NOT_FOUND )
         return false;
     if ( EFI_ERROR(ret) )
@@ -568,10 +583,10 @@ static bool __init read_file(EFI_FILE_HANDLE dir_handle, CHAR16 *name,
         what = what ?: L"Seek";
     else
     {
-        file->addr = min(1UL << (32 + PAGE_SHIFT),
-                         HYPERVISOR_VIRT_END - DIRECTMAP_VIRT_START);
+        addr = min(1UL << (32 + PAGE_SHIFT),
+                   HYPERVISOR_VIRT_END - DIRECTMAP_VIRT_START);
         ret = efi_bs->AllocatePages(AllocateMaxAddress, EfiLoaderData,
-                                    PFN_UP(size), &file->addr);
+                                    PFN_UP(size), &addr);
     }
     if ( EFI_ERROR(ret) )
     {
@@ -581,6 +596,7 @@ static bool __init read_file(EFI_FILE_HANDLE dir_handle, CHAR16 *name,
     else
     {
         file->size = size;
+        file->addr = addr;
         if ( file != &cfg )
         {
             PrintStr(name);
@@ -592,7 +608,7 @@ static bool __init read_file(EFI_FILE_HANDLE dir_handle, CHAR16 *name,
             efi_arch_handle_module(file, name, options);
         }
 
-        ret = FileHandle->Read(FileHandle, &file->size, file->ptr);
+        ret = FileHandle->Read(FileHandle, &file->size, (void *)addr);
         if ( !EFI_ERROR(ret) && file->size != size )
             ret = EFI_ABORTED;
         if ( EFI_ERROR(ret) )
@@ -616,7 +632,7 @@ static bool __init read_file(EFI_FILE_HANDLE dir_handle, CHAR16 *name,
 
 static void __init pre_parse(const struct file *cfg)
 {
-    char *ptr = cfg->ptr, *end = ptr + cfg->size;
+    char *ptr = (void *)cfg->ptr, *end = ptr + cfg->size;
     bool start = true, comment = false;
 
     for ( ; ptr < end; ++ptr )
@@ -642,10 +658,10 @@ static void __init pre_parse(const struct file *cfg)
                    " last line will be ignored.\r\n");
 }
 
-static char *__init get_value(const struct file *cfg, const char *section,
-                              const char *item)
+static const char *__init get_value(const struct file *cfg, const char *section,
+                                    const char *item)
 {
-    char *ptr = cfg->ptr, *end = ptr + cfg->size;
+    const char *ptr = cfg->ptr, *end = ptr + cfg->size;
     size_t slen = section ? strlen(section) : 0, ilen = strlen(item);
     bool match = !slen;
 
@@ -720,20 +736,20 @@ static EFI_GRAPHICS_OUTPUT_PROTOCOL __init *efi_get_gop(void)
     EFI_HANDLE *handles = NULL;
     EFI_STATUS status;
     UINTN info_size, size = 0;
-    static EFI_GUID __initdata gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+    static const EFI_GUID __initconst gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
     unsigned int i;
 
-    status = efi_bs->LocateHandle(ByProtocol, &gop_guid, NULL, &size, NULL);
+    status = efi_locate_handle(ByProtocol, &gop_guid, NULL, &size, NULL);
     if ( status == EFI_BUFFER_TOO_SMALL )
         status = efi_bs->AllocatePool(EfiLoaderData, size, (void **)&handles);
     if ( !EFI_ERROR(status) )
-        status = efi_bs->LocateHandle(ByProtocol, &gop_guid, NULL, &size,
-                                      handles);
+        status = efi_locate_handle(ByProtocol, &gop_guid, NULL, &size,
+                                   handles);
     if ( EFI_ERROR(status) )
         size = 0;
     for ( i = 0; i < size / sizeof(*handles); ++i )
     {
-        status = efi_bs->HandleProtocol(handles[i], &gop_guid, (void **)&gop);
+        status = efi_handle_protocol(handles[i], &gop_guid, (void **)&gop);
         if ( EFI_ERROR(status) )
             continue;
         status = gop->QueryMode(gop, gop->Mode->Mode, &info_size, &mode_info);
@@ -804,11 +820,11 @@ static void __init efi_tables(void)
     /* Obtain basic table pointers. */
     for ( i = 0; i < efi_num_ct; ++i )
     {
-        static EFI_GUID __initdata acpi2_guid = ACPI_20_TABLE_GUID;
-        static EFI_GUID __initdata acpi_guid = ACPI_TABLE_GUID;
-        static EFI_GUID __initdata mps_guid = MPS_TABLE_GUID;
-        static EFI_GUID __initdata smbios_guid = SMBIOS_TABLE_GUID;
-        static EFI_GUID __initdata smbios3_guid = SMBIOS3_TABLE_GUID;
+        static const EFI_GUID __initconst acpi2_guid = ACPI_20_TABLE_GUID;
+        static const EFI_GUID __initconst acpi_guid = ACPI_TABLE_GUID;
+        static const EFI_GUID __initconst mps_guid = MPS_TABLE_GUID;
+        static const EFI_GUID __initconst smbios_guid = SMBIOS_TABLE_GUID;
+        static const EFI_GUID __initconst smbios3_guid = SMBIOS3_TABLE_GUID;
 
         if ( match_guid(&acpi2_guid, &efi_ct[i].VendorGuid) )
 	       efi.acpi20 = (long)efi_ct[i].VendorTable;
@@ -834,17 +850,17 @@ static void __init setup_efi_pci(void)
 {
     EFI_STATUS status;
     EFI_HANDLE *handles;
-    static EFI_GUID __initdata pci_guid = EFI_PCI_IO_PROTOCOL;
+    static const EFI_GUID __initconst pci_guid = EFI_PCI_IO_PROTOCOL;
     UINTN i, nr_pci, size = 0;
     struct efi_pci_rom *last = NULL;
 
-    status = efi_bs->LocateHandle(ByProtocol, &pci_guid, NULL, &size, NULL);
+    status = efi_locate_handle(ByProtocol, &pci_guid, NULL, &size, NULL);
     if ( status != EFI_BUFFER_TOO_SMALL )
         return;
     status = efi_bs->AllocatePool(EfiLoaderData, size, (void **)&handles);
     if ( EFI_ERROR(status) )
         return;
-    status = efi_bs->LocateHandle(ByProtocol, &pci_guid, NULL, &size, handles);
+    status = efi_locate_handle(ByProtocol, &pci_guid, NULL, &size, handles);
     if ( EFI_ERROR(status) )
         size = 0;
 
@@ -856,7 +872,7 @@ static void __init setup_efi_pci(void)
         struct efi_pci_rom *rom, *va;
         UINTN segment, bus, device, function;
 
-        status = efi_bs->HandleProtocol(handles[i], &pci_guid, (void **)&pci);
+        status = efi_handle_protocol(handles[i], &pci_guid, (void **)&pci);
         if ( EFI_ERROR(status) || !pci || !pci->RomImage || !pci->RomSize )
             continue;
 
@@ -942,14 +958,14 @@ static void __init efi_variables(void)
 
 static void __init efi_get_apple_properties(void)
 {
-    static EFI_GUID __initdata props_guid = APPLE_PROPERTIES_PROTOCOL_GUID;
+    static const EFI_GUID __initconst props_guid = APPLE_PROPERTIES_PROTOCOL_GUID;
     EFI_APPLE_PROPERTIES *props;
     UINT32 size = 0;
     VOID *data;
     EFI_STATUS status;
 
-    if ( efi_bs->LocateProtocol(&props_guid, NULL,
-                                (void **)&props) != EFI_SUCCESS )
+    if ( efi_locate_protocol(&props_guid, NULL,
+                             (void **)&props) != EFI_SUCCESS )
         return;
     if ( props->Version != 0x10000 )
     {
@@ -1089,12 +1105,13 @@ static int __init __maybe_unused set_color(u32 mask, int bpp, u8 *pos, u8 *sz)
 void EFIAPI __init noreturn
 efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
-    static EFI_GUID __initdata loaded_image_guid = LOADED_IMAGE_PROTOCOL;
-    static EFI_GUID __initdata shim_lock_guid = SHIM_LOCK_PROTOCOL_GUID;
+    static const EFI_GUID __initconst loaded_image_guid = LOADED_IMAGE_PROTOCOL;
+    static const EFI_GUID __initconst shim_lock_guid = SHIM_LOCK_PROTOCOL_GUID;
     EFI_LOADED_IMAGE *loaded_image;
     EFI_STATUS status;
     unsigned int i, argc;
-    CHAR16 **argv, *file_name, *cfg_file_name = NULL, *options = NULL;
+    CHAR16 **argv, *file_name;
+    const CHAR16 *cfg_file_name = NULL, *options = NULL;
     UINTN gop_mode = ~0;
     EFI_SHIM_LOCK_PROTOCOL *shim_lock;
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
@@ -1114,7 +1131,7 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
     use_cfg_file = efi_arch_use_config_file(SystemTable);
 
-    status = efi_bs->HandleProtocol(ImageHandle, &loaded_image_guid,
+    status = efi_handle_protocol(ImageHandle, &loaded_image_guid,
                                     (void **)&loaded_image);
     if ( status != EFI_SUCCESS )
         PrintErrMesg(L"No Loaded Image Protocol", status);
@@ -1138,7 +1155,7 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
             argc = 0;
         for ( i = 1; i < argc; ++i )
         {
-            CHAR16 *ptr = argv[i];
+            const CHAR16 *ptr = argv[i];
 
             if ( !ptr )
                 break;
@@ -1170,7 +1187,7 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
                 }
             }
             else
-                section.w = ptr;
+                section.cw = ptr;
         }
 
         if ( !base_video )
@@ -1223,15 +1240,15 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         if ( section.w )
             w2s(&section);
         else
-            section.s = get_value(&cfg, "global", "default");
+            section.cs = get_value(&cfg, "global", "default");
 
         for ( ; ; )
         {
-            name.s = get_value(&cfg, section.s, "kernel");
-            if ( name.s )
+            name.cs = get_value(&cfg, section.s, "kernel");
+            if ( name.cs )
                 break;
-            name.s = get_value(&cfg, "global", "chain");
-            if ( !name.s )
+            name.cs = get_value(&cfg, "global", "chain");
+            if ( !name.cs )
                 break;
             efi_bs->FreePages(cfg.addr, PFN_UP(cfg.size));
             cfg.addr = 0;
@@ -1255,20 +1272,20 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         read_file(dir_handle, s2w(&name), &kernel, option_str);
         efi_bs->FreePool(name.w);
 
-        if ( !EFI_ERROR(efi_bs->LocateProtocol(&shim_lock_guid, NULL,
-                        (void **)&shim_lock)) &&
-             (status = shim_lock->Verify(kernel.ptr, kernel.size)) != EFI_SUCCESS )
+        if ( !EFI_ERROR(efi_locate_protocol(&shim_lock_guid, NULL,
+                                            (void **)&shim_lock)) &&
+             (status = shim_verify(shim_lock, kernel.ptr, kernel.size)) != EFI_SUCCESS )
             PrintErrMesg(L"Dom0 kernel image could not be verified", status);
 
-        name.s = get_value(&cfg, section.s, "ramdisk");
-        if ( name.s )
+        name.cs = get_value(&cfg, section.s, "ramdisk");
+        if ( name.cs )
         {
             read_file(dir_handle, s2w(&name), &ramdisk, NULL);
             efi_bs->FreePool(name.w);
         }
 
-        name.s = get_value(&cfg, section.s, "xsm");
-        if ( name.s )
+        name.cs = get_value(&cfg, section.s, "xsm");
+        if ( name.cs )
         {
             read_file(dir_handle, s2w(&name), &xsm, NULL);
             efi_bs->FreePool(name.w);
@@ -1287,7 +1304,7 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
             *argv = file_name;
         }
 
-        name.s = get_value(&cfg, section.s, "options");
+        name.cs = get_value(&cfg, section.cs, "options");
         efi_arch_handle_cmdline(argc ? *argv : NULL, options, name.s);
 
         if ( !base_video )

@@ -280,10 +280,10 @@ static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *sect
 {
     union string name;
 
-    name.s = get_value(&cfg, section, "ucode");
-    if ( !name.s )
-        name.s = get_value(&cfg, "global", "ucode");
-    if ( name.s )
+    name.cs = get_value(&cfg, section, "ucode");
+    if ( !name.cs )
+        name.cs = get_value(&cfg, "global", "ucode");
+    if ( name.cs )
     {
         microcode_set_module(mbi.mods_count);
         split_string(name.s);
@@ -292,29 +292,29 @@ static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *sect
     }
 }
 
-static void __init efi_arch_handle_cmdline(CHAR16 *image_name,
-                                           CHAR16 *cmdline_options,
-                                           char *cfgfile_options)
+static void __init efi_arch_handle_cmdline(const CHAR16 *image_name,
+                                           const CHAR16 *cmdline_options,
+                                           const char *cfgfile_options)
 {
     union string name;
 
     if ( cmdline_options )
     {
-        name.w = cmdline_options;
+        name.cw = cmdline_options;
         w2s(&name);
-        place_string(&mbi.cmdline, name.s);
+        place_string(&mbi.cmdline, name.cs);
     }
     if ( cfgfile_options )
         place_string(&mbi.cmdline, cfgfile_options);
     /* Insert image name last, as it gets prefixed to the other options. */
     if ( image_name )
     {
-        name.w = image_name;
+        name.cw = image_name;
         w2s(&name);
     }
     else
-        name.s = "xen";
-    place_string(&mbi.cmdline, name.s);
+        name.cs = "xen";
+    place_string(&mbi.cmdline, name.cs);
 
     if ( mbi.cmdline )
         mbi.flags |= MBI_CMDLINE;
@@ -328,8 +328,8 @@ static void __init efi_arch_handle_cmdline(CHAR16 *image_name,
 
 static void __init efi_arch_edd(void)
 {
-    static EFI_GUID __initdata bio_guid = BLOCK_IO_PROTOCOL;
-    static EFI_GUID __initdata devp_guid = DEVICE_PATH_PROTOCOL;
+    static const EFI_GUID __initconst bio_guid = BLOCK_IO_PROTOCOL;
+    static const EFI_GUID __initconst devp_guid = DEVICE_PATH_PROTOCOL;
     EFI_HANDLE *handles = NULL;
     unsigned int i;
     UINTN size;
@@ -339,12 +339,12 @@ static void __init efi_arch_edd(void)
     BUILD_BUG_ON(offsetof(struct edd_info, edd_device_params) != EDDEXTSIZE);
     BUILD_BUG_ON(sizeof(struct edd_device_params) != EDDPARMSIZE);
     size = 0;
-    status = efi_bs->LocateHandle(ByProtocol, &bio_guid, NULL, &size, NULL);
+    status = efi_locate_handle(ByProtocol, &bio_guid, NULL, &size, NULL);
     if ( status == EFI_BUFFER_TOO_SMALL )
         status = efi_bs->AllocatePool(EfiLoaderData, size, (void **)&handles);
     if ( !EFI_ERROR(status) )
-        status = efi_bs->LocateHandle(ByProtocol, &bio_guid, NULL, &size,
-                                      handles);
+        status = efi_locate_handle(ByProtocol, &bio_guid, NULL, &size,
+                                   handles);
     if ( EFI_ERROR(status) )
         size = 0;
     for ( i = 0; i < size / sizeof(*handles); ++i )
@@ -355,7 +355,7 @@ static void __init efi_arch_edd(void)
         struct edd_device_params *params = &info->edd_device_params;
         enum { root, acpi, pci, ctrlr } state = root;
 
-        status = efi_bs->HandleProtocol(handles[i], &bio_guid, (void **)&bio);
+        status = efi_handle_protocol(handles[i], &bio_guid, (void **)&bio);
         if ( EFI_ERROR(status) ||
              bio->Media->RemovableMedia ||
              bio->Media->LogicalPartition )
@@ -370,7 +370,7 @@ static void __init efi_arch_edd(void)
             params->dpte_ptr = ~0;
         }
         ++boot_edd_info_nr;
-        status = efi_bs->HandleProtocol(handles[i], &devp_guid,
+        status = efi_handle_protocol(handles[i], &devp_guid,
                                         (void **)&devp);
         if ( EFI_ERROR(status) )
             continue;
@@ -636,7 +636,7 @@ static void __init efi_arch_memory_setup(void)
 }
 
 static void __init efi_arch_handle_module(struct file *file, const CHAR16 *name,
-                                          char *options)
+                                          const char *options)
 {
     union string local_name;
     void *ptr;
