@@ -93,7 +93,18 @@ struct domain_shared_info_context {
 
 DECLARE_DOMAIN_SAVE_TYPE(SHARED_INFO, 2, struct domain_shared_info_context);
 
-#define DOMAIN_SAVE_CODE_MAX 2
+#if defined(__i386__) || defined(__x86_64__)
+struct domain_tsc_info_context {
+    uint32_t mode;
+    uint32_t incarnation;
+    uint64_t elapsed_nsec;
+    uint32_t khz;
+};
+
+DECLARE_DOMAIN_SAVE_TYPE(TSC_INFO, 3, struct domain_tsc_info_context);
+#endif
+
+#define DOMAIN_SAVE_CODE_MAX 3
 
 #endif /* defined(__XEN__) || defined(__XEN_TOOLS__) */
 
