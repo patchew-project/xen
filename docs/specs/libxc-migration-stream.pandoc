@@ -3,7 +3,7 @@
   Andrew Cooper <<andrew.cooper3@citrix.com>>
   Wen Congyang <<wency@cn.fujitsu.com>>
   Yang Hongyang <<hongyang.yang@easystack.cn>>
-% Revision 3
+% Revision 4
 
 Introduction
 ============
@@ -127,7 +127,7 @@ marker      0xFFFFFFFFFFFFFFFF.
 
 id          0x58454E46 ("XENF" in ASCII).
 
-version     0x00000003.  The version of this specification.
+version     0x00000004.  The version of this specification.
 
 options     bit 0: Endianness.  0 = little-endian, 1 = big-endian.
 
@@ -209,9 +209,9 @@ type         0x00000000: END
 
              0x00000006: X86_PV_VCPU_XSAVE
 
-             0x00000007: SHARED_INFO
+             0x00000007: SHARED_INFO (deprecated)
 
-             0x00000008: X86_TSC_INFO
+             0x00000008: X86_TSC_INFO (deprecated)
 
              0x00000009: HVM_CONTEXT
 
@@ -233,7 +233,9 @@ type         0x00000000: END
 
              0x00000012: X86_MSR_POLICY
 
-             0x00000013 - 0x7FFFFFFF: Reserved for future _mandatory_
+             0x00000013: DOMAIN_CONTEXT
+
+             0x00000014 - 0x7FFFFFFF: Reserved for future _mandatory_
              records.
 
              0x80000000 - 0xFFFFFFFF: Reserved for future _optional_
@@ -442,10 +444,11 @@ X86_PV_VCPU_MSRS             XEN_DOMCTL_{get,set}\_vcpu_msrs
 
 \clearpage
 
-SHARED_INFO
------------
+SHARED_INFO (deprecated)
+------------------------
 
-The content of the Shared Info page.
+The content of the Shared Info page. This is incorporated into the
+DOMAIN_CONTEXT record as of specification version 4.
 
      0     1     2     3     4     5     6     7 octet
     +-------------------------------------------------+
@@ -462,11 +465,12 @@ shared_info      Contents of the shared info page.  This record
 
 \clearpage
 
-X86_TSC_INFO
-------------
+X86_TSC_INFO (deprecated)
+-------------------------
 
 Domain TSC information, as accessed by the
-XEN_DOMCTL_{get,set}tscinfo hypercall sub-ops.
+XEN_DOMCTL_{get,set}tscinfo hypercall sub-ops. This is incorporated into the
+DOMAIN_CONTEXT record as of specification version 4.
 
      0     1     2     3     4     5     6     7 octet
     +------------------------+------------------------+
@@ -680,6 +684,25 @@ MSR_policy       Array of xen_msr_entry_t[]'s
 
 \clearpage
 
+DOMAIN_CONTEXT
+--------------
+
+Domain context, as accessed by the
+XEN_DOMCTL_{get,set}domaincontext hypercall sub-ops.
+
+     0     1     2     3     4     5     6     7 octet
+    +-------------------------------------------------+
+    | dom_ctx                                         |
+    ...
+    +-------------------------------------------------+
+
+--------------------------------------------------------------------
+Field            Description
+-----------      ---------------------------------------------------
+dom_ctx          The Domain Context blob from Xen.
+--------------------------------------------------------------------
+
+\clearpage
 
 Layout
 ======
@@ -706,8 +729,7 @@ A typical save record for an x86 PV guest image would look like:
     * STATIC_DATA_END
 * X86_PV_P2M_FRAMES record
 * Many PAGE_DATA records
-* X86_TSC_INFO
-* SHARED_INFO record
+* DOMAIN_CONTEXT
 * VCPU context records for each online VCPU
     * X86_PV_VCPU_BASIC record
     * X86_PV_VCPU_EXTENDED record
@@ -735,7 +757,7 @@ A typical save record for an x86 HVM guest image would look like:
     * X86_{CPUID,MSR}_POLICY
     * STATIC_DATA_END
 * Many PAGE_DATA records
-* X86_TSC_INFO
+* DOMAIN_CONTEXT
 * HVM_PARAMS
 * HVM_CONTEXT
 * END record
@@ -745,6 +767,18 @@ the validity of architectural state in the context.
 
 Compatibility with older versions
 =================================
+
+v4 compat with v3
+-----------------
+
+A v4 stream is compatible with a v3 stream, but mandates the presence of a
+DOMAIN_CONTEXT record. This incorporates context such as the content of
+the domain's Shared Info page and the TSC information, hence the SHARED_INFO
+and TSC_INFO records are deprecated.
+It also supercedes HVM_CONTEXT and, over time, data that is currently part of
+the HVM_CONTEXT blob will move to the DOMAIN_CONTEXT blob. Xen, however, will
+continue to accept all defined HVM_CONTEXT records so a v4-compatible
+receiver can still accept an unmodified v3 stream.
 
 v3 compat with v2
 -----------------
