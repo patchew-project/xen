@@ -1,25 +1,5 @@
 #include "xg_sr_common_x86.h"
 
-int write_x86_tsc_info(struct xc_sr_context *ctx)
-{
-    xc_interface *xch = ctx->xch;
-    struct xc_sr_rec_x86_tsc_info tsc = {};
-    struct xc_sr_record rec = {
-        .type = REC_TYPE_X86_TSC_INFO,
-        .length = sizeof(tsc),
-        .data = &tsc,
-    };
-
-    if ( xc_domain_get_tsc_info(xch, ctx->domid, &tsc.mode,
-                                &tsc.nsec, &tsc.khz, &tsc.incarnation) < 0 )
-    {
-        PERROR("Unable to obtain TSC information");
-        return -1;
-    }
-
-    return write_record(ctx, &rec);
-}
-
 int handle_x86_tsc_info(struct xc_sr_context *ctx, struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
