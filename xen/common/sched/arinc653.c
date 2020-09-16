@@ -144,96 +144,6 @@ static void update_schedule_units(const struct scheduler *ops)
                       SCHED_PRIV(ops)->schedule[i].unit_id);
 }
 
-static int a653sched_set(const struct scheduler *ops,
-                         struct xen_sysctl_arinc653_schedule *schedule)
-{
-    struct a653sched_private *sched_priv = SCHED_PRIV(ops);
-    s_time_t total_runtime = 0;
-    unsigned int i;
-    unsigned long flags;
-    int rc = -EINVAL;
-
-    spin_lock_irqsave(&sched_priv->lock, flags);
-
-    /* Check for valid major frame and number of schedule entries */
-    if ( (schedule->major_frame <= 0)
-         || (schedule->num_sched_entries < 1)
-         || (schedule->num_sched_entries > ARINC653_MAX_DOMAINS_PER_SCHEDULE) )
-        goto fail;
-
-    for ( i = 0; i < schedule->num_sched_entries; i++ )
-    {
-        /* Check for a valid run time. */
-        if ( schedule->sched_entries[i].runtime <= 0 )
-            goto fail;
-
-        /* Add this entry's run time to total run time. */
-        total_runtime += schedule->sched_entries[i].runtime;
-    }
-
-    /*
-     * Error if the major frame is not large enough to run all entries as
-     * indicated by comparing the total run time to the major frame length
-     */
-    if ( total_runtime > schedule->major_frame )
-        goto fail;
-
-    /* Copy the new schedule into place. */
-    sched_priv->num_schedule_entries = schedule->num_sched_entries;
-    sched_priv->major_frame = schedule->major_frame;
-    for ( i = 0; i < schedule->num_sched_entries; i++ )
-    {
-        memcpy(sched_priv->schedule[i].dom_handle,
-               schedule->sched_entries[i].dom_handle,
-               sizeof(sched_priv->schedule[i].dom_handle));
-        sched_priv->schedule[i].unit_id =
-            schedule->sched_entries[i].vcpu_id;
-        sched_priv->schedule[i].runtime =
-            schedule->sched_entries[i].runtime;
-    }
-    update_schedule_units(ops);
-
-    /*
-     * The newly-installed schedule takes effect immediately. We do not even
-     * wait for the current major frame to expire.
-     *
-     * Signal a new major frame to begin. The next major frame is set up by
-     * the do_schedule callback function when it is next invoked.
-     */
-    sched_priv->next_major_frame = NOW();
-
-    rc = 0;
-
- fail:
-    spin_unlock_irqrestore(&sched_priv->lock, flags);
-    return rc;
-}
-
-static int a653sched_get(const struct scheduler *ops,
-                         struct xen_sysctl_arinc653_schedule *schedule)
-{
-    struct a653sched_private *sched_priv = SCHED_PRIV(ops);
-    unsigned int i;
-    unsigned long flags;
-
-    spin_lock_irqsave(&sched_priv->lock, flags);
-
-    schedule->num_sched_entries = sched_priv->num_schedule_entries;
-    schedule->major_frame = sched_priv->major_frame;
-    for ( i = 0; i < sched_priv->num_schedule_entries; i++ )
-    {
-        memcpy(schedule->sched_entries[i].dom_handle,
-               sched_priv->schedule[i].dom_handle,
-               sizeof(sched_priv->schedule[i].dom_handle));
-        schedule->sched_entries[i].vcpu_id = sched_priv->schedule[i].unit_id;
-        schedule->sched_entries[i].runtime = sched_priv->schedule[i].runtime;
-    }
-
-    spin_unlock_irqrestore(&sched_priv->lock, flags);
-
-    return 0;
-}
-
 static int a653sched_init(struct scheduler *ops)
 {
     struct a653sched_private *prv;
@@ -255,6 +165,20 @@ static void a653sched_deinit(struct scheduler *ops)
 {
     xfree(SCHED_PRIV(ops));
     ops->sched_data = NULL;
+}
+
+static spinlock_t *a653sched_switch_sched(struct scheduler *new_ops,
+                                          unsigned int cpu, void *pdata,
+                                          void *vdata)
+{
+    struct sched_resource *sr = get_sched_res(cpu);
+    const struct a653sched_unit *svc = vdata;
+
+    ASSERT(!pdata && svc && is_idle_unit(svc->unit));
+
+    sched_idle_unit(cpu)->priv = vdata;
+
+    return &sr->_lock;
 }
 
 static void *a653sched_alloc_udata(const struct scheduler *ops,
@@ -356,6 +280,27 @@ static void a653sched_unit_wake(const struct scheduler *ops,
     cpu_raise_softirq(sched_unit_master(unit), SCHEDULE_SOFTIRQ);
 }
 
+static struct sched_resource *a653sched_pick_resource(const struct scheduler *ops,
+                                                      const struct sched_unit *unit)
+{
+    const cpumask_t *online;
+    unsigned int cpu;
+
+    /*
+     * If present, prefer unit's current processor, else
+     * just find the first valid unit.
+     */
+    online = cpupool_domain_master_cpumask(unit->domain);
+
+    cpu = cpumask_first(online);
+
+    if ( cpumask_test_cpu(sched_unit_master(unit), online)
+         || (cpu >= nr_cpu_ids) )
+        cpu = sched_unit_master(unit);
+
+    return get_sched_res(cpu);
+}
+
 static void a653sched_do_schedule(const struct scheduler *ops,
                                   struct sched_unit *prev, s_time_t now,
                                   bool tasklet_work_scheduled)
@@ -444,40 +389,94 @@ static void a653sched_do_schedule(const struct scheduler *ops,
     BUG_ON(prev->next_time <= 0);
 }
 
-static struct sched_resource *
-a653sched_pick_resource(const struct scheduler *ops,
-                        const struct sched_unit *unit)
+static int a653sched_set(const struct scheduler *ops,
+                         struct xen_sysctl_arinc653_schedule *schedule)
 {
-    const cpumask_t *online;
-    unsigned int cpu;
+    struct a653sched_private *sched_priv = SCHED_PRIV(ops);
+    s_time_t total_runtime = 0;
+    unsigned int i;
+    unsigned long flags;
+    int rc = -EINVAL;
+
+    spin_lock_irqsave(&sched_priv->lock, flags);
+
+    /* Check for valid major frame and number of schedule entries */
+    if ( (schedule->major_frame <= 0)
+         || (schedule->num_sched_entries < 1)
+         || (schedule->num_sched_entries > ARINC653_MAX_DOMAINS_PER_SCHEDULE) )
+        goto fail;
+
+    for ( i = 0; i < schedule->num_sched_entries; i++ )
+    {
+        /* Check for a valid run time. */
+        if ( schedule->sched_entries[i].runtime <= 0 )
+            goto fail;
+
+        /* Add this entry's run time to total run time. */
+        total_runtime += schedule->sched_entries[i].runtime;
+    }
 
     /*
-     * If present, prefer unit's current processor, else
-     * just find the first valid unit.
+     * Error if the major frame is not large enough to run all entries as
+     * indicated by comparing the total run time to the major frame length
      */
-    online = cpupool_domain_master_cpumask(unit->domain);
+    if ( total_runtime > schedule->major_frame )
+        goto fail;
 
-    cpu = cpumask_first(online);
+    /* Copy the new schedule into place. */
+    sched_priv->num_schedule_entries = schedule->num_sched_entries;
+    sched_priv->major_frame = schedule->major_frame;
+    for ( i = 0; i < schedule->num_sched_entries; i++ )
+    {
+        memcpy(sched_priv->schedule[i].dom_handle,
+               schedule->sched_entries[i].dom_handle,
+               sizeof(sched_priv->schedule[i].dom_handle));
+        sched_priv->schedule[i].unit_id =
+            schedule->sched_entries[i].vcpu_id;
+        sched_priv->schedule[i].runtime =
+            schedule->sched_entries[i].runtime;
+    }
+    update_schedule_units(ops);
 
-    if ( cpumask_test_cpu(sched_unit_master(unit), online)
-         || (cpu >= nr_cpu_ids) )
-        cpu = sched_unit_master(unit);
+    /*
+     * The newly-installed schedule takes effect immediately. We do not even
+     * wait for the current major frame to expire.
+     *
+     * Signal a new major frame to begin. The next major frame is set up by
+     * the do_schedule callback function when it is next invoked.
+     */
+    sched_priv->next_major_frame = NOW();
 
-    return get_sched_res(cpu);
+    rc = 0;
+
+ fail:
+    spin_unlock_irqrestore(&sched_priv->lock, flags);
+    return rc;
 }
 
-static spinlock_t *a653sched_switch_sched(struct scheduler *new_ops,
-                                          unsigned int cpu, void *pdata,
-                                          void *vdata)
+static int a653sched_get(const struct scheduler *ops,
+                         struct xen_sysctl_arinc653_schedule *schedule)
 {
-    struct sched_resource *sr = get_sched_res(cpu);
-    const struct a653sched_unit *svc = vdata;
+    struct a653sched_private *sched_priv = SCHED_PRIV(ops);
+    unsigned int i;
+    unsigned long flags;
 
-    ASSERT(!pdata && svc && is_idle_unit(svc->unit));
+    spin_lock_irqsave(&sched_priv->lock, flags);
 
-    sched_idle_unit(cpu)->priv = vdata;
+    schedule->num_sched_entries = sched_priv->num_schedule_entries;
+    schedule->major_frame = sched_priv->major_frame;
+    for ( i = 0; i < sched_priv->num_schedule_entries; i++ )
+    {
+        memcpy(schedule->sched_entries[i].dom_handle,
+               sched_priv->schedule[i].dom_handle,
+               sizeof(sched_priv->schedule[i].dom_handle));
+        schedule->sched_entries[i].vcpu_id = sched_priv->schedule[i].unit_id;
+        schedule->sched_entries[i].runtime = sched_priv->schedule[i].runtime;
+    }
 
-    return &sr->_lock;
+    spin_unlock_irqrestore(&sched_priv->lock, flags);
+
+    return 0;
 }
 
 static int a653sched_adjust_global(const struct scheduler *ops,
@@ -517,27 +516,35 @@ static const struct scheduler sched_arinc653_def = {
     .sched_id       = XEN_SCHEDULER_ARINC653,
     .sched_data     = NULL,
 
+    .global_init    = NULL,
     .init           = a653sched_init,
     .deinit         = a653sched_deinit,
 
-    .free_udata     = a653sched_free_udata,
-    .alloc_udata    = a653sched_alloc_udata,
+    .alloc_pdata    = NULL,
+    .switch_sched   = a653sched_switch_sched,
+    .deinit_pdata   = NULL,
+    .free_pdata     = NULL,
 
+    .alloc_domdata  = NULL,
+    .free_domdata   = NULL,
+
+    .alloc_udata    = a653sched_alloc_udata,
     .insert_unit    = NULL,
     .remove_unit    = NULL,
+    .free_udata     = a653sched_free_udata,
 
     .sleep          = a653sched_unit_sleep,
     .wake           = a653sched_unit_wake,
     .yield          = NULL,
     .context_saved  = NULL,
 
+    .pick_resource  = a653sched_pick_resource,
+    .migrate        = NULL,
+
     .do_schedule    = a653sched_do_schedule,
 
-    .pick_resource  = a653sched_pick_resource,
-
-    .switch_sched   = a653sched_switch_sched,
-
     .adjust         = NULL,
+    .adjust_affinity= NULL,
     .adjust_global  = a653sched_adjust_global,
 
     .dump_settings  = NULL,
