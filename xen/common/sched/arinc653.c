@@ -50,38 +50,38 @@
  * Return a pointer to the ARINC 653-specific scheduler data information
  * associated with the given UNIT
  */
-#define AUNIT(unit) ((arinc653_unit_t *)(unit)->priv)
+#define AUNIT(unit) ((struct a653sched_unit *)(unit)->priv)
 
 /*
  * Return the global scheduler private data given the scheduler ops pointer
  */
-#define SCHED_PRIV(s) ((a653sched_priv_t *)((s)->sched_data))
+#define SCHED_PRIV(s) ((struct a653sched_private *)((s)->sched_data))
 
 /*
  * Schedule unit
  */
-typedef struct arinc653_unit_s
+struct a653sched_unit
 {
     struct sched_unit *unit;            /* Up-pointer to UNIT */
     bool awake;                         /* UNIT awake flag */
     struct list_head list;              /* On the scheduler private data */
-} arinc653_unit_t;
+};
 
 /*
  * Domain frame entry in the ARINC 653 schedule
  */
-typedef struct sched_entry_s
+struct sched_entry
 {
     xen_domain_handle_t dom_handle;     /* UUID of the domain */
     int unit_id;                        /* UNIT number for reference */
     s_time_t runtime;                   /* Duration of the frame */
     struct sched_unit *unit;            /* Pointer to UNIT */
-} sched_entry_t;
+};
 
 /*
  * Scheduler private data
  */
-typedef struct a653sched_priv_s
+struct a653sched_private
 {
     spinlock_t lock;                    /* Scheduler private lock */
 
@@ -93,7 +93,7 @@ typedef struct a653sched_priv_s
      * and UNIT number match, then the UNIT is allowed to run. Its run time
      * (per major frame) is given in the third entry of the schedule.
      */
-    sched_entry_t schedule[ARINC653_MAX_DOMAINS_PER_SCHEDULE];
+    struct sched_entry schedule[ARINC653_MAX_DOMAINS_PER_SCHEDULE];
 
     /*
      * This variable holds the number of entries that are valid in
@@ -110,7 +110,7 @@ typedef struct a653sched_priv_s
     s_time_t next_major_frame;          /* When to switch to the next frame */
 
     struct list_head unit_list;         /* UNITs belonging to this scheduler */
-} a653sched_priv_t;
+};
 
 /* This function compares two domain handles */
 static int dom_handle_cmp(const xen_domain_handle_t h1,
@@ -124,7 +124,7 @@ static struct sched_unit *find_unit(
     xen_domain_handle_t handle,
     int unit_id)
 {
-    arinc653_unit_t *aunit;
+    struct a653sched_unit *aunit;
 
     list_for_each_entry ( aunit, &SCHED_PRIV(ops)->unit_list, list )
         if ( (dom_handle_cmp(aunit->unit->domain->handle, handle) == 0)
@@ -150,7 +150,7 @@ arinc653_sched_set(
     const struct scheduler *ops,
     struct xen_sysctl_arinc653_schedule *schedule)
 {
-    a653sched_priv_t *sched_priv = SCHED_PRIV(ops);
+    struct a653sched_private *sched_priv = SCHED_PRIV(ops);
     s_time_t total_runtime = 0;
     unsigned int i;
     unsigned long flags;
@@ -217,7 +217,7 @@ arinc653_sched_get(
     const struct scheduler *ops,
     struct xen_sysctl_arinc653_schedule *schedule)
 {
-    a653sched_priv_t *sched_priv = SCHED_PRIV(ops);
+    struct a653sched_private *sched_priv = SCHED_PRIV(ops);
     unsigned int i;
     unsigned long flags;
 
@@ -242,9 +242,9 @@ arinc653_sched_get(
 static int
 a653sched_init(struct scheduler *ops)
 {
-    a653sched_priv_t *prv;
+    struct a653sched_private *prv;
 
-    prv = xzalloc(a653sched_priv_t);
+    prv = xzalloc(struct a653sched_private);
     if ( prv == NULL )
         return -ENOMEM;
 
@@ -268,8 +268,8 @@ static void *
 a653sched_alloc_udata(const struct scheduler *ops, struct sched_unit *unit,
                       void *dd)
 {
-    a653sched_priv_t *sched_priv = SCHED_PRIV(ops);
-    arinc653_unit_t *svc;
+    struct a653sched_private *sched_priv = SCHED_PRIV(ops);
+    struct a653sched_unit *svc;
     unsigned int entry;
     unsigned long flags;
 
@@ -277,7 +277,7 @@ a653sched_alloc_udata(const struct scheduler *ops, struct sched_unit *unit,
      * Allocate memory for the ARINC 653-specific scheduler data information
      * associated with the given UNIT (unit).
      */
-    svc = xmalloc(arinc653_unit_t);
+    svc = xmalloc(struct a653sched_unit);
     if ( svc == NULL )
         return NULL;
 
@@ -323,8 +323,8 @@ a653sched_alloc_udata(const struct scheduler *ops, struct sched_unit *unit,
 static void
 a653sched_free_udata(const struct scheduler *ops, void *priv)
 {
-    a653sched_priv_t *sched_priv = SCHED_PRIV(ops);
-    arinc653_unit_t *av = priv;
+    struct a653sched_private *sched_priv = SCHED_PRIV(ops);
+    struct a653sched_unit *av = priv;
     unsigned long flags;
 
     if (av == NULL)
@@ -374,7 +374,7 @@ a653sched_do_schedule(
     struct sched_unit *new_task = NULL;
     static unsigned int sched_index = 0;
     static s_time_t next_switch_time;
-    a653sched_priv_t *sched_priv = SCHED_PRIV(ops);
+    struct a653sched_private *sched_priv = SCHED_PRIV(ops);
     const unsigned int cpu = sched_get_resource_cpu(smp_processor_id());
     unsigned long flags;
 
@@ -482,7 +482,7 @@ a653_switch_sched(struct scheduler *new_ops, unsigned int cpu,
                   void *pdata, void *vdata)
 {
     struct sched_resource *sr = get_sched_res(cpu);
-    const arinc653_unit_t *svc = vdata;
+    const struct a653sched_unit *svc = vdata;
 
     ASSERT(!pdata && svc && is_idle_unit(svc->unit));
 
