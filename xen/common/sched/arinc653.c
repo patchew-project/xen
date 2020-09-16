@@ -119,10 +119,9 @@ static int dom_handle_cmp(const xen_domain_handle_t h1,
     return memcmp(h1, h2, sizeof(xen_domain_handle_t));
 }
 
-static struct sched_unit *find_unit(
-    const struct scheduler *ops,
-    xen_domain_handle_t handle,
-    int unit_id)
+static struct sched_unit *find_unit(const struct scheduler *ops,
+                                    xen_domain_handle_t handle,
+                                    int unit_id)
 {
     struct a653sched_unit *aunit;
 
@@ -145,10 +144,8 @@ static void update_schedule_units(const struct scheduler *ops)
                       SCHED_PRIV(ops)->schedule[i].unit_id);
 }
 
-static int
-arinc653_sched_set(
-    const struct scheduler *ops,
-    struct xen_sysctl_arinc653_schedule *schedule)
+static int a653sched_set(const struct scheduler *ops,
+                         struct xen_sysctl_arinc653_schedule *schedule)
 {
     struct a653sched_private *sched_priv = SCHED_PRIV(ops);
     s_time_t total_runtime = 0;
@@ -212,10 +209,8 @@ arinc653_sched_set(
     return rc;
 }
 
-static int
-arinc653_sched_get(
-    const struct scheduler *ops,
-    struct xen_sysctl_arinc653_schedule *schedule)
+static int a653sched_get(const struct scheduler *ops,
+                         struct xen_sysctl_arinc653_schedule *schedule)
 {
     struct a653sched_private *sched_priv = SCHED_PRIV(ops);
     unsigned int i;
@@ -239,8 +234,7 @@ arinc653_sched_get(
     return 0;
 }
 
-static int
-a653sched_init(struct scheduler *ops)
+static int a653sched_init(struct scheduler *ops)
 {
     struct a653sched_private *prv;
 
@@ -257,16 +251,15 @@ a653sched_init(struct scheduler *ops)
     return 0;
 }
 
-static void
-a653sched_deinit(struct scheduler *ops)
+static void a653sched_deinit(struct scheduler *ops)
 {
     xfree(SCHED_PRIV(ops));
     ops->sched_data = NULL;
 }
 
-static void *
-a653sched_alloc_udata(const struct scheduler *ops, struct sched_unit *unit,
-                      void *dd)
+static void *a653sched_alloc_udata(const struct scheduler *ops,
+                                   struct sched_unit *unit,
+                                   void *dd)
 {
     struct a653sched_private *sched_priv = SCHED_PRIV(ops);
     struct a653sched_unit *svc;
@@ -320,8 +313,7 @@ a653sched_alloc_udata(const struct scheduler *ops, struct sched_unit *unit,
     return svc;
 }
 
-static void
-a653sched_free_udata(const struct scheduler *ops, void *priv)
+static void a653sched_free_udata(const struct scheduler *ops, void *priv)
 {
     struct a653sched_private *sched_priv = SCHED_PRIV(ops);
     struct a653sched_unit *av = priv;
@@ -341,8 +333,8 @@ a653sched_free_udata(const struct scheduler *ops, void *priv)
     spin_unlock_irqrestore(&sched_priv->lock, flags);
 }
 
-static void
-a653sched_unit_sleep(const struct scheduler *ops, struct sched_unit *unit)
+static void a653sched_unit_sleep(const struct scheduler *ops,
+                                 struct sched_unit *unit)
 {
     if ( AUNIT(unit) != NULL )
         AUNIT(unit)->awake = false;
@@ -355,8 +347,8 @@ a653sched_unit_sleep(const struct scheduler *ops, struct sched_unit *unit)
         cpu_raise_softirq(sched_unit_master(unit), SCHEDULE_SOFTIRQ);
 }
 
-static void
-a653sched_unit_wake(const struct scheduler *ops, struct sched_unit *unit)
+static void a653sched_unit_wake(const struct scheduler *ops,
+                                struct sched_unit *unit)
 {
     if ( AUNIT(unit) != NULL )
         AUNIT(unit)->awake = true;
@@ -364,12 +356,9 @@ a653sched_unit_wake(const struct scheduler *ops, struct sched_unit *unit)
     cpu_raise_softirq(sched_unit_master(unit), SCHEDULE_SOFTIRQ);
 }
 
-static void
-a653sched_do_schedule(
-    const struct scheduler *ops,
-    struct sched_unit *prev,
-    s_time_t now,
-    bool tasklet_work_scheduled)
+static void a653sched_do_schedule(const struct scheduler *ops,
+                                  struct sched_unit *prev, s_time_t now,
+                                  bool tasklet_work_scheduled)
 {
     struct sched_unit *new_task = NULL;
     static unsigned int sched_index = 0;
@@ -477,9 +466,9 @@ a653sched_pick_resource(const struct scheduler *ops,
     return get_sched_res(cpu);
 }
 
-static spinlock_t *
-a653_switch_sched(struct scheduler *new_ops, unsigned int cpu,
-                  void *pdata, void *vdata)
+static spinlock_t *a653sched_switch_sched(struct scheduler *new_ops,
+                                          unsigned int cpu, void *pdata,
+                                          void *vdata)
 {
     struct sched_resource *sr = get_sched_res(cpu);
     const struct a653sched_unit *svc = vdata;
@@ -491,9 +480,8 @@ a653_switch_sched(struct scheduler *new_ops, unsigned int cpu,
     return &sr->_lock;
 }
 
-static int
-a653sched_adjust_global(const struct scheduler *ops,
-                        struct xen_sysctl_scheduler_op *sc)
+static int a653sched_adjust_global(const struct scheduler *ops,
+                                   struct xen_sysctl_scheduler_op *sc)
 {
     struct xen_sysctl_arinc653_schedule local_sched;
     int rc = -EINVAL;
@@ -507,11 +495,11 @@ a653sched_adjust_global(const struct scheduler *ops,
             break;
         }
 
-        rc = arinc653_sched_set(ops, &local_sched);
+        rc = a653sched_set(ops, &local_sched);
         break;
     case XEN_SYSCTL_SCHEDOP_getinfo:
         memset(&local_sched, -1, sizeof(local_sched));
-        rc = arinc653_sched_get(ops, &local_sched);
+        rc = a653sched_get(ops, &local_sched);
         if ( rc )
             break;
 
@@ -547,7 +535,7 @@ static const struct scheduler sched_arinc653_def = {
 
     .pick_resource  = a653sched_pick_resource,
 
-    .switch_sched   = a653_switch_sched,
+    .switch_sched   = a653sched_switch_sched,
 
     .adjust         = NULL,
     .adjust_global  = a653sched_adjust_global,
