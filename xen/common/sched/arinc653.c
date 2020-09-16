@@ -36,79 +36,56 @@
 
 #include "private.h"
 
-/**************************************************************************
- * Private Macros                                                         *
- **************************************************************************/
-
-/**
- * Default timeslice for domain 0.
+/*
+ * Default timeslice for domain 0
  */
 #define DEFAULT_TIMESLICE MILLISECS(10)
 
-/**
- * Retrieve the idle UNIT for a given physical CPU
+/*
+ * Retrieve the idle UNIT for a given pCPU
  */
 #define IDLETASK(cpu)  (sched_idle_unit(cpu))
 
-/**
+/*
  * Return a pointer to the ARINC 653-specific scheduler data information
- * associated with the given UNIT (unit)
+ * associated with the given UNIT
  */
 #define AUNIT(unit) ((arinc653_unit_t *)(unit)->priv)
 
-/**
+/*
  * Return the global scheduler private data given the scheduler ops pointer
  */
 #define SCHED_PRIV(s) ((a653sched_priv_t *)((s)->sched_data))
 
-/**************************************************************************
- * Private Type Definitions                                               *
- **************************************************************************/
-
-/**
- * The arinc653_unit_t structure holds ARINC 653-scheduler-specific
- * information for all non-idle UNITs
+/*
+ * Schedule unit
  */
 typedef struct arinc653_unit_s
 {
-    /* unit points to Xen's struct sched_unit so we can get to it from an
-     * arinc653_unit_t pointer. */
-    struct sched_unit * unit;
-    /* awake holds whether the UNIT has been woken with vcpu_wake() */
-    bool                awake;
-    /* list holds the linked list information for the list this UNIT
-     * is stored in */
-    struct list_head    list;
+    struct sched_unit *unit;            /* Up-pointer to UNIT */
+    bool awake;                         /* UNIT awake flag */
+    struct list_head list;              /* On the scheduler private data */
 } arinc653_unit_t;
 
-/**
- * The sched_entry_t structure holds a single entry of the
- * ARINC 653 schedule.
+/*
+ * Domain frame entry in the ARINC 653 schedule
  */
 typedef struct sched_entry_s
 {
-    /* dom_handle holds the handle ("UUID") for the domain that this
-     * schedule entry refers to. */
-    xen_domain_handle_t dom_handle;
-    /* unit_id holds the UNIT number for the UNIT that this schedule
-     * entry refers to. */
-    int                 unit_id;
-    /* runtime holds the number of nanoseconds that the UNIT for this
-     * schedule entry should be allowed to run per major frame. */
-    s_time_t            runtime;
-    /* unit holds a pointer to the Xen sched_unit structure */
-    struct sched_unit * unit;
+    xen_domain_handle_t dom_handle;     /* UUID of the domain */
+    int unit_id;                        /* UNIT number for reference */
+    s_time_t runtime;                   /* Duration of the frame */
+    struct sched_unit *unit;            /* Pointer to UNIT */
 } sched_entry_t;
 
-/**
- * This structure defines data that is global to an instance of the scheduler
+/*
+ * Scheduler private data
  */
 typedef struct a653sched_priv_s
 {
-    /* lock for the whole pluggable scheduler, nests inside cpupool_lock */
-    spinlock_t lock;
+    spinlock_t lock;                    /* Scheduler private lock */
 
-    /**
+    /*
      * This array holds the active ARINC 653 schedule.
      *
      * When the system tries to start a new UNIT, this schedule is scanned
@@ -118,7 +95,7 @@ typedef struct a653sched_priv_s
      */
     sched_entry_t schedule[ARINC653_MAX_DOMAINS_PER_SCHEDULE];
 
-    /**
+    /*
      * This variable holds the number of entries that are valid in
      * the arinc653_schedule table.
      *
@@ -129,57 +106,19 @@ typedef struct a653sched_priv_s
      */
     unsigned int num_schedule_entries;
 
-    /**
-     * the major frame time for the ARINC 653 schedule.
-     */
-    s_time_t major_frame;
+    s_time_t major_frame;               /* Duration of a major frame */
+    s_time_t next_major_frame;          /* When to switch to the next frame */
 
-    /**
-     * the time that the next major frame starts
-     */
-    s_time_t next_major_frame;
-
-    /**
-     * pointers to all Xen UNIT structures for iterating through
-     */
-    struct list_head unit_list;
+    struct list_head unit_list;         /* UNITs belonging to this scheduler */
 } a653sched_priv_t;
 
-/**************************************************************************
- * Helper functions                                                       *
- **************************************************************************/
-
-/**
- * This function compares two domain handles.
- *
- * @param h1        Pointer to handle 1
- * @param h2        Pointer to handle 2
- *
- * @return          <ul>
- *                  <li> <0:  handle 1 is less than handle 2
- *                  <li>  0:  handle 1 is equal to handle 2
- *                  <li> >0:  handle 1 is greater than handle 2
- *                  </ul>
- */
+/* This function compares two domain handles */
 static int dom_handle_cmp(const xen_domain_handle_t h1,
                           const xen_domain_handle_t h2)
 {
     return memcmp(h1, h2, sizeof(xen_domain_handle_t));
 }
 
-/**
- * This function searches the unit list to find a UNIT that matches
- * the domain handle and UNIT ID specified.
- *
- * @param ops       Pointer to this instance of the scheduler structure
- * @param handle    Pointer to handler
- * @param unit_id   UNIT ID
- *
- * @return          <ul>
- *                  <li> Pointer to the matching UNIT if one is found
- *                  <li> NULL otherwise
- *                  </ul>
- */
 static struct sched_unit *find_unit(
     const struct scheduler *ops,
     xen_domain_handle_t handle,
@@ -187,7 +126,6 @@ static struct sched_unit *find_unit(
 {
     arinc653_unit_t *aunit;
 
-    /* loop through the unit_list looking for the specified UNIT */
     list_for_each_entry ( aunit, &SCHED_PRIV(ops)->unit_list, list )
         if ( (dom_handle_cmp(aunit->unit->domain->handle, handle) == 0)
              && (unit_id == aunit->unit->unit_id) )
@@ -196,13 +134,6 @@ static struct sched_unit *find_unit(
     return NULL;
 }
 
-/**
- * This function updates the pointer to the Xen UNIT structure for each entry
- * in the ARINC 653 schedule.
- *
- * @param ops       Pointer to this instance of the scheduler structure
- * @return          <None>
- */
 static void update_schedule_units(const struct scheduler *ops)
 {
     unsigned int i, n_entries = SCHED_PRIV(ops)->num_schedule_entries;
@@ -214,17 +145,6 @@ static void update_schedule_units(const struct scheduler *ops)
                       SCHED_PRIV(ops)->schedule[i].unit_id);
 }
 
-/**
- * This function is called by the adjust_global scheduler hook to put
- * in place a new ARINC653 schedule.
- *
- * @param ops       Pointer to this instance of the scheduler structure
- *
- * @return          <ul>
- *                  <li> 0 = success
- *                  <li> !0 = error
- *                  </ul>
- */
 static int
 arinc653_sched_set(
     const struct scheduler *ops,
@@ -238,7 +158,7 @@ arinc653_sched_set(
 
     spin_lock_irqsave(&sched_priv->lock, flags);
 
-    /* Check for valid major frame and number of schedule entries. */
+    /* Check for valid major frame and number of schedule entries */
     if ( (schedule->major_frame <= 0)
          || (schedule->num_sched_entries < 1)
          || (schedule->num_sched_entries > ARINC653_MAX_DOMAINS_PER_SCHEDULE) )
@@ -256,7 +176,7 @@ arinc653_sched_set(
 
     /*
      * Error if the major frame is not large enough to run all entries as
-     * indicated by comparing the total run time to the major frame length.
+     * indicated by comparing the total run time to the major frame length
      */
     if ( total_runtime > schedule->major_frame )
         goto fail;
@@ -292,16 +212,6 @@ arinc653_sched_set(
     return rc;
 }
 
-/**
- * This function is called by the adjust_global scheduler hook to read the
- * current ARINC 653 schedule
- *
- * @param ops       Pointer to this instance of the scheduler structure
- * @return          <ul>
- *                  <li> 0 = success
- *                  <li> !0 = error
- *                  </ul>
- */
 static int
 arinc653_sched_get(
     const struct scheduler *ops,
@@ -329,20 +239,6 @@ arinc653_sched_get(
     return 0;
 }
 
-/**************************************************************************
- * Scheduler callback functions                                           *
- **************************************************************************/
-
-/**
- * This function performs initialization for an instance of the scheduler.
- *
- * @param ops       Pointer to this instance of the scheduler structure
- *
- * @return          <ul>
- *                  <li> 0 = success
- *                  <li> !0 = error
- *                  </ul>
- */
 static int
 a653sched_init(struct scheduler *ops)
 {
@@ -361,11 +257,6 @@ a653sched_init(struct scheduler *ops)
     return 0;
 }
 
-/**
- * This function performs deinitialization for an instance of the scheduler
- *
- * @param ops       Pointer to this instance of the scheduler structure
- */
 static void
 a653sched_deinit(struct scheduler *ops)
 {
@@ -373,14 +264,6 @@ a653sched_deinit(struct scheduler *ops)
     ops->sched_data = NULL;
 }
 
-/**
- * This function allocates scheduler-specific data for a UNIT
- *
- * @param ops       Pointer to this instance of the scheduler structure
- * @param unit      Pointer to struct sched_unit
- *
- * @return          Pointer to the allocated data
- */
 static void *
 a653sched_alloc_udata(const struct scheduler *ops, struct sched_unit *unit,
                       void *dd)
@@ -437,11 +320,6 @@ a653sched_alloc_udata(const struct scheduler *ops, struct sched_unit *unit,
     return svc;
 }
 
-/**
- * This function frees scheduler-specific UNIT data
- *
- * @param ops       Pointer to this instance of the scheduler structure
- */
 static void
 a653sched_free_udata(const struct scheduler *ops, void *priv)
 {
@@ -463,12 +341,6 @@ a653sched_free_udata(const struct scheduler *ops, void *priv)
     spin_unlock_irqrestore(&sched_priv->lock, flags);
 }
 
-/**
- * Xen scheduler callback function to sleep a UNIT
- *
- * @param ops       Pointer to this instance of the scheduler structure
- * @param unit      Pointer to struct sched_unit
- */
 static void
 a653sched_unit_sleep(const struct scheduler *ops, struct sched_unit *unit)
 {
@@ -483,12 +355,6 @@ a653sched_unit_sleep(const struct scheduler *ops, struct sched_unit *unit)
         cpu_raise_softirq(sched_unit_master(unit), SCHEDULE_SOFTIRQ);
 }
 
-/**
- * Xen scheduler callback function to wake up a UNIT
- *
- * @param ops       Pointer to this instance of the scheduler structure
- * @param unit      Pointer to struct sched_unit
- */
 static void
 a653sched_unit_wake(const struct scheduler *ops, struct sched_unit *unit)
 {
@@ -498,13 +364,6 @@ a653sched_unit_wake(const struct scheduler *ops, struct sched_unit *unit)
     cpu_raise_softirq(sched_unit_master(unit), SCHEDULE_SOFTIRQ);
 }
 
-/**
- * Xen scheduler callback function to select a UNIT to run.
- * This is the main scheduler routine.
- *
- * @param ops       Pointer to this instance of the scheduler structure
- * @param now       Current time
- */
 static void
 a653sched_do_schedule(
     const struct scheduler *ops,
@@ -596,14 +455,6 @@ a653sched_do_schedule(
     BUG_ON(prev->next_time <= 0);
 }
 
-/**
- * Xen scheduler callback function to select a resource for the UNIT to run on
- *
- * @param ops       Pointer to this instance of the scheduler structure
- * @param unit      Pointer to struct sched_unit
- *
- * @return          Scheduler resource to run on
- */
 static struct sched_resource *
 a653sched_pick_resource(const struct scheduler *ops,
                         const struct sched_unit *unit)
@@ -626,14 +477,6 @@ a653sched_pick_resource(const struct scheduler *ops,
     return get_sched_res(cpu);
 }
 
-/**
- * Xen scheduler callback to change the scheduler of a cpu
- *
- * @param new_ops   Pointer to this instance of the scheduler structure
- * @param cpu       The cpu that is changing scheduler
- * @param pdata     scheduler specific PCPU data (we don't have any)
- * @param vdata     scheduler specific UNIT data of the idle unit
- */
 static spinlock_t *
 a653_switch_sched(struct scheduler *new_ops, unsigned int cpu,
                   void *pdata, void *vdata)
@@ -648,14 +491,6 @@ a653_switch_sched(struct scheduler *new_ops, unsigned int cpu,
     return &sr->_lock;
 }
 
-/**
- * Xen scheduler callback function to perform a global (not domain-specific)
- * adjustment. It is used by the ARINC 653 scheduler to put in place a new
- * ARINC 653 schedule or to retrieve the schedule currently in place.
- *
- * @param ops       Pointer to this instance of the scheduler structure
- * @param sc        Pointer to the scheduler operation specified by Domain 0
- */
 static int
 a653sched_adjust_global(const struct scheduler *ops,
                         struct xen_sysctl_scheduler_op *sc)
@@ -688,12 +523,6 @@ a653sched_adjust_global(const struct scheduler *ops,
     return rc;
 }
 
-/**
- * This structure defines our scheduler for Xen.
- * The entries tell Xen where to find our scheduler-specific
- * callback functions.
- * The symbol must be visible to the rest of Xen at link time.
- */
 static const struct scheduler sched_arinc653_def = {
     .name           = "ARINC 653 Scheduler",
     .opt_name       = "arinc653",
