@@ -63,6 +63,9 @@ config HAS_IOPORTS
 config HAS_SCHED_GRANULARITY
 	bool
 
+config HAS_M2P
+	bool
+
 config NEEDS_LIBELF
 	bool
 

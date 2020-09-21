@@ -262,6 +262,11 @@ static inline void arch_vcpu_block(struct vcpu *v) {}
 
 #define arch_vm_assist_valid_mask(d) (1UL << VMASST_TYPE_runstate_update_flag)
 
+static inline gfn_t domain_shared_info_gfn(struct domain *d)
+{
+    return INVALID_GFN;
+}
+
 #endif /* __ASM_DOMAIN_H__ */
 
 /*
