@@ -22,7 +22,9 @@
 #ifndef XENGUEST_H
 #define XENGUEST_H
 
+#ifdef __XEN_TOOLS__
 #include <xenctrl_dom.h>
+#endif
 
 #define XC_NUMA_NO_NODE   (~0U)
 
