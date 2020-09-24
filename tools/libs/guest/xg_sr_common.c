@@ -39,6 +39,7 @@ static const char *const mandatory_rec_types[] =
     [REC_TYPE_STATIC_DATA_END]              = "Static data end",
     [REC_TYPE_X86_CPUID_POLICY]             = "x86 CPUID policy",
     [REC_TYPE_X86_MSR_POLICY]               = "x86 MSR policy",
+    [REC_TYPE_DOMAIN_CONTEXT]               = "Domain context",
 };
 
 const char *rec_type_to_str(uint32_t type)
