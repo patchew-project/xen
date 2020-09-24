@@ -850,20 +850,6 @@ static int write_x86_pv_p2m_frames(struct xc_sr_context *ctx)
 }
 
 /*
- * Writes an SHARED_INFO record into the stream.
- */
-static int write_shared_info(struct xc_sr_context *ctx)
-{
-    struct xc_sr_record rec = {
-        .type = REC_TYPE_SHARED_INFO,
-        .length = PAGE_SIZE,
-        .data = ctx->x86.pv.shinfo,
-    };
-
-    return write_record(ctx, &rec);
-}
-
-/*
  * Normalise a pagetable for the migration stream.  Performs mfn->pfn
  * conversions on the ptes.
  */
@@ -1092,14 +1078,6 @@ static int x86_pv_start_of_checkpoint(struct xc_sr_context *ctx)
 static int x86_pv_end_of_checkpoint(struct xc_sr_context *ctx)
 {
     int rc;
-
-    rc = write_x86_tsc_info(ctx);
-    if ( rc )
-        return rc;
-
-    rc = write_shared_info(ctx);
-    if ( rc )
-        return rc;
 
     rc = write_all_vcpu_information(ctx);
     if ( rc )
