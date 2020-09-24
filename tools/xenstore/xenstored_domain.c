@@ -630,6 +630,8 @@ void domain_init(void)
 	*xgt_handle = xengnttab_open(NULL, 0);
 	if (*xgt_handle == NULL)
 		barf_perror("Failed to open connection to gnttab");
+	/* Allow max number of domains for mappings. */
+	xengnttab_set_max_grants(*xgt_handle, DOMID_FIRST_RESERVED);
 
 	talloc_set_destructor(xgt_handle, close_xgt_handle);
 
