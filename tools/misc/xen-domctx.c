@@ -59,7 +59,17 @@ static void dump_header(void)
 
     printf("    HEADER: magic %#x, version %u\n",
            h->magic, h->version);
+}
 
+static void dump_tsc_info(void)
+{
+    DOMAIN_SAVE_TYPE(TSC_INFO) *t;
+
+    GET_PTR(t);
+
+    printf("    TSC_INFO: mode: %u incarnation: %u\n"
+           "              khz %u elapsed_nsec: %"PRIu64"\n",
+           t->mode, t->incarnation, t->khz, t->elapsed_nsec);
 }
 
 static void print_binary(const char *prefix, const void *val, size_t size,
@@ -251,6 +261,7 @@ int main(int argc, char **argv)
             {
             case DOMAIN_SAVE_CODE(HEADER): dump_header(); break;
             case DOMAIN_SAVE_CODE(SHARED_INFO): dump_shared_info(); break;
+            case DOMAIN_SAVE_CODE(TSC_INFO): dump_tsc_info(); break;
             case DOMAIN_SAVE_CODE(END): dump_end(); break;
             default:
                 printf("Unknown type %u: skipping\n", desc->typecode);
