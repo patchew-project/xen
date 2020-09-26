@@ -96,7 +96,7 @@ int construct_dom0(struct domain *d);
 void create_domUs(void);
 
 void discard_initial_modules(void);
-void dt_unreserved_regions(paddr_t s, paddr_t e,
+void fw_unreserved_regions(paddr_t s, paddr_t e,
                            void (*cb)(paddr_t, paddr_t), int first);
 
 size_t boot_fdt_info(const void *fdt, paddr_t paddr);
