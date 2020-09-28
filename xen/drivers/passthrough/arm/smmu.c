@@ -1152,7 +1152,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 	      (TTBCR_RGN_WBWA << TTBCR_IRGN0_SHIFT);
 
 	if (!stage1)
-		reg |= (TTBCR_SL0_LVL_1 << TTBCR_SL0_SHIFT);
+		reg |= (2 - p2m_root_level) << TTBCR_SL0_SHIFT;
 
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_TTBCR);
 

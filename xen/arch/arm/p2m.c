@@ -18,7 +18,6 @@
 
 #ifdef CONFIG_ARM_64
 static unsigned int __read_mostly p2m_root_order;
-static unsigned int __read_mostly p2m_root_level;
 #define P2M_ROOT_ORDER    p2m_root_order
 #define P2M_ROOT_LEVEL p2m_root_level
 static unsigned int __read_mostly max_vmid = MAX_VMID_8_BIT;
@@ -39,6 +38,7 @@ static unsigned int __read_mostly max_vmid = MAX_VMID_8_BIT;
  * restricted by external entity (e.g. IOMMU).
  */
 unsigned int __read_mostly p2m_ipa_bits = 64;
+unsigned int __read_mostly p2m_root_level;
 
 /* Helpers to lookup the properties of each level */
 static const paddr_t level_masks[] =

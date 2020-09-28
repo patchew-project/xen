@@ -12,6 +12,7 @@
 
 /* Holds the bit size of IPAs in p2m tables.  */
 extern unsigned int p2m_ipa_bits;
+extern unsigned int p2m_root_level;
 
 struct domain;
 
