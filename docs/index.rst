@@ -57,5 +57,7 @@ Miscellanea
 -----------
 
 .. toctree::
+   :maxdepth: 1
 
+   policies/dependency-versions
    glossary
