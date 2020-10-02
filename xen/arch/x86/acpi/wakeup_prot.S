@@ -110,6 +110,11 @@ ENTRY(s3_resume)
 
         call    load_system_tables
 
+        /* Restore CR4 from the cpuinfo block. */
+        GET_STACK_END(bx)
+        mov     STACK_CPUINFO_FIELD(cr4)(%rbx), %rax
+        mov     %rax, %cr4
+
 .Lsuspend_err:
         pop     %r15
         pop     %r14
