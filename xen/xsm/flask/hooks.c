@@ -624,6 +624,7 @@ static int flask_domctl(struct domain *d, int cmd)
      * These have individual XSM hooks
      * (drivers/passthrough/{pci,device_tree.c)
      */
+    case XEN_DOMCTL_iommu_ctl:
     case XEN_DOMCTL_get_device_group:
     case XEN_DOMCTL_test_assign_device:
     case XEN_DOMCTL_assign_device:
@@ -1273,7 +1274,15 @@ static int flask_mem_sharing(struct domain *d)
 }
 #endif
 
-#if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_PCI)
+#if defined(CONFIG_HAS_PASSTHROUGH)
+
+static int flask_iommu_ctl(struct domain *d, unsigned int op)
+{
+    /* All current ops are subject to default 'ctl' perm */
+    return current_has_perm(d, SECCLASS_IOMMU, IOMMU__CTL);
+}
+
+#if defined(CONFIG_HAS_PCI)
 static int flask_get_device_group(uint32_t machine_bdf)
 {
     u32 rsid;
@@ -1343,9 +1352,9 @@ static int flask_deassign_device(struct domain *d, uint32_t machine_bdf)
 
     return avc_current_has_perm(rsid, SECCLASS_RESOURCE, RESOURCE__REMOVE_DEVICE, NULL);
 }
-#endif /* HAS_PASSTHROUGH && HAS_PCI */
+#endif /* HAS_PCI */
 
-#if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_DEVICE_TREE)
+#if defined(CONFIG_HAS_DEVICE_TREE)
 static int flask_test_assign_dtdevice(const char *dtpath)
 {
     u32 rsid;
@@ -1405,7 +1414,8 @@ static int flask_deassign_dtdevice(struct domain *d, const char *dtpath)
     return avc_current_has_perm(rsid, SECCLASS_RESOURCE, RESOURCE__REMOVE_DEVICE,
                                 NULL);
 }
-#endif /* HAS_PASSTHROUGH && HAS_DEVICE_TREE */
+#endif /* HAS_DEVICE_TREE */
+#endif /* HAS_PASSTHROUGH */
 
 static int flask_platform_op(uint32_t op)
 {
@@ -1849,15 +1859,17 @@ static struct xsm_operations flask_ops = {
     .remove_from_physmap = flask_remove_from_physmap,
     .map_gmfn_foreign = flask_map_gmfn_foreign,
 
-#if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_PCI)
+#if defined(CONFIG_HAS_PASSTHROUGH)
+    .iommu_ctl = flask_iommu_ctl,
+#if defined(CONFIG_HAS_PCI)
     .get_device_group = flask_get_device_group,
     .assign_device = flask_assign_device,
     .deassign_device = flask_deassign_device,
 #endif
-
-#if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_DEVICE_TREE)
+#if defined(CONFIG_HAS_DEVICE_TREE)
     .assign_dtdevice = flask_assign_dtdevice,
     .deassign_dtdevice = flask_deassign_dtdevice,
+#endif
 #endif
 
     .platform_op = flask_platform_op,

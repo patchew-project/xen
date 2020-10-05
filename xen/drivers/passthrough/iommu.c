@@ -502,6 +502,27 @@ void iommu_resume()
         iommu_get_ops()->resume();
 }
 
+static int iommu_ctl(
+    struct xen_domctl *domctl, struct domain *d,
+    XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
+{
+    struct xen_domctl_iommu_ctl *ctl = &domctl->u.iommu_ctl;
+    int rc;
+
+    rc = xsm_iommu_ctl(XSM_HOOK, d, ctl->op);
+    if ( rc )
+        return rc;
+
+    switch ( ctl->op )
+    {
+    default:
+        rc = -EOPNOTSUPP;
+        break;
+    }
+
+    return rc;
+}
+
 int iommu_do_domctl(
     struct xen_domctl *domctl, struct domain *d,
     XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
@@ -511,14 +532,26 @@ int iommu_do_domctl(
     if ( !is_iommu_enabled(d) )
         return -EOPNOTSUPP;
 
+    switch ( domctl->cmd )
+    {
+    case XEN_DOMCTL_iommu_ctl:
+        ret = iommu_ctl(domctl, d, u_domctl);
+        if ( ret == -ERESTART )
+            ret = hypercall_create_continuation(__HYPERVISOR_domctl,
+                                                "h", u_domctl);
+        break;
+
+    default:
 #ifdef CONFIG_HAS_PCI
-    ret = iommu_do_pci_domctl(domctl, d, u_domctl);
+        ret = iommu_do_pci_domctl(domctl, d, u_domctl);
 #endif
 
 #ifdef CONFIG_HAS_DEVICE_TREE
-    if ( ret == -ENODEV )
-        ret = iommu_do_dt_domctl(domctl, d, u_domctl);
+        if ( ret == -ENODEV )
+            ret = iommu_do_dt_domctl(domctl, d, u_domctl);
 #endif
+        break;
+    }
 
     return ret;
 }

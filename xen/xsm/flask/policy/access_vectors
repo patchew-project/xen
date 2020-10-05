@@ -540,3 +540,10 @@ class argo
     # Domain sending a message to another domain.
     send
 }
+
+# Class iommu describes operations on the IOMMU resources of a domain
+class iommu
+{
+    # Miscellaneous control
+    ctl
+}

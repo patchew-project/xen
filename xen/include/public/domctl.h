@@ -1132,6 +1132,18 @@ struct xen_domctl_vuart_op {
                                  */
 };
 
+/*
+ * XEN_DOMCTL_iommu_ctl
+ *
+ * Control of VM IOMMU settings
+ */
+
+#define XEN_DOMCTL_IOMMU_INVALID 0
+
+struct xen_domctl_iommu_ctl {
+    uint32_t op; /* XEN_DOMCTL_IOMMU_* */
+};
+
 struct xen_domctl {
     uint32_t cmd;
 #define XEN_DOMCTL_createdomain                   1
@@ -1216,6 +1228,7 @@ struct xen_domctl {
 #define XEN_DOMCTL_vuart_op                      81
 #define XEN_DOMCTL_get_cpu_policy                82
 #define XEN_DOMCTL_set_cpu_policy                83
+#define XEN_DOMCTL_iommu_ctl                     84
 #define XEN_DOMCTL_gdbsx_guestmemio            1000
 #define XEN_DOMCTL_gdbsx_pausevcpu             1001
 #define XEN_DOMCTL_gdbsx_unpausevcpu           1002
@@ -1276,6 +1289,7 @@ struct xen_domctl {
         struct xen_domctl_monitor_op        monitor_op;
         struct xen_domctl_psr_alloc         psr_alloc;
         struct xen_domctl_vuart_op          vuart_op;
+        struct xen_domctl_iommu_ctl         iommu_ctl;
         uint8_t                             pad[128];
     } u;
 };

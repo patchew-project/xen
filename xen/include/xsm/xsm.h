@@ -106,17 +106,19 @@ struct xsm_operations {
     int (*irq_permission) (struct domain *d, int pirq, uint8_t allow);
     int (*iomem_permission) (struct domain *d, uint64_t s, uint64_t e, uint8_t allow);
     int (*iomem_mapping) (struct domain *d, uint64_t s, uint64_t e, uint8_t allow);
-    int (*pci_config_permission) (struct domain *d, uint32_t machine_bdf, uint16_t start, uint16_t end, uint8_t access);
+    int (*pci_config_permission) (struct domain *d, uint32_t machine_bdf, uint16_t start, uint16_t end, uint8_t access); 
 
-#if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_PCI)
+#if defined(CONFIG_HAS_PASSTHROUGH)
+    int (*iommu_ctl) (struct domain *d, unsigned int op);
+#if defined(CONFIG_HAS_PCI)
     int (*get_device_group) (uint32_t machine_bdf);
     int (*assign_device) (struct domain *d, uint32_t machine_bdf);
     int (*deassign_device) (struct domain *d, uint32_t machine_bdf);
 #endif
-
-#if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_DEVICE_TREE)
+#if defined(CONFIG_HAS_DEVICE_TREE)
     int (*assign_dtdevice) (struct domain *d, const char *dtpath);
     int (*deassign_dtdevice) (struct domain *d, const char *dtpath);
+#endif
 #endif
 
     int (*resource_plug_core) (void);
@@ -465,7 +467,14 @@ static inline int xsm_pci_config_permission (xsm_default_t def, struct domain *d
     return xsm_ops->pci_config_permission(d, machine_bdf, start, end, access);
 }
 
-#if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_PCI)
+#if defined(CONFIG_HAS_PASSTHROUGH)
+static inline int xsm_iommu_ctl(xsm_default_t def, struct domain *d,
+                                unsigned int op)
+{
+    return xsm_ops->iommu_ctl(d, op);
+}
+
+#if defined(CONFIG_HAS_PCI)
 static inline int xsm_get_device_group(xsm_default_t def, uint32_t machine_bdf)
 {
     return xsm_ops->get_device_group(machine_bdf);
@@ -480,9 +489,9 @@ static inline int xsm_deassign_device(xsm_default_t def, struct domain *d, uint3
 {
     return xsm_ops->deassign_device(d, machine_bdf);
 }
-#endif /* HAS_PASSTHROUGH && HAS_PCI) */
+#endif /* HAS_PCI */
 
-#if defined(CONFIG_HAS_PASSTHROUGH) && defined(CONFIG_HAS_DEVICE_TREE)
+#if defined(CONFIG_HAS_DEVICE_TREE)
 static inline int xsm_assign_dtdevice(xsm_default_t def, struct domain *d,
                                       const char *dtpath)
 {
@@ -495,7 +504,8 @@ static inline int xsm_deassign_dtdevice(xsm_default_t def, struct domain *d,
     return xsm_ops->deassign_dtdevice(d, dtpath);
 }
 
-#endif /* HAS_PASSTHROUGH && HAS_DEVICE_TREE */
+#endif /* HAS_DEVICE_TREE */
+#endif /* HAS_PASSTHROUGH */
 
 static inline int xsm_resource_plug_pci (xsm_default_t def, uint32_t machine_bdf)
 {
