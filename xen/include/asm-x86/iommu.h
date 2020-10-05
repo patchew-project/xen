@@ -47,7 +47,8 @@ struct arch_iommu
 {
     spinlock_t mapping_lock; /* io page table lock */
     struct {
-        struct page_list_head list;
+        struct page_list_head list, free_list;
+        unsigned int nr;
         spinlock_t lock;
     } pgtables;
 
@@ -135,7 +136,7 @@ int pi_update_irte(const struct pi_desc *pi_desc, const struct pirq *pirq,
         iommu_vcall(ops, sync_cache, addr, size);       \
 })
 
-int __must_check iommu_free_pgtables(struct domain *d);
+void iommu_free_pgtables(struct domain *d);
 struct page_info *__must_check iommu_alloc_pgtable(struct domain *d);
 
 int __must_check iommu_set_allocation(struct domain *d, unsigned int nr_pages);

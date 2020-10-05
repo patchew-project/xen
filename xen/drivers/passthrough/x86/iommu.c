@@ -134,10 +134,87 @@ void __hwdom_init arch_iommu_check_autotranslated_hwdom(struct domain *d)
         panic("PVH hardware domain iommu must be set in 'strict' mode\n");
 }
 
-int iommu_set_allocation(struct domain *d, unsigned nr_pages)
+static int destroy_pgtable(struct domain *d)
 {
+    struct domain_iommu *hd = dom_iommu(d);
+    struct page_info *pg;
+
+    if ( !hd->arch.pgtables.nr )
+    {
+        ASSERT_UNREACHABLE();
+        return -ENOENT;
+    }
+
+    pg = page_list_remove_head(&hd->arch.pgtables.free_list);
+    if ( !pg )
+        return -EBUSY;
+
+    hd->arch.pgtables.nr--;
+    free_domheap_page(pg);
+
     return 0;
 }
+
+static int create_pgtable(struct domain *d)
+{
+    struct domain_iommu *hd = dom_iommu(d);
+    unsigned int memflags = 0;
+    struct page_info *pg;
+
+#ifdef CONFIG_NUMA
+    if ( hd->node != NUMA_NO_NODE )
+        memflags = MEMF_node(hd->node);
+#endif
+
+    pg = alloc_domheap_page(NULL, memflags);
+    if ( !pg )
+        return -ENOMEM;
+
+    page_list_add(pg, &hd->arch.pgtables.free_list);
+    hd->arch.pgtables.nr++;
+
+    return 0;
+}
+
+static int set_allocation(struct domain *d, unsigned int nr_pages,
+                          bool allow_preempt)
+{
+    struct domain_iommu *hd = dom_iommu(d);
+    unsigned int done = 0;
+    int rc = 0;
+
+    spin_lock(&hd->arch.pgtables.lock);
+
+    while ( !rc )
+    {
+        if ( hd->arch.pgtables.nr < nr_pages )
+            rc = create_pgtable(d);
+        else if ( hd->arch.pgtables.nr > nr_pages )
+            rc = destroy_pgtable(d);
+        else
+            break;
+
+        if ( allow_preempt && !rc && !(++done & 0xff) &&
+             general_preempt_check() )
+            rc = -ERESTART;
+    }
+
+    spin_unlock(&hd->arch.pgtables.lock);
+
+    return rc;
+}
+
+int iommu_set_allocation(struct domain *d, unsigned int nr_pages)
+{
+    return set_allocation(d, nr_pages, true);
+}
+
+/*
+ * Some IOMMU mappings are set up during domain_create() before the tool-
+ * stack has a chance to calculate and set the appropriate page-table
+ * allocation. A hard-coded initial allocation covers this gap.
+ */
+#define INITIAL_ALLOCATION 256
 
 int arch_iommu_domain_init(struct domain *d)
 {
@@ -145,10 +222,18 @@ int arch_iommu_domain_init(struct domain *d)
 
     spin_lock_init(&hd->arch.mapping_lock);
 
+    INIT_PAGE_LIST_HEAD(&hd->arch.pgtables.free_list);
     INIT_PAGE_LIST_HEAD(&hd->arch.pgtables.list);
     spin_lock_init(&hd->arch.pgtables.lock);
 
-    return 0;
+    /*
+     * The hardware and quarantine domains are not subject to a quota
+     * and domains sharing EPT do not require any allocation.
+     */
+    if ( is_hardware_domain(d) || d == dom_io || iommu_use_hap_pt(d) )
+        return 0;
+
+    return set_allocation(d, INITIAL_ALLOCATION, false);
 }
 
 void arch_iommu_domain_destroy(struct domain *d)
@@ -265,38 +350,45 @@ void __hwdom_init arch_iommu_hwdom_init(struct domain *d)
         return;
 }
 
-int iommu_free_pgtables(struct domain *d)
+void iommu_free_pgtables(struct domain *d)
 {
     struct domain_iommu *hd = dom_iommu(d);
-    struct page_info *pg;
-    unsigned int done = 0;
 
-    while ( (pg = page_list_remove_head(&hd->arch.pgtables.list)) )
-    {
-        free_domheap_page(pg);
+    spin_lock(&hd->arch.pgtables.lock);
 
-        if ( !(++done & 0xff) && general_preempt_check() )
-            return -ERESTART;
-    }
+    page_list_splice(&hd->arch.pgtables.list, &hd->arch.pgtables.free_list);
+    INIT_PAGE_LIST_HEAD(&hd->arch.pgtables.list);
 
-    return 0;
+    spin_unlock(&hd->arch.pgtables.lock);
 }
 
 struct page_info *iommu_alloc_pgtable(struct domain *d)
 {
     struct domain_iommu *hd = dom_iommu(d);
-    unsigned int memflags = 0;
     struct page_info *pg;
     void *p;
 
-#ifdef CONFIG_NUMA
-    if ( hd->node != NUMA_NO_NODE )
-        memflags = MEMF_node(hd->node);
-#endif
+    spin_lock(&hd->arch.pgtables.lock);
 
-    pg = alloc_domheap_page(NULL, memflags);
+ again:
+    pg = page_list_remove_head(&hd->arch.pgtables.free_list);
     if ( !pg )
+    {
+        /*
+         * The hardware and quarantine domains are not subject to a quota
+         * so create page-table pages on demand.
+         */
+        if ( is_hardware_domain(d) || d == dom_io )
+        {
+            int rc = create_pgtable(d);
+
+            if ( !rc )
+                goto again;
+        }
+
+        spin_unlock(&hd->arch.pgtables.lock);
         return NULL;
+    }
 
     p = __map_domain_page(pg);
     clear_page(p);
@@ -306,7 +398,6 @@ struct page_info *iommu_alloc_pgtable(struct domain *d)
 
     unmap_domain_page(p);
 
-    spin_lock(&hd->arch.pgtables.lock);
     page_list_add(pg, &hd->arch.pgtables.list);
     spin_unlock(&hd->arch.pgtables.lock);
 

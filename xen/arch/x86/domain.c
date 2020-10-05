@@ -2312,7 +2312,9 @@ int domain_relinquish_resources(struct domain *d)
 
     PROGRESS(iommu_pagetables):
 
-        ret = iommu_free_pgtables(d);
+        iommu_free_pgtables(d);
+
+        ret = iommu_set_allocation(d, 0);
         if ( ret )
             return ret;
 
