@@ -971,16 +971,16 @@ static void cpu_smpboot_free(unsigned int cpu, bool remove)
     if ( IS_ENABLED(CONFIG_PV32) )
         FREE_XENHEAP_PAGE(per_cpu(compat_gdt, cpu));
 
+    if ( stack_base[cpu] )
+        memguard_unguard_stack(stack_base[cpu]);
+
     if ( remove )
     {
         FREE_XENHEAP_PAGE(per_cpu(gdt, cpu));
         FREE_XENHEAP_PAGE(idt_tables[cpu]);
 
         if ( stack_base[cpu] )
-        {
-            memguard_unguard_stack(stack_base[cpu]);
             FREE_XENHEAP_PAGES(stack_base[cpu], STACK_ORDER);
-        }
     }
 }
 
