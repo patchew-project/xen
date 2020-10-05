@@ -1140,8 +1140,16 @@ struct xen_domctl_vuart_op {
 
 #define XEN_DOMCTL_IOMMU_INVALID 0
 
+#define XEN_DOMCTL_IOMMU_SET_ALLOCATION 1
+struct xen_domctl_iommu_set_allocation {
+    uint32_t nr_pages;
+};
+
 struct xen_domctl_iommu_ctl {
     uint32_t op; /* XEN_DOMCTL_IOMMU_* */
+    union {
+        struct xen_domctl_iommu_set_allocation set_allocation;
+    } u;
 };
 
 struct xen_domctl {

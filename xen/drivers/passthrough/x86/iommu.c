@@ -134,6 +134,11 @@ void __hwdom_init arch_iommu_check_autotranslated_hwdom(struct domain *d)
         panic("PVH hardware domain iommu must be set in 'strict' mode\n");
 }
 
+int iommu_set_allocation(struct domain *d, unsigned nr_pages)
+{
+    return 0;
+}
+
 int arch_iommu_domain_init(struct domain *d)
 {
     struct domain_iommu *hd = dom_iommu(d);

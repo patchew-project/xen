@@ -515,6 +515,16 @@ int libxl__arch_domain_create(libxl__gc *gc, libxl_domain_config *d_config,
                           NULL, 0, &shadow, 0, NULL);
     }
 
+    if (d_config->b_info.iommu_memkb) {
+        unsigned int nr_pages = DIV_ROUNDUP(d_config->b_info.iommu_memkb, 4);
+
+        ret = xc_iommu_set_allocation(ctx->xch, domid, nr_pages);
+        if (ret) {
+            LOGED(ERROR, domid, "Failed to set IOMMU allocation");
+            goto out;
+        }
+    }
+
     if (d_config->c_info.type == LIBXL_DOMAIN_TYPE_PV &&
             libxl_defbool_val(d_config->b_info.u.pv.e820_host)) {
         ret = libxl__e820_alloc(gc, domid, d_config);

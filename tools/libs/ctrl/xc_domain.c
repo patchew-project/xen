@@ -2185,6 +2185,22 @@ int xc_domain_soft_reset(xc_interface *xch,
     domctl.domain = domid;
     return do_domctl(xch, &domctl);
 }
+
+int xc_iommu_set_allocation(xc_interface *xch, uint32_t domid,
+                            unsigned int nr_pages)
+{
+    DECLARE_DOMCTL;
+
+    memset(&domctl, 0, sizeof(domctl));
+
+    domctl.cmd = XEN_DOMCTL_iommu_ctl;
+    domctl.domain = domid;
+    domctl.u.iommu_ctl.op = XEN_DOMCTL_IOMMU_SET_ALLOCATION;
+    domctl.u.iommu_ctl.u.set_allocation.nr_pages = nr_pages;
+
+    return do_domctl(xch, &domctl);
+}
+
 /*
  * Local variables:
  * mode: C

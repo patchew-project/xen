@@ -33,6 +33,12 @@ int __must_check arm_iommu_map_page(struct domain *d, dfn_t dfn, mfn_t mfn,
 int __must_check arm_iommu_unmap_page(struct domain *d, dfn_t dfn,
                                       unsigned int *flush_flags);
 
+static inline int iommu_set_allocation(struct domain *d,
+                                       unsigned int nr_pages)
+{
+    return -EOPNOTSUPP;
+}
+
 #endif /* __ARCH_ARM_IOMMU_H__ */
 
 /*

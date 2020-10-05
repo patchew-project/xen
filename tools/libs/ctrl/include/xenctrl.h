@@ -2650,6 +2650,11 @@ int xc_livepatch_replace(xc_interface *xch, char *name, uint32_t timeout, uint32
 int xc_domain_cacheflush(xc_interface *xch, uint32_t domid,
                          xen_pfn_t start_pfn, xen_pfn_t nr_pfns);
 
+/* IOMMU control operations */
+
+int xc_iommu_set_allocation(xc_interface *xch, uint32_t domid,
+                            unsigned int nr_pages);
+
 /* Compat shims */
 #include "xenctrl_compat.h"
 

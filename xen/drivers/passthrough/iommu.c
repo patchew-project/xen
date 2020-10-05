@@ -515,6 +515,14 @@ static int iommu_ctl(
 
     switch ( ctl->op )
     {
+    case XEN_DOMCTL_IOMMU_SET_ALLOCATION:
+    {
+        struct xen_domctl_iommu_set_allocation *set_allocation =
+            &ctl->u.set_allocation;
+
+        rc = iommu_set_allocation(d, set_allocation->nr_pages);
+        break;
+    }
     default:
         rc = -EOPNOTSUPP;
         break;
