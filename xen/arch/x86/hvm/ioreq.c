@@ -115,6 +115,7 @@ bool hvm_io_pending(struct vcpu *v)
 
 static bool hvm_wait_for_io(struct hvm_ioreq_vcpu *sv, ioreq_t *p)
 {
+    struct vcpu *v = sv->vcpu;
     unsigned int prev_state = STATE_IOREQ_NONE;
     unsigned int state = p->state;
     uint64_t data = ~0;
@@ -132,7 +133,7 @@ static bool hvm_wait_for_io(struct hvm_ioreq_vcpu *sv, ioreq_t *p)
             gdprintk(XENLOG_ERR, "Weird HVM ioreq state transition %u -> %u\n",
                      prev_state, state);
             sv->pending = false;
-            domain_crash(sv->vcpu->domain);
+            domain_crash(v->domain);
             return false; /* bail */
         }
 
@@ -145,23 +146,36 @@ static bool hvm_wait_for_io(struct hvm_ioreq_vcpu *sv, ioreq_t *p)
 
         case STATE_IOREQ_READY:  /* IOREQ_{READY,INPROCESS} -> IORESP_READY */
         case STATE_IOREQ_INPROCESS:
-            wait_on_xen_event_channel(sv->ioreq_evtchn,
-                                      ({ state = p->state;
-                                         smp_rmb();
-                                         state != prev_state; }));
+            /*
+             * NOTE: The ioreq server may have been destroyed whilst the
+             *       vcpu was blocked so re-acquire the pointer to
+             *       hvm_ioreq_vcpu to check this condition.
+             */
+            wait_on_xen_event_channel(
+                sv->ioreq_evtchn,
+                ({ sv = get_pending_vcpu(v, NULL);
+                   state = sv ? p->state : STATE_IOREQ_NONE;
+                   smp_rmb();
+                   state != prev_state; }));
+            if ( !sv )
+            {
+                gdprintk(XENLOG_ERR, "HVM ioreq server has disappeared\n");
+                domain_crash(v->domain);
+                return false; /* bail */
+            }
             continue;
 
         default:
-            gdprintk(XENLOG_ERR, "Weird HVM iorequest state %u\n", state);
+            gdprintk(XENLOG_ERR, "Weird HVM ioreq state %u\n", state);
             sv->pending = false;
-            domain_crash(sv->vcpu->domain);
+            domain_crash(v->domain);
             return false; /* bail */
         }
 
         break;
     }
 
-    p = &sv->vcpu->arch.hvm.hvm_io.io_req;
+    p = &v->arch.hvm.hvm_io.io_req;
     if ( hvm_ioreq_needs_completion(p) )
         p->data = data;
 
