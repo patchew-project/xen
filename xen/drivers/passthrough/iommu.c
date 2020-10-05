@@ -174,15 +174,6 @@ int iommu_domain_init(struct domain *d, unsigned int opts)
     hd->node = NUMA_NO_NODE;
 #endif
 
-    ret = arch_iommu_domain_init(d);
-    if ( ret )
-        return ret;
-
-    hd->platform_ops = iommu_get_ops();
-    ret = hd->platform_ops->init(d);
-    if ( ret || is_system_domain(d) )
-        return ret;
-
     /*
      * Use shared page tables for HAP and IOMMU if the global option
      * is enabled (from which we can infer the h/w is capable) and
@@ -202,7 +193,12 @@ int iommu_domain_init(struct domain *d, unsigned int opts)
 
     ASSERT(!(hd->need_sync && hd->hap_pt_share));
 
-    return 0;
+    ret = arch_iommu_domain_init(d);
+    if ( ret )
+        return ret;
+
+    hd->platform_ops = iommu_get_ops();
+    return hd->platform_ops->init(d);
 }
 
 void __hwdom_init iommu_hwdom_init(struct domain *d)
