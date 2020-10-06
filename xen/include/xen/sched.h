@@ -1069,6 +1069,12 @@ extern enum cpufreq_controller {
     FREQCTL_none, FREQCTL_dom0_kernel, FREQCTL_xen
 } cpufreq_controller;
 
+static inline bool is_cpufreq_controller(const struct domain *d)
+{
+    return ((cpufreq_controller == FREQCTL_dom0_kernel) &&
+            is_hardware_domain(d));
+}
+
 int cpupool_move_domain(struct domain *d, struct cpupool *c);
 int cpupool_do_sysctl(struct xen_sysctl_cpupool_op *op);
 int cpupool_get_id(const struct domain *d);
