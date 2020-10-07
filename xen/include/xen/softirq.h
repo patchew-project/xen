@@ -3,7 +3,10 @@
 
 /* Low-latency softirqs come first in the following list. */
 enum {
-    TIMER_SOFTIRQ = 0,
+#ifdef CONFIG_X86
+    NMI_CONT_SOFTIRQ,
+#endif
+    TIMER_SOFTIRQ,
     RCU_SOFTIRQ,
     SCHED_SLAVE_SOFTIRQ,
     SCHEDULE_SOFTIRQ,

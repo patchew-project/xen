@@ -1799,6 +1799,42 @@ void unset_nmi_callback(void)
     nmi_callback = dummy_nmi_callback;
 }
 
+static DEFINE_PER_CPU(void (*)(void *), nmi_cont_func);
+static DEFINE_PER_CPU(void *, nmi_cont_par);
+
+static void nmi_cont_softirq(void)
+{
+    unsigned int cpu = smp_processor_id();
+    void (*func)(void *par) = per_cpu(nmi_cont_func, cpu);
+    void *par = per_cpu(nmi_cont_par, cpu);
+
+    /* Reads must be done before following write (local cpu ordering only). */
+    barrier();
+
+    per_cpu(nmi_cont_func, cpu) = NULL;
+
+    if ( func )
+        func(par);
+}
+
+int set_nmi_continuation(void (*func)(void *par), void *par)
+{
+    unsigned int cpu = smp_processor_id();
+
+    if ( per_cpu(nmi_cont_func, cpu) )
+    {
+        printk("Trying to set NMI continuation while still one active!\n");
+        return -EBUSY;
+    }
+
+    per_cpu(nmi_cont_func, cpu) = func;
+    per_cpu(nmi_cont_par, cpu) = par;
+
+    raise_softirq(NMI_CONT_SOFTIRQ);
+
+    return 0;
+}
+
 void do_device_not_available(struct cpu_user_regs *regs)
 {
 #ifdef CONFIG_PV
@@ -2132,6 +2168,7 @@ void __init trap_init(void)
 
     cpu_init();
 
+    open_softirq(NMI_CONT_SOFTIRQ, nmi_cont_softirq);
     open_softirq(PCI_SERR_SOFTIRQ, pci_serr_softirq);
 }
 

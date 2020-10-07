@@ -33,5 +33,11 @@ nmi_callback_t *set_nmi_callback(nmi_callback_t *callback);
 void unset_nmi_callback(void);
 
 DECLARE_PER_CPU(unsigned int, nmi_count);
- 
+
+/**
+ * set_nmi_continuation
+ *
+ * Schedule a function to be started in softirq context after NMI handling.
+ */
+int set_nmi_continuation(void (*func)(void *par), void *par);
 #endif /* ASM_NMI_H */
