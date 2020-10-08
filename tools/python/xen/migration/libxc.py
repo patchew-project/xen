@@ -59,6 +59,7 @@ REC_TYPE_checkpoint_dirty_pfn_list  = 0x0000000f
 REC_TYPE_static_data_end            = 0x00000010
 REC_TYPE_x86_cpuid_policy           = 0x00000011
 REC_TYPE_x86_msr_policy             = 0x00000012
+REC_TYPE_domain_context             = 0x00000013
 
 rec_type_to_str = {
     REC_TYPE_end                        : "End",
@@ -80,6 +81,7 @@ rec_type_to_str = {
     REC_TYPE_static_data_end            : "Static data end",
     REC_TYPE_x86_cpuid_policy           : "x86 CPUID policy",
     REC_TYPE_x86_msr_policy             : "x86 MSR policy",
+    REC_TYPE_domain_context             : "Domain context",
 }
 
 # page_data
@@ -156,9 +158,9 @@ class VerifyLibxc(VerifyBase):
             raise StreamError("Bad image id: Expected 0x%x, got 0x%x" %
                               (IHDR_IDENT, ident))
 
-        if not (2 <= version <= 3):
+        if not (2 <= version <= 4):
             raise StreamError(
-                "Unknown image version: Expected 2 <= ver <= 3, got %d" %
+                "Unknown image version: Expected 2 <= ver <= 4, got %d" %
                 (version, ))
 
         self.version = version
@@ -362,6 +364,9 @@ class VerifyLibxc(VerifyBase):
     def verify_record_shared_info(self, content):
         """ shared info record """
 
+        if self.version >= 4:
+            raise RecordError("Shared info record found in v4 stream")
+
         contentsz = len(content)
         if contentsz != 4096:
             raise RecordError("Length expected to be 4906 bytes, not %d" %
@@ -370,6 +375,9 @@ class VerifyLibxc(VerifyBase):
 
     def verify_record_tsc_info(self, content):
         """ tsc info record """
+
+        if self.version >= 4:
+            raise RecordError("TSC info record found in v4 stream")
 
         sz = calcsize(X86_TSC_INFO_FORMAT)
 
@@ -476,6 +484,14 @@ class VerifyLibxc(VerifyBase):
             raise RecordError("Record length %u, expected multiple of %u" %
                               (contentsz, sz))
 
+    def verify_record_domain_context(self, content):
+        """ domain context record """
+
+        if self.version < 4:
+            raise RecordError("Domain context record found in v3 stream")
+
+        if len(content) == 0:
+            raise RecordError("Zero length domain context")
 
 record_verifiers = {
     REC_TYPE_end:
@@ -526,4 +542,6 @@ record_verifiers = {
         VerifyLibxc.verify_record_x86_cpuid_policy,
     REC_TYPE_x86_msr_policy:
         VerifyLibxc.verify_record_x86_msr_policy,
+    REC_TYPE_domain_context:
+        VerifyLibxc.verify_record_domain_context,
     }
