@@ -754,6 +754,12 @@ static int flask_domctl(struct domain *d, int cmd)
     case XEN_DOMCTL_get_cpu_policy:
         return current_has_perm(d, SECCLASS_DOMAIN2, DOMAIN2__GET_CPU_POLICY);
 
+    case XEN_DOMCTL_set_domain_context:
+        return current_has_perm(d, SECCLASS_DOMAIN2, DOMAIN2__SET_CONTEXT);
+
+    case XEN_DOMCTL_get_domain_context:
+        return current_has_perm(d, SECCLASS_DOMAIN2, DOMAIN2__GET_CONTEXT);
+
     default:
         return avc_unknown_permission("domctl", cmd);
     }
