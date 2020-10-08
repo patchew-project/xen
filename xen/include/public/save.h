@@ -1,8 +1,9 @@
 /*
- * Structure definitions for HVM state that is held by Xen and must
- * be saved along with the domain's memory and device-model state.
+ * save.h
  *
- * Copyright (c) 2012 Citrix Systems Ltd.
+ * Structure definitions for common PV/HVM domain state that is held by Xen.
+ *
+ * Copyright Amazon.com Inc. or its affiliates.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -23,22 +24,43 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __XEN_PUBLIC_HVM_SAVE_ARM_H__
-#define __XEN_PUBLIC_HVM_SAVE_ARM_H__
+#ifndef XEN_PUBLIC_SAVE_H
+#define XEN_PUBLIC_SAVE_H
+
+#if defined(__XEN__) || defined(__XEN_TOOLS__)
+
+#include "xen.h"
 
 /*
- * Further use of HVM state is deprecated. New state records should only
- * be added to the domain state header: public/save.h
+ * C structures for the Domain Context v1 format.
+ * See docs/specs/domain-context.md
  */
 
-#endif
+struct domain_context_record {
+    uint32_t type;
+    uint32_t instance;
+    uint64_t length;
+    uint8_t body[XEN_FLEX_ARRAY_DIM];
+};
 
-/*
- * Local variables:
- * mode: C
- * c-file-style: "BSD"
- * c-basic-offset: 4
- * tab-width: 4
- * indent-tabs-mode: nil
- * End:
- */
+#define _DOMAIN_CONTEXT_RECORD_ALIGN 3
+#define DOMAIN_CONTEXT_RECORD_ALIGN (1U << _DOMAIN_CONTEXT_RECORD_ALIGN)
+
+enum {
+    DOMAIN_CONTEXT_END,
+    DOMAIN_CONTEXT_START,
+    /* New types go here */
+    DOMAIN_CONTEXT_NR_TYPES
+};
+
+/* Initial entry */
+struct domain_context_start {
+    uint32_t xen_major, xen_minor;
+};
+
+/* Terminating entry */
+struct domain_context_end {};
+
+#endif /* defined(__XEN__) || defined(__XEN_TOOLS__) */
+
+#endif /* XEN_PUBLIC_SAVE_H */
