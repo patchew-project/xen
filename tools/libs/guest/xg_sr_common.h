@@ -297,6 +297,9 @@ struct xc_sr_context
 
             /* Sender has invoked verify mode on the stream. */
             bool verify;
+
+            /* Domain context blob. */
+            struct xc_sr_blob dom_ctx;
         } restore;
     };
 

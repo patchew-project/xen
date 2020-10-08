@@ -35,9 +35,9 @@ static int read_headers(struct xc_sr_context *ctx)
         return -1;
     }
 
-    if ( ihdr.version < 2 || ihdr.version > 3 )
+    if ( ihdr.version < 2 || ihdr.version > 4 )
     {
-        ERROR("Invalid Version: Expected 2 <= ver <= 3, Got %d",
+        ERROR("Invalid Version: Expected 2 <= ver <= 4, Got %d",
               ihdr.version);
         return -1;
     }
@@ -682,6 +682,21 @@ int handle_static_data_end(struct xc_sr_context *ctx)
     return rc;
 }
 
+/*
+ * Process a DOMAIN_CONTEXT record from the stream.
+ */
+static int handle_domain_context(struct xc_sr_context *ctx,
+                                 struct xc_sr_record *rec)
+{
+    xc_interface *xch = ctx->xch;
+    int rc = update_blob(&ctx->restore.dom_ctx, rec->data, rec->length);
+
+    if ( rc )
+        ERROR("Unable to allocate %u bytes for domain context", rec->length);
+
+    return rc;
+}
+
 static int process_record(struct xc_sr_context *ctx, struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
@@ -707,6 +722,10 @@ static int process_record(struct xc_sr_context *ctx, struct xc_sr_record *rec)
 
     case REC_TYPE_STATIC_DATA_END:
         rc = handle_static_data_end(ctx);
+        break;
+
+    case REC_TYPE_DOMAIN_CONTEXT:
+        rc = handle_domain_context(ctx, rec);
         break;
 
     default:
@@ -784,6 +803,7 @@ static void cleanup(struct xc_sr_context *ctx)
 
     free(ctx->restore.buffered_records);
     free(ctx->restore.populated_pfns);
+    free(ctx->restore.dom_ctx.ptr);
 
     if ( ctx->restore.ops.cleanup(ctx) )
         PERROR("Failed to clean up");

@@ -1134,6 +1134,15 @@ static int x86_pv_stream_complete(struct xc_sr_context *ctx)
     if ( rc )
         return rc;
 
+    rc = xc_domain_set_context(xch, ctx->domid,
+                               ctx->restore.dom_ctx.ptr,
+                               ctx->restore.dom_ctx.size);
+    if ( rc )
+    {
+        PERROR("Unable to restore Domain context");
+        return rc;
+    }
+
     rc = xc_dom_gnttab_seed(xch, ctx->domid, false,
                             ctx->restore.console_gfn,
                             ctx->restore.xenstore_gfn,
