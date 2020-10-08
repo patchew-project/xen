@@ -33,6 +33,7 @@
 #include <xen/xenoprof.h>
 #include <xen/irq.h>
 #include <xen/argo.h>
+#include <xen/save.h>
 #include <asm/debugger.h>
 #include <asm/p2m.h>
 #include <asm/processor.h>
@@ -1670,6 +1671,118 @@ int continue_hypercall_on_cpu(
     /* Dummy return value will be overwritten by tasklet. */
     return 0;
 }
+
+static int save_shared_info(struct domain *d, struct domain_ctxt_state *c,
+                            bool dry_run)
+{
+#ifdef CONFIG_COMPAT
+    struct domain_context_shared_info s = {
+        .flags = has_32bit_shinfo(d) ? DOMAIN_CONTEXT_32BIT_SHARED_INFO : 0,
+    };
+    size_t size = has_32bit_shinfo(d) ?
+        sizeof(struct compat_shared_info) :
+        sizeof(struct shared_info);
+#else
+    struct domain_context_shared_info s = {};
+    size_t size = sizeof(struct shared_info);
+#endif
+    int rc;
+
+    rc = domain_save_ctxt_rec_begin(c, DOMAIN_CONTEXT_SHARED_INFO, 0);
+    if ( rc )
+        return rc;
+
+    rc = domain_save_ctxt_rec_data(c, &s, offsetof(typeof(s), buffer));
+    if ( rc )
+        return rc;
+
+    rc = domain_save_ctxt_rec_data(c, d->shared_info, size);
+    if ( rc )
+        return rc;
+
+    return domain_save_ctxt_rec_end(c);
+}
+
+static int load_shared_info(struct domain *d, struct domain_ctxt_state *c)
+{
+    struct domain_context_shared_info s = {};
+    size_t size;
+    unsigned int i;
+    int rc;
+
+    rc = domain_load_ctxt_rec_begin(c, DOMAIN_CONTEXT_SHARED_INFO, &i);
+    if ( rc )
+        return rc;
+
+    if ( i ) /* expect only a single instance */
+        return -ENXIO;
+
+    rc = domain_load_ctxt_rec_data(c, &s, offsetof(typeof(s), buffer));
+    if ( rc )
+        return rc;
+
+    if ( s.flags & ~DOMAIN_CONTEXT_32BIT_SHARED_INFO )
+        return -EINVAL;
+
+    if ( s.flags & DOMAIN_CONTEXT_32BIT_SHARED_INFO )
+    {
+#ifdef CONFIG_COMPAT
+        d->arch.has_32bit_shinfo = true;
+        size = sizeof(struct compat_shared_info);
+#else
+        return -EINVAL;
+#endif
+    }
+    else
+        size = sizeof(struct shared_info);
+
+    if ( is_pv_domain(d) )
+    {
+        shared_info_t *shinfo = xzalloc(shared_info_t);
+
+        if ( !shinfo )
+            return -ENOMEM;
+
+        rc = domain_load_ctxt_rec_data(c, shinfo, size);
+        if ( rc )
+            goto out;
+
+        memcpy(&shared_info(d, vcpu_info), &__shared_info(d, shinfo, vcpu_info),
+               sizeof(shared_info(d, vcpu_info)));
+        memcpy(&shared_info(d, arch), &__shared_info(d, shinfo, arch),
+               sizeof(shared_info(d, arch)));
+
+        memset(&shared_info(d, evtchn_pending), 0,
+               sizeof(shared_info(d, evtchn_pending)));
+        memset(&shared_info(d, evtchn_mask), 0xff,
+               sizeof(shared_info(d, evtchn_mask)));
+
+#ifdef CONFIG_X86
+        shared_info(d, arch.pfn_to_mfn_frame_list_list) = 0;
+#endif
+        for ( i = 0; i < XEN_LEGACY_MAX_VCPUS; i++ )
+            shared_info(d, vcpu_info[i].evtchn_pending_sel) = 0;
+
+        rc = domain_load_ctxt_rec_end(c, false);
+
+    out:
+        xfree(shinfo);
+    }
+    else
+    {
+        /*
+         * No modifications to shared_info are required for restoring non-PV
+         * domains.
+         */
+        rc = domain_load_ctxt_rec_data(c, NULL, size);
+        if ( !rc )
+            rc = domain_load_ctxt_rec_end(c, true);
+    }
+
+    return rc;
+}
+
+DOMAIN_REGISTER_CTXT_TYPE(SHARED_INFO, save_shared_info, load_shared_info);
 
 /*
  * Local variables:

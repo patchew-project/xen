@@ -128,6 +128,33 @@ can no longer be safely inferred.
 A record of this type terminates the image. No further data from the buffer
 should be consumed.
 
+### SHARED_INFO
+
+```
+    0       1       2       3       4       5       6       7    octet
++-------+-------+-------+-------+-------+-------+-------+-------+
+| type == 2                     | instance == 0                 |
++-------------------------------+-------------------------------+
+| length                                                        |
++-------------------------------+-------------------------------+
+| flags                         | buffer
++-------------------------------+
+...
+```
+
+\pagebreak
+The record body contains the following fields:
+
+| Field       | Description                                     |
+|-------------|-------------------------------------------------|
+| `flags`     | A bit-wise OR of the following:                 |
+|             |                                                 |
+|             | 0x00000001: The domain has 32-bit (compat)      |
+|             |             shared info                         |
+|             |                                                 |
+| `buffer`    | The shared info (`length` being architecture    |
+|             | dependent[4])                                   |
+
 * * *
 
 [1] See https://xenbits.xen.org/gitweb/?p=xen.git;a=blob;f=docs/designs/non-cooperative-migration.md
@@ -135,3 +162,5 @@ should be consumed.
 [2] See https://xenbits.xen.org/gitweb/?p=xen.git;a=blob;f=xen/include/public/hvm/save.h
 
 [3] See https://xenbits.xen.org/gitweb/?p=xen.git;a=blob;f=docs/specs/libxc-migration-stream.pandoc
+
+[4] See https://xenbits.xen.org/gitweb/?p=xen.git;a=blob;f=tools/include/xen-foreign/reference.size

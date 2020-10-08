@@ -49,6 +49,7 @@ struct domain_context_record {
 enum {
     DOMAIN_CONTEXT_END,
     DOMAIN_CONTEXT_START,
+    DOMAIN_CONTEXT_SHARED_INFO,
     /* New types go here */
     DOMAIN_CONTEXT_NR_TYPES
 };
@@ -56,6 +57,16 @@ enum {
 /* Initial entry */
 struct domain_context_start {
     uint32_t xen_major, xen_minor;
+};
+
+struct domain_context_shared_info {
+    uint32_t flags;
+
+#define _DOMAIN_CONTEXT_32BIT_SHARED_INFO 0
+#define DOMAIN_CONTEXT_32BIT_SHARED_INFO \
+    (1U << _DOMAIN_CONTEXT_32BIT_SHARED_INFO)
+
+    uint8_t buffer[XEN_FLEX_ARRAY_DIM];
 };
 
 /* Terminating entry */
