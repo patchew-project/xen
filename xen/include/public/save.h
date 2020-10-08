@@ -50,6 +50,7 @@ enum {
     DOMAIN_CONTEXT_END,
     DOMAIN_CONTEXT_START,
     DOMAIN_CONTEXT_SHARED_INFO,
+    DOMAIN_CONTEXT_TSC_INFO,
     /* New types go here */
     DOMAIN_CONTEXT_NR_TYPES
 };
@@ -67,6 +68,13 @@ struct domain_context_shared_info {
     (1U << _DOMAIN_CONTEXT_32BIT_SHARED_INFO)
 
     uint8_t buffer[XEN_FLEX_ARRAY_DIM];
+};
+
+struct domain_context_tsc_info {
+    uint32_t mode;
+    uint32_t khz;
+    uint64_t nsec;
+    uint32_t incarnation;
 };
 
 /* Terminating entry */

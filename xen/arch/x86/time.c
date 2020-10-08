@@ -26,6 +26,7 @@
 #include <xen/symbols.h>
 #include <xen/keyhandler.h>
 #include <xen/guest_access.h>
+#include <xen/save.h>
 #include <asm/io.h>
 #include <asm/iocap.h>
 #include <asm/msr.h>
@@ -2450,6 +2451,35 @@ int tsc_set_info(struct domain *d,
 
     return 0;
 }
+
+static int save_tsc_info(struct domain *d, struct domain_ctxt_state *c,
+                         bool dry_run)
+{
+    struct domain_context_tsc_info t = {};
+
+    if ( !dry_run )
+        tsc_get_info(d, &t.mode, &t.nsec, &t.khz, &t.incarnation);
+
+    return domain_save_ctxt_rec(c, DOMAIN_CONTEXT_TSC_INFO, 0, &t, sizeof(t));
+}
+
+static int load_tsc_info(struct domain *d, struct domain_ctxt_state *c)
+{
+    struct domain_context_tsc_info t;
+    unsigned int i;
+    int rc;
+
+    rc = domain_load_ctxt_rec(c, DOMAIN_CONTEXT_TSC_INFO, &i, &t, sizeof(t));
+    if ( rc )
+        return rc;
+
+    if ( i ) /* expect only a single instance */
+        return -ENXIO;
+
+    return tsc_set_info(d, t.mode, t.nsec, t.khz, t.incarnation);
+}
+
+DOMAIN_REGISTER_CTXT_TYPE(TSC_INFO, save_tsc_info, load_tsc_info);
 
 /* vtsc may incur measurable performance degradation, diagnose with this */
 static void dump_softtsc(unsigned char key)

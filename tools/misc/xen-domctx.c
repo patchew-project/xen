@@ -136,6 +136,17 @@ static void dump_shared_info(void)
 #undef GET_FIELD_PTR
 }
 
+static void dump_tsc_info(void)
+{
+    struct domain_context_tsc_info *t;
+
+    GET_PTR(t);
+
+    printf("    TSC_INFO: mode: %u incarnation: %u\n"
+           "              khz %u nsec: %"PRIu64"\n",
+           t->mode, t->incarnation, t->khz, t->nsec);
+}
+
 static void dump_end(void)
 {
     struct domain_context_end *e;
@@ -225,6 +236,7 @@ int main(int argc, char **argv)
             {
             case DOMAIN_CONTEXT_START: dump_start(); break;
             case DOMAIN_CONTEXT_SHARED_INFO: dump_shared_info(); break;
+            case DOMAIN_CONTEXT_TSC_INFO: dump_tsc_info(); break;
             case DOMAIN_CONTEXT_END: dump_end(); break;
             default:
                 printf("Unknown type %u: skipping\n", rec->type);

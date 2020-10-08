@@ -155,6 +155,38 @@ The record body contains the following fields:
 | `buffer`    | The shared info (`length` being architecture    |
 |             | dependent[4])                                   |
 
+### TSC_INFO
+
+```
+    0       1       2       3       4       5       6       7    octet
++-------+-------+-------+-------+-------+-------+-------+-------+
+| type == 3                     | instance == 0                 |
++-------------------------------+-------------------------------+
+| length == 20                                                  |
++-------------------------------+-------------------------------+
+| mode                          | khz                           |
++-------------------------------+-------------------------------+
+| nsec                                                          |
++-------------------------------+-------------------------------+
+| incarnation                   |
++-------------------------------+
+```
+
+The record body contains the following fields:
+
+| Field         | Description                                   |
+|---------------|-----------------------------------------------|
+| `mode`        | 0x00000000: Default (emulate if necessary)    |
+|               | 0x00000001: Always emulate                    |
+|               | 0x00000002: Never emulate                     |
+|               |                                               |
+| `khz`         | The TSC frequency in kHz                      |
+|               |                                               |
+| `nsec`        | Elapsed time in nanoseconds                   |
+|               |                                               |
+| `incarnation` | Incarnation (counter indicating how many      |
+|               | times the TSC value has been set)             |
+
 * * *
 
 [1] See https://xenbits.xen.org/gitweb/?p=xen.git;a=blob;f=docs/designs/non-cooperative-migration.md
