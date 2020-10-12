@@ -105,6 +105,45 @@ void notify_via_xen_event_channel(struct domain *ld, int lport);
 #define bucket_from_port(d, p) \
     ((group_from_port(d, p))[((p) % EVTCHNS_PER_GROUP) / EVTCHNS_PER_BUCKET])
 
+#define EVENT_WRITE_LOCK_INC    MAX_VIRT_CPUS
+static inline void evtchn_write_lock(struct evtchn *evtchn)
+{
+    int val;
+
+    /* No barrier needed, atomic_add_return() is full barrier. */
+    for ( val = atomic_add_return(EVENT_WRITE_LOCK_INC, &evtchn->lock);
+          val != EVENT_WRITE_LOCK_INC;
+          val = atomic_read(&evtchn->lock) )
+        cpu_relax();
+}
+
+static inline void evtchn_write_unlock(struct evtchn *evtchn)
+{
+    arch_lock_release_barrier();
+
+    atomic_sub(EVENT_WRITE_LOCK_INC, &evtchn->lock);
+}
+
+static inline bool evtchn_tryread_lock(struct evtchn *evtchn)
+{
+    if ( atomic_read(&evtchn->lock) >= EVENT_WRITE_LOCK_INC )
+        return false;
+
+    /* No barrier needed, atomic_inc_return() is full barrier. */
+    if ( atomic_inc_return(&evtchn->lock) < EVENT_WRITE_LOCK_INC )
+        return true;
+
+    atomic_dec(&evtchn->lock);
+    return false;
+}
+
+static inline void evtchn_read_unlock(struct evtchn *evtchn)
+{
+    arch_lock_release_barrier();
+
+    atomic_dec(&evtchn->lock);
+}
+
 static inline unsigned int max_evtchns(const struct domain *d)
 {
     return d->evtchn_fifo ? EVTCHN_FIFO_NR_CHANNELS
@@ -249,12 +288,11 @@ static inline bool evtchn_is_masked(const struct domain *d,
 static inline bool evtchn_port_is_masked(struct domain *d, evtchn_port_t port)
 {
     struct evtchn *evtchn = evtchn_from_port(d, port);
-    bool rc;
-    unsigned long flags;
+    bool rc = true;
 
-    spin_lock_irqsave(&evtchn->lock, flags);
-    rc = evtchn_is_masked(d, evtchn);
-    spin_unlock_irqrestore(&evtchn->lock, flags);
+    if ( evtchn_tryread_lock(evtchn) )
+        rc = evtchn_is_masked(d, evtchn);
+    evtchn_read_unlock(evtchn);
 
     return rc;
 }
@@ -274,12 +312,12 @@ static inline int evtchn_port_poll(struct domain *d, evtchn_port_t port)
     if ( port_is_valid(d, port) )
     {
         struct evtchn *evtchn = evtchn_from_port(d, port);
-        unsigned long flags;
 
-        spin_lock_irqsave(&evtchn->lock, flags);
-        if ( evtchn_usable(evtchn) )
+        if ( evtchn_tryread_lock(evtchn) && evtchn_usable(evtchn) )
+        {
             rc = evtchn_is_pending(d, evtchn);
-        spin_unlock_irqrestore(&evtchn->lock, flags);
+            evtchn_read_unlock(evtchn);
+        }
     }
 
     return rc;
