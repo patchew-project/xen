@@ -66,7 +66,7 @@ void *osdep_xenforeignmemory_map(xenforeignmemory_handle *fmem,
     addr = mmap(addr, num << PAGE_SHIFT, prot, flags | MAP_SHARED, fd, 0);
     if ( addr == MAP_FAILED )
     {
-        PERROR("xc_map_foreign_bulk: mmap failed");
+        PERROR("xenforeignmemory_map: mmap failed");
         return NULL;
     }
 
@@ -80,7 +80,7 @@ void *osdep_xenforeignmemory_map(xenforeignmemory_handle *fmem,
     if ( rc < 0 )
     {
         int saved_errno = errno;
-        PERROR("xc_map_foreign_bulk: ioctl failed");
+        PERROR("xenforeignmemory_map: ioctl failed");
         (void)munmap(addr, num << PAGE_SHIFT);
         errno = saved_errno;
         return NULL;
