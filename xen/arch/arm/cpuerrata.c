@@ -240,6 +240,26 @@ static int enable_ic_inv_hardening(void *data)
 
 #endif
 
+#ifdef CONFIG_ARM64_ERRATUM_832075
+
+static int warn_device_load_acquire_errata(void *data)
+{
+    static bool warned = false;
+
+    if ( !warned )
+    {
+        warning_add("This CPU is affected by the errata 832075.\n"
+                    "Guests without required CPU erratum workarounds\n"
+                    "can deadlock the system!\n"
+                    "Only trusted guests should be used on this system.\n");
+        warned = true;
+    }
+
+    return 0;
+}
+
+#endif
+
 #ifdef CONFIG_ARM_SSBD
 
 enum ssbd_state ssbd_state = ARM_SSBD_RUNTIME;
@@ -419,6 +439,7 @@ static const struct arm_cpu_capabilities arm_errata[] = {
         .capability = ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE,
         MIDR_RANGE(MIDR_CORTEX_A57, 0x00,
                    (1 << MIDR_VARIANT_SHIFT) | 2),
+        .enable = warn_device_load_acquire_errata,
     },
 #endif
 #ifdef CONFIG_ARM64_ERRATUM_834220
