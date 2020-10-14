@@ -416,6 +416,7 @@ static elf_errorstatus elf_xen_note_check(struct elf_binary *elf,
 static elf_errorstatus elf_xen_addr_calc_check(struct elf_binary *elf,
                                    struct elf_dom_parms *parms)
 {
+    bool check_virt_entry = true;
     uint64_t virt_offset;
 
     if ( (parms->elf_paddr_offset != UNSET_ADDR) &&
@@ -456,8 +457,10 @@ static elf_errorstatus elf_xen_addr_calc_check(struct elf_binary *elf,
     parms->virt_kstart = elf->pstart + virt_offset;
     parms->virt_kend   = elf->pend   + virt_offset;
 
-    if ( parms->virt_entry == UNSET_ADDR )
+    if ( parms->virt_entry == UNSET_ADDR ) {
         parms->virt_entry = elf_uval(elf, elf->ehdr, e_entry);
+        check_virt_entry = false;
+    }
 
     if ( parms->bsd_symtab )
     {
@@ -476,11 +479,17 @@ static elf_errorstatus elf_xen_addr_calc_check(struct elf_binary *elf,
     elf_msg(elf, "    p2m_base         = 0x%" PRIx64 "\n", parms->p2m_base);
 
     if ( (parms->virt_kstart > parms->virt_kend) ||
-         (parms->virt_entry < parms->virt_kstart) ||
-         (parms->virt_entry > parms->virt_kend) ||
          (parms->virt_base > parms->virt_kstart) )
     {
-        elf_err(elf, "ERROR: ELF start or entries are out of bounds\n");
+        elf_err(elf, "ERROR: ELF start is out of bounds\n");
+        return -1;
+    }
+
+    if ( check_virt_entry &&
+         ( (parms->virt_entry < parms->virt_kstart) ||
+           (parms->virt_entry > parms->virt_kend) ) )
+    {
+        elf_err(elf, "ERROR: ELF entry is out of bounds\n");
         return -1;
     }
 
