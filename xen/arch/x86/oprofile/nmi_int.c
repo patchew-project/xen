@@ -83,6 +83,13 @@ void passive_domain_destroy(struct vcpu *v)
 		model->free_msr(v);
 }
 
+static void nmi_oprofile_send_virq(void *arg)
+{
+	struct vcpu *v = arg;
+
+	send_guest_vcpu_virq(v, VIRQ_XENOPROF);
+}
+
 static int nmi_callback(const struct cpu_user_regs *regs, int cpu)
 {
 	int xen_mode, ovf;
@@ -90,7 +97,7 @@ static int nmi_callback(const struct cpu_user_regs *regs, int cpu)
 	ovf = model->check_ctrs(cpu, &cpu_msrs[cpu], regs);
 	xen_mode = ring_0(regs);
 	if ( ovf && is_active(current->domain) && !xen_mode )
-		send_guest_vcpu_virq(current, VIRQ_XENOPROF);
+		set_nmi_continuation(nmi_oprofile_send_virq, current);
 
 	if ( ovf == 2 )
 		current->arch.nmi_pending = true;
