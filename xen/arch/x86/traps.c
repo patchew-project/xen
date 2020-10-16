@@ -79,6 +79,7 @@
 #include <public/hvm/params.h>
 #include <asm/cpuid.h>
 #include <xsm/xsm.h>
+#include <asm/mach-default/irq_vectors.h>
 #include <asm/pv/traps.h>
 #include <asm/pv/mm.h>
 
@@ -1797,6 +1798,57 @@ nmi_callback_t *set_nmi_callback(nmi_callback_t *callback)
 void unset_nmi_callback(void)
 {
     nmi_callback = dummy_nmi_callback;
+}
+
+static DEFINE_PER_CPU(nmi_contfunc_t *, nmi_cont_func);
+static DEFINE_PER_CPU(void *, nmi_cont_arg);
+static DEFINE_PER_CPU(bool, nmi_cont_busy);
+
+bool nmi_check_continuation(void)
+{
+    unsigned int cpu = smp_processor_id();
+    nmi_contfunc_t *func = per_cpu(nmi_cont_func, cpu);
+    void *arg = per_cpu(nmi_cont_arg, cpu);
+
+    if ( per_cpu(nmi_cont_busy, cpu) )
+    {
+        per_cpu(nmi_cont_busy, cpu) = false;
+        printk("Trying to set NMI continuation while still one active!\n");
+    }
+
+    /* Reads must be done before following write (local cpu ordering only). */
+    barrier();
+
+    per_cpu(nmi_cont_func, cpu) = NULL;
+
+    if ( func )
+        func(arg);
+
+    return func;
+}
+
+int set_nmi_continuation(nmi_contfunc_t *func, void *arg)
+{
+    unsigned int cpu = smp_processor_id();
+
+    if ( per_cpu(nmi_cont_func, cpu) )
+    {
+        per_cpu(nmi_cont_busy, cpu) = true;
+        return -EBUSY;
+    }
+
+    per_cpu(nmi_cont_func, cpu) = func;
+    per_cpu(nmi_cont_arg, cpu) = arg;
+
+    /*
+     * Issue a self-IPI. Handling is done in spurious_interrupt().
+     * NMI could have happened in IPI sequence, so wait for ICR being idle
+     * again before leaving NMI handler.
+     */
+    send_IPI_self(SPURIOUS_APIC_VECTOR);
+    apic_wait_icr_idle();
+
+    return 0;
 }
 
 void do_device_not_available(struct cpu_user_regs *regs)
