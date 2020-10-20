@@ -32,6 +32,8 @@
 
 #ifndef LIBXL_HAVE_NO_SUSPEND_RESUME
 
+static bool timestamps;
+
 static pid_t create_migration_child(const char *rune, int *send_fd,
                                         int *recv_fd)
 {
@@ -187,6 +189,7 @@ static void migrate_domain(uint32_t domid, int preserve_domid,
     char rc_buf;
     uint8_t *config_data;
     int config_len, flags = LIBXL_SUSPEND_LIVE;
+    unsigned xtl_flags = XTL_STDIOSTREAM_HIDE_PROGRESS;
 
     save_domain_core_begin(domid, preserve_domid, override_config_file,
                            &config_data, &config_len);
@@ -202,7 +205,9 @@ static void migrate_domain(uint32_t domid, int preserve_domid,
     migrate_do_preamble(send_fd, recv_fd, child, config_data, config_len,
                         rune);
 
-    xtl_stdiostream_adjust_flags(logger, XTL_STDIOSTREAM_HIDE_PROGRESS, 0);
+    if (timestamps)
+        xtl_flags |= XTL_STDIOSTREAM_SHOW_DATE | XTL_STDIOSTREAM_SHOW_PID;
+    xtl_stdiostream_adjust_flags(logger, xtl_flags, 0);
 
     if (debug)
         flags |= LIBXL_SUSPEND_DEBUG;
@@ -328,6 +333,11 @@ static void migrate_receive(int debug, int daemonize, int monitor,
     char rc_buf;
     char *migration_domname;
     struct domain_create dom_info;
+    unsigned xtl_flags = 0;
+
+    if (timestamps)
+        xtl_flags |= XTL_STDIOSTREAM_SHOW_DATE | XTL_STDIOSTREAM_SHOW_PID;
+    xtl_stdiostream_adjust_flags(logger, xtl_flags, 0);
 
     signal(SIGPIPE, SIG_IGN);
     /* if we get SIGPIPE we'd rather just have it as an error */
@@ -491,7 +501,7 @@ int main_migrate_receive(int argc, char **argv)
         COMMON_LONG_OPTS
     };
 
-    SWITCH_FOREACH_OPT(opt, "Fedrp", opts, "migrate-receive", 0) {
+    SWITCH_FOREACH_OPT(opt, "FedrpT", opts, "migrate-receive", 0) {
     case 'F':
         daemonize = 0;
         break;
@@ -516,6 +526,9 @@ int main_migrate_receive(int argc, char **argv)
         break;
     case 'p':
         pause_after_migration = 1;
+        break;
+    case 'T':
+        timestamps = 1;
         break;
     }
 
@@ -545,7 +558,7 @@ int main_migrate(int argc, char **argv)
         COMMON_LONG_OPTS
     };
 
-    SWITCH_FOREACH_OPT(opt, "FC:s:epD", opts, "migrate", 2) {
+    SWITCH_FOREACH_OPT(opt, "FC:s:eTpD", opts, "migrate", 2) {
     case 'C':
         config_filename = optarg;
         break;
@@ -558,6 +571,9 @@ int main_migrate(int argc, char **argv)
     case 'e':
         daemonize = 0;
         monitor = 0;
+        break;
+    case 'T':
+        timestamps = 1;
         break;
     case 'p':
         pause_after_migration = 1;
@@ -592,11 +608,12 @@ int main_migrate(int argc, char **argv)
         } else {
             verbose_len = (minmsglevel_default - minmsglevel) + 2;
         }
-        xasprintf(&rune, "exec %s %s xl%s%.*s migrate-receive%s%s%s",
+        xasprintf(&rune, "exec %s %s xl%s%.*s migrate-receive%s%s%s%s",
                   ssh_command, host,
                   pass_tty_arg ? " -t" : "",
                   verbose_len, verbose_buf,
                   daemonize ? "" : " -e",
+                  timestamps ? " -T" : "",
                   debug ? " -d" : "",
                   pause_after_migration ? " -p" : "");
     }

@@ -482,6 +482,10 @@ domain. See the corresponding option of the I<create> subcommand.
 Send the specified <config> file instead of the file used on creation of the
 domain.
 
+=item B<-T>
+
+Include timestamps in output.
+
 =item B<--debug>
 
 Display huge (!) amount of debug information during the migration process.
