@@ -3839,11 +3839,10 @@ long do_mmu_update(
     void *va = NULL;
     unsigned long gpfn, gmfn;
     struct page_info *page;
-    unsigned int cmd, i = 0, done = 0, pt_dom;
+    unsigned int cmd, i = 0, done = 0, pt_dom, flush_flags = 0;
     struct vcpu *curr = current, *v = curr;
     struct domain *d = v->domain, *pt_owner = d, *pg_owner;
     mfn_t map_mfn = INVALID_MFN, mfn;
-    bool sync_guest = false;
     uint32_t xsm_needed = 0;
     uint32_t xsm_checked = 0;
     int rc = put_old_guest_table(curr);
@@ -3993,6 +3992,8 @@ long do_mmu_update(
                         break;
                     rc = mod_l2_entry(va, l2e_from_intpte(req.val), mfn,
                                       cmd == MMU_PT_UPDATE_PRESERVE_AD, v);
+                    if ( !rc )
+                        flush_flags |= FLUSH_TLB_GLOBAL;
                     break;
 
                 case PGT_l3_page_table:
@@ -4000,6 +4001,8 @@ long do_mmu_update(
                         break;
                     rc = mod_l3_entry(va, l3e_from_intpte(req.val), mfn,
                                       cmd == MMU_PT_UPDATE_PRESERVE_AD, v);
+                    if ( !rc )
+                        flush_flags |= FLUSH_TLB_GLOBAL;
                     break;
 
                 case PGT_l4_page_table:
@@ -4007,6 +4010,8 @@ long do_mmu_update(
                         break;
                     rc = mod_l4_entry(va, l4e_from_intpte(req.val), mfn,
                                       cmd == MMU_PT_UPDATE_PRESERVE_AD, v);
+                    if ( !rc )
+                        flush_flags |= FLUSH_TLB_GLOBAL;
                     if ( !rc && pt_owner->arch.pv.xpti )
                     {
                         bool local_in_use = false;
@@ -4027,7 +4032,7 @@ long do_mmu_update(
                              (1 + !!(page->u.inuse.type_info & PGT_pinned) +
                               mfn_eq(pagetable_get_mfn(curr->arch.guest_table_user),
                                      mfn) + local_in_use) )
-                            sync_guest = true;
+                            flush_flags |= FLUSH_ROOT_PGTBL;
                     }
                     break;
 
@@ -4129,19 +4134,13 @@ long do_mmu_update(
     if ( va )
         unmap_domain_page(va);
 
-    if ( sync_guest )
-    {
-        /*
-         * Force other vCPU-s of the affected guest to pick up L4 entry
-         * changes (if any).
-         */
-        unsigned int cpu = smp_processor_id();
-        cpumask_t *mask = per_cpu(scratch_cpumask, cpu);
-
-        cpumask_andnot(mask, pt_owner->dirty_cpumask, cpumask_of(cpu));
-        if ( !cpumask_empty(mask) )
-            flush_mask(mask, FLUSH_TLB_GLOBAL | FLUSH_ROOT_PGTBL);
-    }
+    /*
+     * Flush TLBs if an L2 or higher was changed (invalidates the structure of
+     * the linear pagetables), or an L4 in use by other CPUs was made (needs
+     * to resync the XPTI copy of the table).
+     */
+    if ( flush_flags )
+        flush_mask(pt_owner->dirty_cpumask, flush_flags);
 
     perfc_add(num_page_updates, i);
 
