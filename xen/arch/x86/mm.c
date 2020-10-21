@@ -3843,7 +3843,7 @@ long do_mmu_update(
     struct vcpu *curr = current, *v = curr;
     struct domain *d = v->domain, *pt_owner = d, *pg_owner;
     mfn_t map_mfn = INVALID_MFN, mfn;
-    bool sync_guest = false;
+    unsigned int flush_flags_local = 0, flush_flags_all = 0;
     uint32_t xsm_needed = 0;
     uint32_t xsm_checked = 0;
     int rc = put_old_guest_table(curr);
@@ -3993,6 +3993,9 @@ long do_mmu_update(
                         break;
                     rc = mod_l2_entry(va, l2e_from_intpte(req.val), mfn,
                                       cmd == MMU_PT_UPDATE_PRESERVE_AD, v);
+                    /* Paging structure maybe changed.  Flush linear range. */
+                    if ( !rc )
+                        flush_flags_all |= FLUSH_TLB;
                     break;
 
                 case PGT_l3_page_table:
@@ -4000,6 +4003,9 @@ long do_mmu_update(
                         break;
                     rc = mod_l3_entry(va, l3e_from_intpte(req.val), mfn,
                                       cmd == MMU_PT_UPDATE_PRESERVE_AD, v);
+                    /* Paging structure maybe changed.  Flush linear range. */
+                    if ( !rc )
+                        flush_flags_all |= FLUSH_TLB;
                     break;
 
                 case PGT_l4_page_table:
@@ -4007,27 +4013,28 @@ long do_mmu_update(
                         break;
                     rc = mod_l4_entry(va, l4e_from_intpte(req.val), mfn,
                                       cmd == MMU_PT_UPDATE_PRESERVE_AD, v);
-                    if ( !rc && pt_owner->arch.pv.xpti )
+                    /* Paging structure maybe changed.  Flush linear range. */
+                    if ( !rc )
                     {
-                        bool local_in_use = false;
+                        bool local_in_use = mfn_eq(
+                            pagetable_get_mfn(curr->arch.guest_table), mfn);
 
-                        if ( mfn_eq(pagetable_get_mfn(curr->arch.guest_table),
-                                    mfn) )
-                        {
-                            local_in_use = true;
-                            get_cpu_info()->root_pgt_changed = true;
-                        }
+                        flush_flags_all |= FLUSH_TLB;
+
+                        if ( local_in_use )
+                            flush_flags_local |= FLUSH_TLB | FLUSH_ROOT_PGTBL;
 
                         /*
                          * No need to sync if all uses of the page can be
                          * accounted to the page lock we hold, its pinned
                          * status, and uses on this (v)CPU.
                          */
-                        if ( (page->u.inuse.type_info & PGT_count_mask) >
+                        if ( pt_owner->arch.pv.xpti &&
+                             (page->u.inuse.type_info & PGT_count_mask) >
                              (1 + !!(page->u.inuse.type_info & PGT_pinned) +
                               mfn_eq(pagetable_get_mfn(curr->arch.guest_table_user),
                                      mfn) + local_in_use) )
-                            sync_guest = true;
+                            flush_flags_all |= FLUSH_ROOT_PGTBL;
                     }
                     break;
 
@@ -4129,18 +4136,36 @@ long do_mmu_update(
     if ( va )
         unmap_domain_page(va);
 
-    if ( sync_guest )
+    /*
+     * Flushing needs to occur for one of several reasons.
+     *
+     * 1) An update to an L2 or higher occured.  This potentially changes the
+     *    pagetable structure, requiring a flush of the linear range.
+     * 2) An update to an L4 occured, and XPTI is enabled.  All CPUs running
+     *    on a copy of this L4 need refreshing.
+     */
+    if ( flush_flags_all || flush_flags_local )
     {
-        /*
-         * Force other vCPU-s of the affected guest to pick up L4 entry
-         * changes (if any).
-         */
-        unsigned int cpu = smp_processor_id();
-        cpumask_t *mask = per_cpu(scratch_cpumask, cpu);
+        cpumask_t *mask = pt_owner->dirty_cpumask;
 
-        cpumask_andnot(mask, pt_owner->dirty_cpumask, cpumask_of(cpu));
+        /*
+         * Local flushing may be asymmetric with remote.  If there is local
+         * flushing to do, perform it separately and omit the current CPU from
+         * pt_owner->dirty_cpumask.
+         */
+        if ( flush_flags_local )
+        {
+            unsigned int cpu = smp_processor_id();
+
+            mask = per_cpu(scratch_cpumask, cpu);
+            cpumask_copy(mask, pt_owner->dirty_cpumask);
+            __cpumask_clear_cpu(cpu, mask);
+
+            flush_local(flush_flags_local);
+        }
+
         if ( !cpumask_empty(mask) )
-            flush_mask(mask, FLUSH_TLB_GLOBAL | FLUSH_ROOT_PGTBL);
+            flush_mask(mask, flush_flags_all);
     }
 
     perfc_add(num_page_updates, i);
