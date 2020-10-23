@@ -940,7 +940,7 @@ libxl_domain_config = Struct("domain_config", [
 
     ("disks", Array(libxl_device_disk, "num_disks")),
     ("nics", Array(libxl_device_nic, "num_nics")),
-    ("pcidevs", Array(libxl_device_pci, "num_pcidevs")),
+    ("pcis", Array(libxl_device_pci, "num_pcis")),
     ("rdms", Array(libxl_device_rdm, "num_rdms")),
     ("dtdevs", Array(libxl_device_dtdev, "num_dtdevs")),
     ("vfbs", Array(libxl_device_vfb, "num_vfbs")),

@@ -1470,24 +1470,24 @@ void parse_config_data(const char *config_source,
     }
 
     if (!xlu_cfg_get_list (config, "pci", &pcis, 0, 0)) {
-        d_config->num_pcidevs = 0;
-        d_config->pcidevs = NULL;
+        d_config->num_pcis = 0;
+        d_config->pcis = NULL;
         for(i = 0; (buf = xlu_cfg_get_listitem (pcis, i)) != NULL; i++) {
-            libxl_device_pci *pcidev;
+            libxl_device_pci *pci;
 
-            pcidev = ARRAY_EXTEND_INIT_NODEVID(d_config->pcidevs,
-                                               d_config->num_pcidevs,
-                                               libxl_device_pci_init);
-            pcidev->msitranslate = pci_msitranslate;
-            pcidev->power_mgmt = pci_power_mgmt;
-            pcidev->permissive = pci_permissive;
-            pcidev->seize = pci_seize;
+            pci = ARRAY_EXTEND_INIT_NODEVID(d_config->pcis,
+                                            d_config->num_pcis,
+                                            libxl_device_pci_init);
+            pci->msitranslate = pci_msitranslate;
+            pci->power_mgmt = pci_power_mgmt;
+            pci->permissive = pci_permissive;
+            pci->seize = pci_seize;
             /*
              * Like other pci option, the per-device policy always follows
              * the global policy by default.
              */
-            pcidev->rdm_policy = b_info->u.hvm.rdm.policy;
-            e = xlu_pci_parse_bdf(config, pcidev, buf);
+            pci->rdm_policy = b_info->u.hvm.rdm.policy;
+            e = xlu_pci_parse_bdf(config, pci, buf);
             if (e) {
                 fprintf(stderr,
                         "unable to parse PCI BDF `%s' for passthrough\n",
@@ -1495,7 +1495,7 @@ void parse_config_data(const char *config_source,
                 exit(-e);
             }
         }
-        if (d_config->num_pcidevs && c_info->type == LIBXL_DOMAIN_TYPE_PV)
+        if (d_config->num_pcis && c_info->type == LIBXL_DOMAIN_TYPE_PV)
             libxl_defbool_set(&b_info->u.pv.e820_host, true);
     }
 
