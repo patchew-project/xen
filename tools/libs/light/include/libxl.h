@@ -470,6 +470,13 @@
 #define LIBXL_HAVE_PCI_BDF 1
 
 /*
+ * LIBXL_HAVE_PCI_ASSIGNABLE_BDF indicates that the
+ * libxl_device_pci_assignable_add/remove/list/list_free() functions all
+ * use the 'libxl_pci_bdf' type rather than 'libxl_device_pci' type.
+ */
+#define LIBXL_HAVE_PCI_ASSIGNABLE_BDF 1
+
+/*
  * libxl ABI compatibility
  *
  * The only guarantee which libxl makes regarding ABI compatibility
@@ -2378,10 +2385,10 @@ int libxl_device_events_handler(libxl_ctx *ctx,
  * added or is not bound, the functions will emit a warning but return
  * SUCCESS.
  */
-int libxl_device_pci_assignable_add(libxl_ctx *ctx, libxl_device_pci *pci, int rebind);
-int libxl_device_pci_assignable_remove(libxl_ctx *ctx, libxl_device_pci *pci, int rebind);
-libxl_device_pci *libxl_device_pci_assignable_list(libxl_ctx *ctx, int *num);
-void libxl_device_pci_assignable_list_free(libxl_device_pci *list, int num);
+int libxl_device_pci_assignable_add(libxl_ctx *ctx, libxl_pci_bdf *pcibdf, int rebind);
+int libxl_device_pci_assignable_remove(libxl_ctx *ctx, libxl_pci_bdf *pcibdf, int rebind);
+libxl_pci_bdf *libxl_device_pci_assignable_list(libxl_ctx *ctx, int *num);
+void libxl_device_pci_assignable_list_free(libxl_pci_bdf *list, int num);
 
 /* CPUID handling */
 int libxl_cpuid_parse_config(libxl_cpuid_policy_list *cpuid, const char* str);

@@ -840,7 +840,7 @@ value stub_xl_device_pci_assignable_add(value ctx, value info, value rebind)
 	device_pci_val(CTX, &c_info, info);
 
 	caml_enter_blocking_section();
-	ret = libxl_device_pci_assignable_add(CTX, &c_info, c_rebind);
+	ret = libxl_device_pci_assignable_add(CTX, &c_info.bdf, c_rebind);
 	caml_leave_blocking_section();
 
 	libxl_device_pci_dispose(&c_info);
@@ -861,7 +861,7 @@ value stub_xl_device_pci_assignable_remove(value ctx, value info, value rebind)
 	device_pci_val(CTX, &c_info, info);
 
 	caml_enter_blocking_section();
-	ret = libxl_device_pci_assignable_remove(CTX, &c_info, c_rebind);
+	ret = libxl_device_pci_assignable_remove(CTX, &c_info.bdf, c_rebind);
 	caml_leave_blocking_section();
 
 	libxl_device_pci_dispose(&c_info);
@@ -876,7 +876,7 @@ value stub_xl_device_pci_assignable_list(value ctx)
 {
 	CAMLparam1(ctx);
 	CAMLlocal2(list, temp);
-	libxl_device_pci *c_list;
+	libxl_pci_bdf *c_list;
 	int i, nb;
 	uint32_t c_domid;
 
@@ -889,11 +889,18 @@ value stub_xl_device_pci_assignable_list(value ctx)
 
 	list = temp = Val_emptylist;
 	for (i = 0; i < nb; i++) {
+		libxl_device_pci pci;
+
+		libxl_device_pci_init(&pci);
+		libxl_pci_bdf_copy(CTX, &pci.bdf, &c_list[i]);
+
 		list = caml_alloc_small(2, Tag_cons);
 		Field(list, 0) = Val_int(0);
 		Field(list, 1) = temp;
 		temp = list;
-		Store_field(list, 0, Val_device_pci(&c_list[i]));
+		Store_field(list, 0, Val_device_pci(&pci));
+
+		libxl_device_pci_dispose(&pci);
 	}
 	libxl_device_pci_assignable_list_free(c_list, nb);
 

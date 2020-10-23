@@ -154,19 +154,19 @@ int main_pciattach(int argc, char **argv)
 
 static void pciassignable_list(void)
 {
-    libxl_device_pci *pcis;
+    libxl_pci_bdf *pcibdfs;
     int num, i;
 
-    pcis = libxl_device_pci_assignable_list(ctx, &num);
+    pcibdfs = libxl_device_pci_assignable_list(ctx, &num);
 
-    if ( pcis == NULL )
+    if ( pcibdfs == NULL )
         return;
     for (i = 0; i < num; i++) {
         printf("%04x:%02x:%02x.%01x\n",
-               pcis[i].bdf.domain, pcis[i].bdf.bus, pcis[i].bdf.dev,
-               pcis[i].bdf.func);
+               pcibdfs[i].domain, pcibdfs[i].bus, pcibdfs[i].dev,
+               pcibdfs[i].func);
     }
-    libxl_device_pci_assignable_list_free(pcis, num);
+    libxl_device_pci_assignable_list_free(pcibdfs, num);
 }
 
 int main_pciassignable_list(int argc, char **argv)
@@ -183,24 +183,24 @@ int main_pciassignable_list(int argc, char **argv)
 
 static int pciassignable_add(const char *bdf, int rebind)
 {
-    libxl_device_pci pci;
+    libxl_pci_bdf pcibdf;
     XLU_Config *config;
     int r = 0;
 
-    libxl_device_pci_init(&pci);
+    libxl_pci_bdf_init(&pcibdf);
 
     config = xlu_cfg_init(stderr, "command line");
     if (!config) { perror("xlu_cfg_init"); exit(-1); }
 
-    if (xlu_pci_parse_bdf(config, &pci.bdf, bdf)) {
+    if (xlu_pci_parse_bdf(config, &pcibdf, bdf)) {
         fprintf(stderr, "pci-assignable-add: malformed BDF \"%s\"\n", bdf);
         exit(2);
     }
 
-    if (libxl_device_pci_assignable_add(ctx, &pci, rebind))
+    if (libxl_device_pci_assignable_add(ctx, &pcibdf, rebind))
         r = 1;
 
-    libxl_device_pci_dispose(&pci);
+    libxl_pci_bdf_dispose(&pcibdf);
     xlu_cfg_destroy(config);
 
     return r;
@@ -225,24 +225,24 @@ int main_pciassignable_add(int argc, char **argv)
 
 static int pciassignable_remove(const char *bdf, int rebind)
 {
-    libxl_device_pci pci;
+    libxl_pci_bdf pcibdf;
     XLU_Config *config;
     int r = 0;
 
-    libxl_device_pci_init(&pci);
+    libxl_pci_bdf_init(&pcibdf);
 
     config = xlu_cfg_init(stderr, "command line");
     if (!config) { perror("xlu_cfg_init"); exit(-1); }
 
-    if (xlu_pci_parse_bdf(config, &pci.bdf, bdf)) {
+    if (xlu_pci_parse_bdf(config, &pcibdf, bdf)) {
         fprintf(stderr, "pci-assignable-remove: malformed BDF \"%s\"\n", bdf);
         exit(2);
     }
 
-    if (libxl_device_pci_assignable_remove(ctx, &pci, rebind))
+    if (libxl_device_pci_assignable_remove(ctx, &pcibdf, rebind))
         r = 1;
 
-    libxl_device_pci_dispose(&pci);
+    libxl_pci_bdf_dispose(&pcibdf);
     xlu_cfg_destroy(config);
 
     return r;
