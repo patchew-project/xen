@@ -32,12 +32,17 @@ menu "Architecture Features"
 source "arch/Kconfig"
 
 config ACPI
-	bool "ACPI (Advanced Configuration and Power Interface) Support" if EXPERT
+	bool "ACPI (Advanced Configuration and Power Interface) Support"
 	depends on ARM_64
+	default y if ARM_64
 	---help---
 
 	  Advanced Configuration and Power Interface (ACPI) support for Xen is
 	  an alternative to device tree on ARM64.
+
+	  Note this is presently EXPERIMENTAL.  If a given device has both
+	  device-tree and ACPI support, it is presently (October 2020)
+	  recommended to boot using the device-tree.
 
 config GICV3
 	bool "GICv3 driver"

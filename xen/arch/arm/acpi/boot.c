@@ -254,6 +254,15 @@ int __init acpi_boot_table_init(void)
                                    dt_scan_depth1_nodes, NULL) )
         goto disable;
 
+    printk("\n"
+"*************************************************************************\n"
+"*    WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING    *\n"
+"*                                                                       *\n"
+"* Xen-ARM ACPI support is EXPERIMENTAL.  It is presently (October 2020) *\n"
+"* recommended you boot your system in device-tree mode if you can.      *\n"
+"*************************************************************************\n"
+            "\n");
+
     /*
      * ACPI is disabled at this point. Enable it in order to parse
      * the ACPI tables.
