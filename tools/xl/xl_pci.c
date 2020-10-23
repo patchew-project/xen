@@ -71,6 +71,7 @@ static int pcidetach(uint32_t domid, const char *spec_string, int force)
                 spec_string);
         exit(2);
     }
+
     if (force) {
         if (libxl_device_pci_destroy(ctx, domid, &pci, 0))
             r = 1;
