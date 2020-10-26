@@ -13,6 +13,8 @@
 
 #include <xen/cpu.h>
 #include <xen/cpumask.h>
+#include <xen/guest_access.h>
+#include <xen/hypfs.h>
 #include <xen/init.h>
 #include <xen/keyhandler.h>
 #include <xen/lib.h>
@@ -992,12 +994,88 @@ static struct notifier_block cpu_nfb = {
     .notifier_call = cpu_callback
 };
 
+#ifdef CONFIG_HYPFS
+static HYPFS_DIR_INIT(cpupool_pooldir, "id");
+
+static int cpupool_dir_read(const struct hypfs_entry *entry,
+                            XEN_GUEST_HANDLE_PARAM(void) uaddr)
+{
+    int ret = 0;
+    struct cpupool **q;
+
+    spin_lock(&cpupool_lock);
+
+    for_each_cpupool(q)
+    {
+        ret = hypfs_read_dyndir_id_entry(&cpupool_pooldir, (*q)->cpupool_id,
+                                         !(*q)->next, &uaddr);
+        if ( ret )
+            break;
+    }
+
+    spin_unlock(&cpupool_lock);
+
+    return ret;
+}
+
+static unsigned int cpupool_dir_getsize(const struct hypfs_entry *entry)
+{
+    struct cpupool **q;
+    unsigned int size = 0;
+
+    spin_lock(&cpupool_lock);
+
+    for_each_cpupool(q)
+        size += HYPFS_DIRENTRY_SIZE(snprintf(NULL, 0, "%d", (*q)->cpupool_id));
+
+    spin_unlock(&cpupool_lock);
+
+    return size;
+}
+
+static struct hypfs_entry *cpupool_dir_findentry(struct hypfs_entry_dir *dir,
+                                                 const char *name,
+                                                 unsigned int name_len)
+{
+    unsigned long id;
+    const char *end;
+    struct cpupool *cpupool;
+
+    id = simple_strtoul(name, &end, 10);
+    if ( id > INT_MAX || end != name + name_len )
+        return ERR_PTR(-ENOENT);
+
+    spin_lock(&cpupool_lock);
+
+    cpupool = __cpupool_find_by_id(id, true);
+
+    spin_unlock(&cpupool_lock);
+
+    if ( !cpupool )
+        return ERR_PTR(-ENOENT);
+
+    return hypfs_gen_dyndir_entry_id(&cpupool_pooldir, id);
+}
+
+static struct hypfs_funcs cpupool_dir_funcs = {
+    .read = cpupool_dir_read,
+    .getsize = cpupool_dir_getsize,
+    .findentry = cpupool_dir_findentry,
+};
+
+static HYPFS_VARDIR_INIT(cpupool_dir, "cpupool", &cpupool_dir_funcs);
+#endif
+
 static int __init cpupool_init(void)
 {
     unsigned int cpu;
     int err;
 
     cpupool_gran_init();
+
+#ifdef CONFIG_HYPFS
+    hypfs_add_dir(&hypfs_root, &cpupool_dir, true);
+#endif
 
     cpupool0 = cpupool_create(0, 0, &err);
     BUG_ON(cpupool0 == NULL);
