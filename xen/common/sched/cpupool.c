@@ -42,9 +42,10 @@ static DEFINE_SPINLOCK(cpupool_lock);
 static enum sched_gran __read_mostly opt_sched_granularity = SCHED_GRAN_cpu;
 static unsigned int __read_mostly sched_granularity = 1;
 
+#define SCHED_GRAN_NAME_LEN  8
 struct sched_gran_name {
     enum sched_gran mode;
-    char name[8];
+    char name[SCHED_GRAN_NAME_LEN];
 };
 
 static const struct sched_gran_name sg_name[] = {
@@ -53,7 +54,7 @@ static const struct sched_gran_name sg_name[] = {
     {SCHED_GRAN_socket, "socket"},
 };
 
-static void sched_gran_print(enum sched_gran mode, unsigned int gran)
+static const char *sched_gran_get_name(enum sched_gran mode)
 {
     const char *name = "";
     unsigned int i;
@@ -67,8 +68,13 @@ static void sched_gran_print(enum sched_gran mode, unsigned int gran)
         }
     }
 
+    return name;
+}
+
+static void sched_gran_print(enum sched_gran mode, unsigned int gran)
+{
     printk("Scheduling granularity: %s, %u CPU%s per sched-resource\n",
-           name, gran, gran == 1 ? "" : "s");
+           sched_gran_get_name(mode), gran, gran == 1 ? "" : "s");
 }
 
 #ifdef CONFIG_HAS_SCHED_GRANULARITY
@@ -1057,6 +1063,43 @@ static struct hypfs_entry *cpupool_dir_findentry(struct hypfs_entry_dir *dir,
     return hypfs_gen_dyndir_entry_id(&cpupool_pooldir, id);
 }
 
+static int cpupool_gran_read(const struct hypfs_entry *entry,
+                             XEN_GUEST_HANDLE_PARAM(void) uaddr)
+{
+    const struct hypfs_dyndir_id *data;
+    struct cpupool *cpupool;
+    const char *name = "";
+
+    data = hypfs_get_dyndata();
+    if ( !data )
+        return -ENOENT;
+
+    spin_lock(&cpupool_lock);
+
+    cpupool = __cpupool_find_by_id(data->id, true);
+    if ( cpupool )
+        name = sched_gran_get_name(cpupool->gran);
+
+    spin_unlock(&cpupool_lock);
+
+    if ( !cpupool )
+        return -ENOENT;
+
+    return copy_to_guest(uaddr, name, strlen(name) + 1) ? -EFAULT : 0;
+}
+
+static struct hypfs_funcs cpupool_gran_funcs = {
+    .read = cpupool_gran_read,
+    .getsize = hypfs_getsize,
+};
+
+static HYPFS_VARSIZE_INIT(cpupool_gran, XEN_HYPFS_TYPE_STRING, "sched-gran",
+                          0, &cpupool_gran_funcs);
+static char granstr[SCHED_GRAN_NAME_LEN] = {
+    [0 ... SCHED_GRAN_NAME_LEN - 2] = '?',
+    [SCHED_GRAN_NAME_LEN - 1] = 0
+};
+
 static struct hypfs_funcs cpupool_dir_funcs = {
     .read = cpupool_dir_read,
     .getsize = cpupool_dir_getsize,
@@ -1075,6 +1118,8 @@ static int __init cpupool_init(void)
 
 #ifdef CONFIG_HYPFS
     hypfs_add_dir(&hypfs_root, &cpupool_dir, true);
+    hypfs_string_set_reference(&cpupool_gran, granstr);
+    hypfs_add_leaf(&cpupool_pooldir, &cpupool_gran, true);
 #endif
 
     cpupool0 = cpupool_create(0, 0, &err);
