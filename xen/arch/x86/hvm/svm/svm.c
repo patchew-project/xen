@@ -72,11 +72,10 @@ static void svm_update_guest_efer(struct vcpu *);
 static struct hvm_function_table svm_function_table;
 
 /*
- * Physical addresses of the Host State Area (for hardware) and vmcb (for Xen)
- * which contains Xen's fs/gs/tr/ldtr and GSBASE/STAR/SYSENTER state when in
- * guest vcpu context.
+ * Host State Area.  This area is used by the processor in non-root mode, and
+ * contains Xen's fs/gs/tr/ldtr and GSBASE/STAR/SYSENTER state required to
+ * leave guest vcpu context.
  */
-static DEFINE_PER_CPU_READ_MOSTLY(paddr_t, hsa);
 static DEFINE_PER_CPU_READ_MOSTLY(paddr_t, host_vmcb);
 #ifdef CONFIG_PV
 static DEFINE_PER_CPU(struct vmcb_struct *, host_vmcb_va);
@@ -1436,14 +1435,7 @@ static bool svm_event_pending(const struct vcpu *v)
 
 static void svm_cpu_dead(unsigned int cpu)
 {
-    paddr_t *this_hsa = &per_cpu(hsa, cpu);
     paddr_t *this_vmcb = &per_cpu(host_vmcb, cpu);
-
-    if ( *this_hsa )
-    {
-        free_domheap_page(maddr_to_page(*this_hsa));
-        *this_hsa = 0;
-    }
 
 #ifdef CONFIG_PV
     if ( per_cpu(host_vmcb_va, cpu) )
@@ -1462,7 +1454,6 @@ static void svm_cpu_dead(unsigned int cpu)
 
 static int svm_cpu_up_prepare(unsigned int cpu)
 {
-    paddr_t *this_hsa = &per_cpu(hsa, cpu);
     paddr_t *this_vmcb = &per_cpu(host_vmcb, cpu);
     nodeid_t node = cpu_to_node(cpu);
     unsigned int memflags = 0;
@@ -1470,16 +1461,6 @@ static int svm_cpu_up_prepare(unsigned int cpu)
 
     if ( node != NUMA_NO_NODE )
         memflags = MEMF_node(node);
-
-    if ( !*this_hsa )
-    {
-        pg = alloc_domheap_page(NULL, memflags);
-        if ( !pg )
-            goto err;
-
-        clear_domain_page(page_to_mfn(pg));
-        *this_hsa = page_to_maddr(pg);
-    }
 
     if ( !*this_vmcb )
     {
@@ -1597,7 +1578,7 @@ static int _svm_cpu_up(bool bsp)
     write_efer(read_efer() | EFER_SVME);
 
     /* Initialize the HSA for this core. */
-    wrmsrl(MSR_K8_VM_HSAVE_PA, per_cpu(hsa, cpu));
+    wrmsrl(MSR_K8_VM_HSAVE_PA, per_cpu(host_vmcb, cpu));
 
     /* check for erratum 383 */
     svm_init_erratum_383(c);
