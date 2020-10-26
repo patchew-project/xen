@@ -2,11 +2,13 @@
 #define __XEN_HYPFS_H__
 
 #ifdef CONFIG_HYPFS
+#include <xen/lib.h>
 #include <xen/list.h>
 #include <xen/string.h>
 #include <public/hypfs.h>
 
 struct hypfs_entry_leaf;
+struct hypfs_entry_dir;
 struct hypfs_entry;
 
 struct hypfs_funcs {
@@ -14,6 +16,9 @@ struct hypfs_funcs {
                 XEN_GUEST_HANDLE_PARAM(void) uaddr);
     int (*write)(struct hypfs_entry_leaf *leaf,
                  XEN_GUEST_HANDLE_PARAM(void) uaddr, unsigned int ulen);
+    unsigned int (*getsize)(const struct hypfs_entry *entry);
+    struct hypfs_entry *(*findentry)(struct hypfs_entry_dir *dir,
+                                     const char *name, unsigned int name_len);
 };
 
 extern struct hypfs_funcs hypfs_dir_funcs;
@@ -45,7 +50,12 @@ struct hypfs_entry_dir {
     struct list_head dirlist;
 };
 
-#define HYPFS_DIR_INIT(var, nam)                  \
+#define HYPFS_DIRENTRY_NAME_OFF offsetof(struct xen_hypfs_dirlistentry, name)
+#define HYPFS_DIRENTRY_SIZE(name_len) \
+    (HYPFS_DIRENTRY_NAME_OFF +        \
+     ROUNDUP((name_len) + 1, alignof(struct xen_hypfs_direntry)))
+
+#define HYPFS_VARDIR_INIT(var, nam, fn)           \
     struct hypfs_entry_dir __read_mostly var = {  \
         .e.type = XEN_HYPFS_TYPE_DIR,             \
         .e.encoding = XEN_HYPFS_ENC_PLAIN,        \
@@ -53,22 +63,25 @@ struct hypfs_entry_dir {
         .e.size = 0,                              \
         .e.max_size = 0,                          \
         .e.list = LIST_HEAD_INIT(var.e.list),     \
-        .e.funcs = &hypfs_dir_funcs,              \
+        .e.funcs = (fn),                          \
         .dirlist = LIST_HEAD_INIT(var.dirlist),   \
     }
 
-#define HYPFS_VARSIZE_INIT(var, typ, nam, msz)    \
-    struct hypfs_entry_leaf __read_mostly var = { \
-        .e.type = (typ),                          \
-        .e.encoding = XEN_HYPFS_ENC_PLAIN,        \
-        .e.name = (nam),                          \
-        .e.max_size = (msz),                      \
-        .e.funcs = &hypfs_leaf_ro_funcs,          \
+#define HYPFS_DIR_INIT(var, nam)                  \
+    HYPFS_VARDIR_INIT(var, nam, &hypfs_dir_funcs)
+
+#define HYPFS_VARSIZE_INIT(var, typ, nam, msz, fn) \
+    struct hypfs_entry_leaf __read_mostly var = {  \
+        .e.type = (typ),                           \
+        .e.encoding = XEN_HYPFS_ENC_PLAIN,         \
+        .e.name = (nam),                           \
+        .e.max_size = (msz),                       \
+        .e.funcs = (fn),                           \
     }
 
 /* Content and size need to be set via hypfs_string_set_reference(). */
 #define HYPFS_STRING_INIT(var, nam)               \
-    HYPFS_VARSIZE_INIT(var, XEN_HYPFS_TYPE_STRING, nam, 0)
+    HYPFS_VARSIZE_INIT(var, XEN_HYPFS_TYPE_STRING, nam, 0, &hypfs_leaf_ro_funcs)
 
 /*
  * Set content and size of a XEN_HYPFS_TYPE_STRING node. The node will point
@@ -131,6 +144,12 @@ int hypfs_write_bool(struct hypfs_entry_leaf *leaf,
                      XEN_GUEST_HANDLE_PARAM(void) uaddr, unsigned int ulen);
 int hypfs_write_custom(struct hypfs_entry_leaf *leaf,
                        XEN_GUEST_HANDLE_PARAM(void) uaddr, unsigned int ulen);
+unsigned int hypfs_getsize(const struct hypfs_entry *entry);
+struct hypfs_entry *hypfs_dir_findentry(struct hypfs_entry_dir *dir,
+                                        const char *name,
+                                        unsigned int name_len);
+void *hypfs_alloc_dyndata(unsigned long size, unsigned long align);
+void *hypfs_get_dyndata(void);
 #endif
 
 #endif /* __XEN_HYPFS_H__ */
