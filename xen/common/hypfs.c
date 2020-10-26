@@ -257,6 +257,82 @@ unsigned int hypfs_getsize(const struct hypfs_entry *entry)
     return entry->size;
 }
 
+int hypfs_read_dyndir_id_entry(struct hypfs_entry_dir *template,
+                               unsigned int id, bool is_last,
+                               XEN_GUEST_HANDLE_PARAM(void) *uaddr)
+{
+    struct xen_hypfs_dirlistentry direntry;
+    char name[12];
+    unsigned int e_namelen, e_len;
+
+    e_namelen = snprintf(name, sizeof(name), "%u", id);
+    e_len = HYPFS_DIRENTRY_SIZE(e_namelen);
+    direntry.e.pad = 0;
+    direntry.e.type = template->e.type;
+    direntry.e.encoding = template->e.encoding;
+    direntry.e.content_len = template->e.funcs->getsize(&template->e);
+    direntry.e.max_write_len = template->e.max_size;
+    direntry.off_next = is_last ? 0 : e_len;
+    if ( copy_to_guest(*uaddr, &direntry, 1) )
+        return -EFAULT;
+    if ( copy_to_guest_offset(*uaddr, HYPFS_DIRENTRY_NAME_OFF, name,
+                              e_namelen + 1) )
+        return -EFAULT;
+
+    guest_handle_add_offset(*uaddr, e_len);
+
+    return 0;
+}
+
+static struct hypfs_entry *hypfs_dyndir_findentry(struct hypfs_entry_dir *dir,
+                                                  const char *name,
+                                                  unsigned int name_len)
+{
+    struct hypfs_dyndir_id *data;
+
+    data = hypfs_get_dyndata();
+    if ( !data )
+        return ERR_PTR(-ENOENT);
+
+    /* Use template with original findentry function. */
+    return data->template->e.funcs->findentry(data->template, name, name_len);
+}
+
+static int hypfs_read_dyndir(const struct hypfs_entry *entry,
+                             XEN_GUEST_HANDLE_PARAM(void) uaddr)
+{
+    struct hypfs_dyndir_id *data;
+
+    data = hypfs_get_dyndata();
+    if ( !data )
+        return -ENOENT;
+
+    /* Use template with original read function. */
+    return data->template->e.funcs->read(&data->template->e, uaddr);
+}
+
+struct hypfs_entry *hypfs_gen_dyndir_entry_id(struct hypfs_entry_dir *template,
+                                              unsigned int id)
+{
+    struct hypfs_dyndir_id *data;
+
+    data = hypfs_alloc_dyndata(sizeof(*data), alignof(*data));
+    if ( !data )
+        return ERR_PTR(-ENOMEM);
+
+    data->template = template;
+    data->id = id;
+    snprintf(data->name, sizeof(data->name), "%u", id);
+    data->dir = *template;
+    data->dir.e.name = data->name;
+    data->dir.e.funcs = &data->funcs;
+    data->funcs = *template->e.funcs;
+    data->funcs.findentry = hypfs_dyndir_findentry;
+    data->funcs.read = hypfs_read_dyndir;
+
+    return &data->dir.e;
+}
+
 int hypfs_read_dir(const struct hypfs_entry *entry,
                    XEN_GUEST_HANDLE_PARAM(void) uaddr)
 {

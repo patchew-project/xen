@@ -50,6 +50,15 @@ struct hypfs_entry_dir {
     struct list_head dirlist;
 };
 
+struct hypfs_dyndir_id {
+    struct hypfs_entry_dir dir;       /* Modified copy of template. */
+    struct hypfs_funcs funcs;         /* Dynamic functions. */
+    struct hypfs_entry_dir *template; /* Template used. */
+    char name[12];                    /* Name of hypfs entry. */
+
+    unsigned int id;                  /* Numerical id. */
+};
+
 #define HYPFS_DIRENTRY_NAME_OFF offsetof(struct xen_hypfs_dirlistentry, name)
 #define HYPFS_DIRENTRY_SIZE(name_len) \
     (HYPFS_DIRENTRY_NAME_OFF +        \
@@ -150,6 +159,11 @@ struct hypfs_entry *hypfs_dir_findentry(struct hypfs_entry_dir *dir,
                                         unsigned int name_len);
 void *hypfs_alloc_dyndata(unsigned long size, unsigned long align);
 void *hypfs_get_dyndata(void);
+int hypfs_read_dyndir_id_entry(struct hypfs_entry_dir *template,
+                               unsigned int id, bool is_last,
+                               XEN_GUEST_HANDLE_PARAM(void) *uaddr);
+struct hypfs_entry *hypfs_gen_dyndir_entry_id(struct hypfs_entry_dir *template,
+                                              unsigned int id);
 #endif
 
 #endif /* __XEN_HYPFS_H__ */
