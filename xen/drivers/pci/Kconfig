@@ -1,3 +1,6 @@
 
 config HAS_PCI
 	bool
+
+config HAS_PCI_ATS
+	bool
