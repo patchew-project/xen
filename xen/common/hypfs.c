@@ -24,6 +24,25 @@ CHECK_hypfs_dirlistentry;
     (DIRENTRY_NAME_OFF +        \
      ROUNDUP((name_len) + 1, alignof(struct xen_hypfs_direntry)))
 
+struct hypfs_funcs hypfs_dir_funcs = {
+    .read = hypfs_read_dir,
+};
+struct hypfs_funcs hypfs_leaf_ro_funcs = {
+    .read = hypfs_read_leaf,
+};
+struct hypfs_funcs hypfs_leaf_wr_funcs = {
+    .read = hypfs_read_leaf,
+    .write = hypfs_write_leaf,
+};
+struct hypfs_funcs hypfs_bool_wr_funcs = {
+    .read = hypfs_read_leaf,
+    .write = hypfs_write_bool,
+};
+struct hypfs_funcs hypfs_custom_wr_funcs = {
+    .read = hypfs_read_leaf,
+    .write = hypfs_write_custom,
+};
+
 static DEFINE_RWLOCK(hypfs_lock);
 enum hypfs_lock_state {
     hypfs_unlocked,
@@ -284,7 +303,7 @@ static int hypfs_read(const struct hypfs_entry *entry,
 
     guest_handle_add_offset(uaddr, sizeof(e));
 
-    ret = entry->read(entry, uaddr);
+    ret = entry->funcs->read(entry, uaddr);
 
  out:
     return ret;
@@ -387,14 +406,14 @@ static int hypfs_write(struct hypfs_entry *entry,
 {
     struct hypfs_entry_leaf *l;
 
-    if ( !entry->write )
+    if ( !entry->funcs->write )
         return -EACCES;
 
     ASSERT(entry->max_size);
 
     l = container_of(entry, struct hypfs_entry_leaf, e);
 
-    return entry->write(l, uaddr, ulen);
+    return entry->funcs->write(l, uaddr, ulen);
 }
 
 long do_hypfs_op(unsigned int cmd,
