@@ -46,7 +46,7 @@ typedef enum xsm_default xsm_default_t;
 struct xsm_operations {
     void (*security_domaininfo) (struct domain *d,
                                         struct xen_domctl_getdomaininfo *info);
-    int (*domain_create) (struct domain *d, u32 ssidref);
+    int (*domain_create) (u32 ssidref);
     int (*getdomaininfo) (struct domain *d);
     int (*domctl_scheduler_op) (struct domain *d, int op);
     int (*sysctl_scheduler_op) (int op);
@@ -71,7 +71,7 @@ struct xsm_operations {
     int (*grant_copy) (struct domain *d1, struct domain *d2);
     int (*grant_query_size) (struct domain *d1, struct domain *d2);
 
-    int (*alloc_security_domain) (struct domain *d);
+    int (*alloc_security_domain) (struct domain *d, uint32_t ssidref);
     void (*free_security_domain) (struct domain *d);
     int (*alloc_security_evtchn) (struct evtchn *chn);
     void (*free_security_evtchn) (struct evtchn *chn);
@@ -202,9 +202,9 @@ static inline void xsm_security_domaininfo (struct domain *d,
     xsm_ops->security_domaininfo(d, info);
 }
 
-static inline int xsm_domain_create (xsm_default_t def, struct domain *d, u32 ssidref)
+static inline int xsm_domain_create (xsm_default_t def, u32 ssidref)
 {
-    return xsm_ops->domain_create(d, ssidref);
+    return xsm_ops->domain_create(ssidref);
 }
 
 static inline int xsm_getdomaininfo (xsm_default_t def, struct domain *d)
@@ -305,9 +305,9 @@ static inline int xsm_grant_query_size (xsm_default_t def, struct domain *d1, st
     return xsm_ops->grant_query_size(d1, d2);
 }
 
-static inline int xsm_alloc_security_domain (struct domain *d)
+static inline int xsm_alloc_security_domain (struct domain *d, uint32_t ssidref)
 {
-    return xsm_ops->alloc_security_domain(d);
+    return xsm_ops->alloc_security_domain(d, ssidref);
 }
 
 static inline void xsm_free_security_domain (struct domain *d)

@@ -407,7 +407,8 @@ struct domain *domain_create(domid_t domid,
 
     lock_profile_register_struct(LOCKPROF_TYPE_PERDOM, d, domid);
 
-    if ( (err = xsm_alloc_security_domain(d)) != 0 )
+    if ( (err = xsm_alloc_security_domain(d, config ? config->ssidref :
+                                                      0)) != 0 )
         goto fail;
 
     atomic_set(&d->refcnt, 1);
@@ -468,9 +469,6 @@ struct domain *domain_create(domid_t domid,
         d->iomem_caps = rangeset_new(d, "I/O Memory", RANGESETF_prettyprint_hex);
         d->irq_caps   = rangeset_new(d, "Interrupts", 0);
         if ( !d->iomem_caps || !d->irq_caps )
-            goto fail;
-
-        if ( (err = xsm_domain_create(XSM_HOOK, d, config->ssidref)) != 0 )
             goto fail;
 
         d->controller_pause_count = 1;

@@ -406,6 +406,10 @@ long do_domctl(XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
         domid_t        dom;
         static domid_t rover = 0;
 
+        ret = xsm_domain_create(XSM_HOOK, op->u.createdomain.ssidref);
+        if (ret)
+            break;
+
         dom = op->domain;
         if ( (dom > 0) && (dom < DOMID_FIRST_RESERVED) )
         {

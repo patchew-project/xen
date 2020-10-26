@@ -156,9 +156,11 @@ static int avc_unknown_permission(const char *name, int id)
     return rc;
 }
 
-static int flask_domain_alloc_security(struct domain *d)
+static int flask_domain_alloc_security(struct domain *d, u32 ssidref)
 {
     struct domain_security_struct *dsec;
+    static int dom0_created = 0;
+    int rc;
 
     dsec = xzalloc(struct domain_security_struct);
     if ( !dsec )
@@ -175,14 +177,24 @@ static int flask_domain_alloc_security(struct domain *d)
     case DOMID_IO:
         dsec->sid = SECINITSID_DOMIO;
         break;
+    case 0:
+        if ( !dom0_created ) {
+            dsec->sid = SECINITSID_DOM0;
+            dom0_created = 1;
+        } else {
+            dsec->sid = SECINITSID_UNLABELED;
+        }
+        break;
     default:
-        dsec->sid = SECINITSID_UNLABELED;
+        dsec->sid = ssidref;
     }
 
     dsec->self_sid = dsec->sid;
-    d->ssid = dsec;
 
-    return 0;
+    rc = security_transition_sid(dsec->sid, dsec->sid, SECCLASS_DOMAIN,
+                                 &dsec->self_sid);
+
+    return rc;
 }
 
 static void flask_domain_free_security(struct domain *d)
@@ -507,32 +519,10 @@ static void flask_security_domaininfo(struct domain *d,
     info->ssidref = domain_sid(d);
 }
 
-static int flask_domain_create(struct domain *d, u32 ssidref)
+static int flask_domain_create(u32 ssidref)
 {
-    int rc;
-    struct domain_security_struct *dsec = d->ssid;
-    static int dom0_created = 0;
-
-    if ( is_idle_domain(current->domain) && !dom0_created )
-    {
-        dsec->sid = SECINITSID_DOM0;
-        dom0_created = 1;
-    }
-    else
-    {
-        rc = avc_current_has_perm(ssidref, SECCLASS_DOMAIN,
-                          DOMAIN__CREATE, NULL);
-        if ( rc )
-            return rc;
-
-        dsec->sid = ssidref;
-    }
-    dsec->self_sid = dsec->sid;
-
-    rc = security_transition_sid(dsec->sid, dsec->sid, SECCLASS_DOMAIN,
-                                 &dsec->self_sid);
-
-    return rc;
+    return avc_current_has_perm(ssidref, SECCLASS_DOMAIN, DOMAIN__CREATE,
+                                NULL);
 }
 
 static int flask_getdomaininfo(struct domain *d)

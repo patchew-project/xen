@@ -104,10 +104,10 @@ static XSM_INLINE void xsm_security_domaininfo(struct domain *d,
     return;
 }
 
-static XSM_INLINE int xsm_domain_create(XSM_DEFAULT_ARG struct domain *d, u32 ssidref)
+static XSM_INLINE int xsm_domain_create(XSM_DEFAULT_ARG u32 ssidref)
 {
     XSM_ASSERT_ACTION(XSM_HOOK);
-    return xsm_default_action(action, current->domain, d);
+    return xsm_default_action(action, current->domain, NULL);
 }
 
 static XSM_INLINE int xsm_getdomaininfo(XSM_DEFAULT_ARG struct domain *d)
@@ -163,7 +163,7 @@ static XSM_INLINE int xsm_readconsole(XSM_DEFAULT_ARG uint32_t clear)
     return xsm_default_action(action, current->domain, NULL);
 }
 
-static XSM_INLINE int xsm_alloc_security_domain(struct domain *d)
+static XSM_INLINE int xsm_alloc_security_domain(struct domain *d, uint32_t ssidref)
 {
     return 0;
 }
