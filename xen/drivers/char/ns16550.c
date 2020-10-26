@@ -16,7 +16,7 @@
 #include <xen/timer.h>
 #include <xen/serial.h>
 #include <xen/iocap.h>
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
 #include <xen/pci.h>
 #include <xen/pci_regs.h>
 #include <xen/pci_ids.h>
@@ -54,7 +54,7 @@ enum serial_param_type {
     reg_shift,
     reg_width,
     stop_bits,
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
     bridge_bdf,
     device,
     port_bdf,
@@ -83,7 +83,7 @@ static struct ns16550 {
     unsigned int timeout_ms;
     bool_t intr_works;
     bool_t dw_usr_bsy;
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
     /* PCI card parameters. */
     bool_t pb_bdf_enable;   /* if =1, pb-bdf effective, port behind bridge */
     bool_t ps_bdf_enable;   /* if =1, ps_bdf effective, port on pci card */
@@ -117,14 +117,14 @@ static const struct serial_param_var __initconst sp_vars[] = {
     {"reg-shift", reg_shift},
     {"reg-width", reg_width},
     {"stop-bits", stop_bits},
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
     {"bridge", bridge_bdf},
     {"dev", device},
     {"port", port_bdf},
 #endif
 };
 
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
 struct ns16550_config {
     u16 vendor_id;
     u16 dev_id;
@@ -620,7 +620,7 @@ static int ns16550_getc(struct serial_port *port, char *pc)
 
 static void pci_serial_early_init(struct ns16550 *uart)
 {
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
     if ( !uart->ps_bdf_enable || uart->io_base >= 0x10000 )
         return;
 
@@ -719,7 +719,7 @@ static void __init ns16550_init_preirq(struct serial_port *port)
 
 static void __init ns16550_init_irq(struct serial_port *port)
 {
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
     struct ns16550 *uart = port->uart;
 
     if ( uart->msi )
@@ -761,7 +761,7 @@ static void __init ns16550_init_postirq(struct serial_port *port)
     uart->timeout_ms = max_t(
         unsigned int, 1, (bits * uart->fifo_size * 1000) / uart->baud);
 
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
     if ( uart->bar || uart->ps_bdf_enable )
     {
         if ( uart->param && uart->param->mmio &&
@@ -841,7 +841,7 @@ static void ns16550_suspend(struct serial_port *port)
 
     stop_timer(&uart->timer);
 
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
     if ( uart->bar )
        uart->cr = pci_conf_read16(PCI_SBDF(0, uart->ps_bdf[0], uart->ps_bdf[1],
                                   uart->ps_bdf[2]), PCI_COMMAND);
@@ -850,7 +850,7 @@ static void ns16550_suspend(struct serial_port *port)
 
 static void _ns16550_resume(struct serial_port *port)
 {
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
     struct ns16550 *uart = port->uart;
 
     if ( uart->bar )
@@ -1013,7 +1013,7 @@ static int __init check_existence(struct ns16550 *uart)
     return 1; /* Everything is MMIO */
 #endif
 
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
     pci_serial_early_init(uart);
 #endif
 
@@ -1044,7 +1044,7 @@ static int __init check_existence(struct ns16550 *uart)
     return (status == 0x90);
 }
 
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
 static int __init
 pci_uart_config(struct ns16550 *uart, bool_t skip_amt, unsigned int idx)
 {
@@ -1305,7 +1305,7 @@ static bool __init parse_positional(struct ns16550 *uart, char **str)
 
     if ( *conf == ',' && *++conf != ',' )
     {
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
         if ( strncmp(conf, "pci", 3) == 0 )
         {
             if ( pci_uart_config(uart, 1/* skip AMT */, uart - ns16550_com) )
@@ -1327,7 +1327,7 @@ static bool __init parse_positional(struct ns16550 *uart, char **str)
 
     if ( *conf == ',' && *++conf != ',' )
     {
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
         if ( strncmp(conf, "msi", 3) == 0 )
         {
             conf += 3;
@@ -1339,7 +1339,7 @@ static bool __init parse_positional(struct ns16550 *uart, char **str)
             uart->irq = simple_strtol(conf, &conf, 10);
     }
 
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
     if ( *conf == ',' && *++conf != ',' )
     {
         conf = parse_pci(conf, NULL, &uart->ps_bdf[0],
@@ -1419,7 +1419,7 @@ static bool __init parse_namevalue_pairs(char *str, struct ns16550 *uart)
             uart->reg_width = simple_strtoul(param_value, NULL, 0);
             break;
 
-#ifdef CONFIG_HAS_PCI
+#ifdef CONFIG_HAS_NS16550_PCI
         case bridge_bdf:
             if ( !parse_pci(param_value, NULL, &uart->ps_bdf[0],
                             &uart->ps_bdf[1], &uart->ps_bdf[2]) )
