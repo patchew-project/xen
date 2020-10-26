@@ -1419,13 +1419,15 @@ static int assign_device(struct domain *d, u16 seg, u8 bus, u8 devfn, u32 flag)
     if ( !is_iommu_enabled(d) )
         return 0;
 
-    /* Prevent device assign if mem paging or mem sharing have been 
+#if defined(CONFIG_HAS_MEM_PAGING) || defined(CONFIG_MEM_SHARING)
+    /* Prevent device assign if mem paging or mem sharing have been
      * enabled for this domain */
     if ( d != dom_io &&
          unlikely(mem_sharing_enabled(d) ||
                   vm_event_check_ring(d->vm_event_paging) ||
                   p2m_get_hostp2m(d)->global_logdirty) )
         return -EXDEV;
+#endif
 
     /* device_assigned() should already have cleared the device for assignment */
     ASSERT(pcidevs_locked());
