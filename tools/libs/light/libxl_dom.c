@@ -1126,6 +1126,8 @@ int libxl__build_hvm(libxl__gc *gc, uint32_t domid,
     dom->console_domid = state->console_domid;
     dom->xenstore_domid = state->store_domid;
 
+    dom->flags |= libxl_defbool_val(info->disable_identpt) ? XCFLAGS_NOIDENTPT : 0;
+
     rc = libxl__domain_device_construct_rdm(gc, d_config,
                                             info->u.hvm.rdm_mem_boundary_memkb*1024,
                                             dom);

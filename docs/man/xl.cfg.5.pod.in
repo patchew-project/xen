@@ -587,6 +587,11 @@ which are incompatible with migration. Currently this is limited to
 enabling the invariant TSC feature flag in CPUID results when TSC is
 not emulated.
 
+=item B<noidentpt=BOOLEAN>
+
+Disable the creation of the Identity-map Pagetable that was required to run HVM
+guests on Intel CPUs with EPT where no unrestricted guest mode was available.
+
 =item B<driver_domain=BOOLEAN>
 
 Specify that this domain is a driver domain. This enables certain

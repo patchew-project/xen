@@ -1531,6 +1531,8 @@ void parse_config_data(const char *config_source,
 
     xlu_cfg_get_defbool(config, "nomigrate", &b_info->disable_migrate, 0);
 
+    xlu_cfg_get_defbool(config, "noidentpt", &b_info->disable_identpt, 0);
+
     if (!xlu_cfg_get_long(config, "tsc_mode", &l, 1)) {
         const char *s = libxl_tsc_mode_to_string(l);
         fprintf(stderr, "WARNING: specifying \"tsc_mode\" as an integer is deprecated. "

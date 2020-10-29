@@ -508,6 +508,7 @@ libxl_domain_build_info = Struct("domain_build_info",[
     ("exec_ssid_label", string),
     ("localtime",       libxl_defbool),
     ("disable_migrate", libxl_defbool),
+    ("disable_identpt", libxl_defbool),
     ("cpuid",           libxl_cpuid_policy_list),
     ("blkdev_start",    string),
 

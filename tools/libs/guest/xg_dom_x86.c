@@ -718,20 +718,23 @@ static int alloc_magic_pages_hvm(struct xc_dom_image *dom)
         goto out;
     }
 
-    /*
-     * Identity-map page table is required for running with CR0.PG=0 when
-     * using Intel EPT. Create a 32-bit non-PAE page directory of superpages.
-     */
-    if ( (ident_pt = xc_map_foreign_range(
-              xch, domid, PAGE_SIZE, PROT_READ | PROT_WRITE,
-              special_pfn(SPECIALPAGE_IDENT_PT))) == NULL )
-        goto error_out;
-    for ( i = 0; i < PAGE_SIZE / sizeof(*ident_pt); i++ )
-        ident_pt[i] = ((i << 22) | _PAGE_PRESENT | _PAGE_RW | _PAGE_USER |
-                       _PAGE_ACCESSED | _PAGE_DIRTY | _PAGE_PSE);
-    munmap(ident_pt, PAGE_SIZE);
-    xc_hvm_param_set(xch, domid, HVM_PARAM_IDENT_PT,
-                     special_pfn(SPECIALPAGE_IDENT_PT) << PAGE_SHIFT);
+    if ( !(dom->flags & XCFLAGS_NOIDENTPT) )
+    {
+        /*
+         * Identity-map page table is required for running with CR0.PG=0 when
+         * using Intel EPT. Create a 32-bit non-PAE page directory of superpages.
+         */
+        if ( (ident_pt = xc_map_foreign_range(
+                  xch, domid, PAGE_SIZE, PROT_READ | PROT_WRITE,
+                  special_pfn(SPECIALPAGE_IDENT_PT))) == NULL )
+            goto error_out;
+        for ( i = 0; i < PAGE_SIZE / sizeof(*ident_pt); i++ )
+            ident_pt[i] = ((i << 22) | _PAGE_PRESENT | _PAGE_RW | _PAGE_USER |
+                           _PAGE_ACCESSED | _PAGE_DIRTY | _PAGE_PSE);
+        munmap(ident_pt, PAGE_SIZE);
+        xc_hvm_param_set(xch, domid, HVM_PARAM_IDENT_PT,
+                         special_pfn(SPECIALPAGE_IDENT_PT) << PAGE_SHIFT);
+    }
 
     dom->console_pfn = special_pfn(SPECIALPAGE_CONSOLE);
     xc_clear_domain_page(dom->xch, dom->guest_domid, dom->console_pfn);

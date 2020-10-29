@@ -256,6 +256,8 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
 
     libxl_defbool_setdefault(&b_info->disable_migrate, false);
 
+    libxl_defbool_setdefault(&b_info->disable_identpt, false);
+
     for (i = 0 ; i < b_info->num_iomem; i++)
         if (b_info->iomem[i].gfn == LIBXL_INVALID_GFN)
             b_info->iomem[i].gfn = b_info->iomem[i].start;

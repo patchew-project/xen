@@ -26,6 +26,7 @@
 
 #define XCFLAGS_LIVE      (1 << 0)
 #define XCFLAGS_DEBUG     (1 << 1)
+#define XCFLAGS_NOIDENTPT (1 << 2)
 
 #define X86_64_B_SIZE   64 
 #define X86_32_B_SIZE   32
