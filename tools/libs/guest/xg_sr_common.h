@@ -230,9 +230,14 @@ struct xc_sr_restore_arrays {
     /* process_page_data */
     xen_pfn_t mfns[MAX_BATCH_SIZE];
     int map_errs[MAX_BATCH_SIZE];
+    void *guest_data[MAX_BATCH_SIZE];
+
     /* populate_pfns */
     xen_pfn_t pp_mfns[MAX_BATCH_SIZE];
     xen_pfn_t pp_pfns[MAX_BATCH_SIZE];
+
+    /* Must be the last member */
+    struct xc_sr_rec_page_data_header pages;
 };
 
 struct xc_sr_context
@@ -323,7 +328,11 @@ struct xc_sr_context
 
             /* Sender has invoked verify mode on the stream. */
             bool verify;
+            void *verify_buf;
+
             struct xc_sr_restore_arrays *m;
+            void *guest_mapping;
+            uint32_t nr_mapped_pages;
         } restore;
     };
 
