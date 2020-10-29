@@ -213,6 +213,8 @@ static inline int update_blob(struct xc_sr_blob *blob,
 
 struct xc_sr_save_arrays {
     xen_pfn_t batch_pfns[MAX_BATCH_SIZE];
+    /* write_batch: Mfns of the batch pfns. */
+    xen_pfn_t mfns[MAX_BATCH_SIZE];
 };
 
 struct xc_sr_restore_arrays {
