@@ -211,6 +211,12 @@ static inline int update_blob(struct xc_sr_blob *blob,
     return 0;
 }
 
+struct xc_sr_save_arrays {
+};
+
+struct xc_sr_restore_arrays {
+};
+
 struct xc_sr_context
 {
     xc_interface *xch;
@@ -248,6 +254,7 @@ struct xc_sr_context
             unsigned long *deferred_pages;
             unsigned long nr_deferred_pages;
             xc_hypercall_buffer_t dirty_bitmap_hbuf;
+            struct xc_sr_save_arrays *m;
         } save;
 
         struct /* Restore data. */
@@ -299,6 +306,7 @@ struct xc_sr_context
 
             /* Sender has invoked verify mode on the stream. */
             bool verify;
+            struct xc_sr_restore_arrays *m;
         } restore;
     };
 
