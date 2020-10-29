@@ -224,6 +224,8 @@ struct xc_sr_save_arrays {
 };
 
 struct xc_sr_restore_arrays {
+    /* handle_page_data */
+    xen_pfn_t pfns[MAX_BATCH_SIZE];
 };
 
 struct xc_sr_context
