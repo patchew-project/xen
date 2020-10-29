@@ -999,29 +999,31 @@ static xen_pfn_t x86_pv_pfn_to_gfn(const struct xc_sr_context *ctx,
  * save_ops function.  Performs pagetable normalisation on appropriate pages.
  */
 static int x86_pv_normalise_page(struct xc_sr_context *ctx, xen_pfn_t type,
-                                 void **page)
+                                  void *src, unsigned int idx, void **ptr)
 {
     xc_interface *xch = ctx->xch;
-    void *local_page;
     int rc;
+    void *dst;
 
     type &= XEN_DOMCTL_PFINFO_LTABTYPE_MASK;
 
     if ( type < XEN_DOMCTL_PFINFO_L1TAB || type > XEN_DOMCTL_PFINFO_L4TAB )
-        return 0;
-
-    local_page = malloc(PAGE_SIZE);
-    if ( !local_page )
     {
-        ERROR("Unable to allocate scratch page");
-        rc = -1;
-        goto out;
+        *ptr = src;
+        return 0;
     }
 
-    rc = normalise_pagetable(ctx, *page, local_page, type);
-    *page = local_page;
+    if ( idx >= MAX_BATCH_SIZE )
+    {
+        ERROR("idx %u out of range", idx);
+        errno = ERANGE;
+        return -1;
+    }
 
- out:
+    dst = ctx->x86.pv.save.normalised_pages + idx * PAGE_SIZE;
+    rc = normalise_pagetable(ctx, src, dst, type);
+    *ptr = dst;
+
     return rc;
 }
 
@@ -1031,7 +1033,15 @@ static int x86_pv_normalise_page(struct xc_sr_context *ctx, xen_pfn_t type,
  */
 static int x86_pv_setup(struct xc_sr_context *ctx)
 {
+    xc_interface *xch = ctx->xch;
     int rc;
+
+    ctx->x86.pv.save.normalised_pages = malloc(MAX_BATCH_SIZE * PAGE_SIZE);
+    if ( !ctx->x86.pv.save.normalised_pages )
+    {
+        PERROR("Failed to allocate normalised_pages");
+        return -1;
+    }
 
     rc = x86_pv_domain_info(ctx);
     if ( rc )
@@ -1118,6 +1128,7 @@ static int x86_pv_check_vm_state(struct xc_sr_context *ctx)
 
 static int x86_pv_cleanup(struct xc_sr_context *ctx)
 {
+    free(ctx->x86.pv.save.normalised_pages);
     free(ctx->x86.pv.p2m_pfns);
 
     if ( ctx->x86.pv.p2m )
