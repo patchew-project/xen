@@ -65,7 +65,11 @@ static inline int _read_trylock(rwlock_t *lock)
          * arch_lock_acquire_barrier().
          */
         if ( likely(_can_read_lock(cnts)) )
+        {
+            check_lock(&lock->lock.debug, true);
             return 1;
+        }
+
         atomic_sub(_QR_BIAS, &lock->cnts);
     }
     preempt_enable();
@@ -87,7 +91,10 @@ static inline void _read_lock(rwlock_t *lock)
      * arch_lock_acquire_barrier().
      */
     if ( likely(_can_read_lock(cnts)) )
+    {
+        check_lock(&lock->lock.debug, false);
         return;
+    }
 
     /* The slowpath will decrement the reader count, if necessary. */
     queue_read_lock_slowpath(lock);
@@ -162,7 +169,10 @@ static inline void _write_lock(rwlock_t *lock)
      * arch_lock_acquire_barrier().
      */
     if ( atomic_cmpxchg(&lock->cnts, 0, _write_lock_val()) == 0 )
+    {
+        check_lock(&lock->lock.debug, false);
         return;
+    }
 
     queue_write_lock_slowpath(lock);
     /*
@@ -204,6 +214,8 @@ static inline int _write_trylock(rwlock_t *lock)
         preempt_enable();
         return 0;
     }
+
+    check_lock(&lock->lock.debug, true);
 
     /*
      * atomic_cmpxchg() is a full barrier so no need for an
@@ -328,6 +340,8 @@ static inline void _percpu_read_lock(percpu_rwlock_t **per_cpudata,
         /* Drop the read lock because we don't need it anymore. */
         read_unlock(&percpu_rwlock->rwlock);
     }
+    else
+        check_lock(&percpu_rwlock->rwlock.lock.debug, false);
 }
 
 static inline void _percpu_read_unlock(percpu_rwlock_t **per_cpudata,
