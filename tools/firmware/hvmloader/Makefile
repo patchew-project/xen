@@ -21,7 +21,11 @@ XEN_ROOT = $(CURDIR)/../../..
 include $(XEN_ROOT)/tools/firmware/Rules.mk
 
 # SMBIOS spec requires format mm/dd/yyyy
+ifneq ($(SOURCE_DATE_EPOCH),)
+SMBIOS_REL_DATE ?= $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" "+%m/%d/%Y" 2>/dev/null)
+else
 SMBIOS_REL_DATE ?= $(shell date +%m/%d/%Y)
+endif
 
 CFLAGS += $(CFLAGS_xeninclude)
 
