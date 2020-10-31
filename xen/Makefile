@@ -6,6 +6,8 @@ export XEN_EXTRAVERSION ?= -unstable$(XEN_VENDORVERSION)
 export XEN_FULLVERSION   = $(XEN_VERSION).$(XEN_SUBVERSION)$(XEN_EXTRAVERSION)
 -include xen-version
 
+export SOURCE_DATE_EPOCH	?= $(shell git log -1 --format=%ct 2>/dev/null)
+
 export XEN_WHOAMI	?= $(USER)
 export XEN_DOMAIN	?= $(shell ([ -x /bin/dnsdomainname ] && /bin/dnsdomainname) || ([ -x /bin/domainname ] && /bin/domainname || echo [unknown]))
 ifneq ($(SOURCE_DATE_EPOCH),)
