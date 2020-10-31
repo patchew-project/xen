@@ -146,9 +146,9 @@ config BIGMEM
 	  If unsure, say N.
 
 config HVM_FEP
-	bool "HVM Forced Emulation Prefix support" if EXPERT
+	bool "HVM Forced Emulation Prefix support"
 	default DEBUG
-	depends on HVM
+	depends on HVM && EXPERT
 	---help---
 
 	  Compiles in a feature that allows HVM guest to arbitrarily
@@ -165,8 +165,9 @@ config HVM_FEP
 	  If unsure, say N.
 
 config TBOOT
-	bool "Xen tboot support" if EXPERT
+	bool "Xen tboot support"
 	default y if !PV_SHIM_EXCLUSIVE
+	depends on EXPERT
 	select CRYPTO
 	---help---
 	  Allows support for Trusted Boot using the Intel(R) Trusted Execution
@@ -251,8 +252,8 @@ config HYPERV_GUEST
 endif
 
 config MEM_SHARING
-	bool "Xen memory sharing support" if EXPERT
-	depends on HVM
+	bool "Xen memory sharing support"
+	depends on HVM && EXPERT
 
 endmenu
 

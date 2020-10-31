@@ -35,14 +35,13 @@ config DEFCONFIG_LIST
 	default ARCH_DEFCONFIG
 
 config EXPERT
-	bool "Configure standard Xen features (expert users)"
+	bool "Configure EXPERT features"
 	help
-	  This option allows certain base Xen options and settings
-	  to be disabled or tweaked. This is for specialized environments
-	  which can tolerate a "non-standard" Xen.
-	  Only use this if you really know what you are doing.
-	  Xen binaries built with this option enabled are not security
-	  supported.
+	  This option allows certain experimental (see SUPPORT.md) Xen
+	  options and settings to be enabled/disabled. This is for
+	  specialized environments which can tolerate a "non-standard" Xen.
+	  Only use this if you really know what you are doing.  Xen binaries
+	  built with this option enabled are not security supported.
 	default n
 
 config LTO

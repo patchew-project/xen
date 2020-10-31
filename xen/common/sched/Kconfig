@@ -1,5 +1,5 @@
 menu "Schedulers"
-	visible if EXPERT
+	depends on EXPERT
 
 config SCHED_CREDIT
 	bool "Credit scheduler support"

@@ -32,8 +32,8 @@ menu "Architecture Features"
 source "arch/Kconfig"
 
 config ACPI
-	bool "ACPI (Advanced Configuration and Power Interface) Support" if EXPERT
-	depends on ARM_64
+	bool "ACPI (Advanced Configuration and Power Interface) Support"
+	depends on ARM_64 && EXPERT
 	---help---
 
 	  Advanced Configuration and Power Interface (ACPI) support for Xen is
@@ -49,8 +49,8 @@ config GICV3
 	  If unsure, say Y
 
 config HAS_ITS
-        bool "GICv3 ITS MSI controller support" if EXPERT
-        depends on GICV3 && !NEW_VGIC
+        bool "GICv3 ITS MSI controller support"
+        depends on GICV3 && !NEW_VGICi && EXPERT
 
 config HVM
         def_bool y
@@ -79,8 +79,8 @@ config SBSA_VUART_CONSOLE
 	  SBSA Generic UART implements a subset of ARM PL011 UART.
 
 config ARM_SSBD
-	bool "Speculative Store Bypass Disable" if EXPERT
-	depends on HAS_ALTERNATIVE
+	bool "Speculative Store Bypass Disable"
+	depends on HAS_ALTERNATIVE && EXPERT
 	default y
 	help
 	  This enables mitigation of bypassing of previous stores by speculative
@@ -89,7 +89,8 @@ config ARM_SSBD
 	  If unsure, say Y.
 
 config HARDEN_BRANCH_PREDICTOR
-	bool "Harden the branch predictor against aliasing attacks" if EXPERT
+	bool "Harden the branch predictor against aliasing attacks"
+	depends on EXPERT
 	default y
 	help
 	  Speculation attacks against some high-performance processors rely on
@@ -106,7 +107,8 @@ config HARDEN_BRANCH_PREDICTOR
 	  If unsure, say Y.
 
 config TEE
-	bool "Enable TEE mediators support" if EXPERT
+	bool "Enable TEE mediators support"
+	depends on EXPERT
 	default n
 	help
 	  This option enables generic TEE mediators support. It allows guests
