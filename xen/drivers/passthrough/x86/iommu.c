@@ -23,6 +23,7 @@
 #include <asm/hvm/io.h>
 #include <asm/io_apic.h>
 #include <asm/setup.h>
+#include <xen/vm_event.h>
 
 const struct iommu_init_ops *__initdata iommu_init_ops;
 struct iommu_ops __read_mostly iommu_ops;
@@ -315,6 +316,18 @@ int iommu_update_ire_from_msi(
            ? iommu_call(&iommu_ops, update_ire_from_msi, msi_desc, msg) : 0;
 }
 
+bool_t arch_iommu_usable(struct domain *d)
+{
+
+    /* Prevent device assign if mem paging or mem sharing have been
+     * enabled for this domain */
+    if ( d != dom_io && unlikely(mem_sharing_enabled(d) ||
+                        vm_event_check_ring(d->vm_event_paging) ||
+                        p2m_get_hostp2m(d)->global_logdirty) )
+        return false;
+    else
+        return true;
+}
 /*
  * Local variables:
  * mode: C
