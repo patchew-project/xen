@@ -1,3 +1,12 @@
 
 config HAS_PCI
 	bool
+
+config PCI_ATS
+	bool "PCI ATS support"
+	default y
+	depends on X86 && HAS_PCI
+	---help---
+	 Enable PCI Address Translation Services.
+
+	 If unsure, say Y.

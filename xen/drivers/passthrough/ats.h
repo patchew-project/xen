@@ -17,6 +17,8 @@
 
 #include <xen/pci_regs.h>
 
+#ifdef CONFIG_PCI_ATS
+
 #define ATS_REG_CAP    4
 #define ATS_REG_CTL    6
 #define ATS_QUEUE_DEPTH_MASK     0x1f
@@ -47,6 +49,30 @@ static inline int pci_ats_device(int seg, int bus, int devfn)
 
     return pci_find_ext_capability(seg, bus, devfn, PCI_EXT_CAP_ID_ATS);
 }
+
+#else
+
+#define ats_enabled (false)
+
+static inline int enable_ats_device(struct pci_dev *pdev,
+                                    struct list_head *ats_list)
+{
+    return -EOPNOTSUPP;
+}
+
+static inline void disable_ats_device(struct pci_dev *pdev) { }
+
+static inline int pci_ats_enabled(int seg, int bus, int devfn)
+{
+    return 0;
+}
+
+static inline int pci_ats_device(int seg, int bus, int devfn)
+{
+    return 0;
+}
+
+#endif /* CONFIG_PCI_ATS */
 
 #endif /* _ATS_H_ */
 
