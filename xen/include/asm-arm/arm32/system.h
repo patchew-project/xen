@@ -2,7 +2,7 @@
 #ifndef __ASM_ARM32_SYSTEM_H
 #define __ASM_ARM32_SYSTEM_H
 
-#include <asm/arm32/cmpxchg.h>
+#include <asm/atomic.h>
 
 #define local_irq_disable() asm volatile ( "cpsid i @ local_irq_disable\n" : : : "cc" )
 #define local_irq_enable()  asm volatile ( "cpsie i @ local_irq_enable\n" : : : "cc" )
