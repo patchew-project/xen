@@ -78,6 +78,17 @@ config SBSA_VUART_CONSOLE
 	  Allows a guest to use SBSA Generic UART as a console. The
 	  SBSA Generic UART implements a subset of ARM PL011 UART.
 
+config ARM64_LSE_ATOMICS
+	bool "Armv8.1-LSE Atomics"
+	depends on ARM_64 && HAS_ALTERNATIVE
+	default y
+	---help---
+	When set, dynamically patch Xen at runtime to use Armv8.1-LSE
+	atomics when supported by the system.
+
+	When unset, or when Armv8.1-LSE atomics are not supported by the
+	system, fallback on LL/SC atomics using Armv8.0 exclusive accesses.
+
 config ARM_SSBD
 	bool "Speculative Store Bypass Disable" if EXPERT
 	depends on HAS_ALTERNATIVE

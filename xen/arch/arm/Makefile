@@ -63,6 +63,7 @@ obj-y += vsmc.o
 obj-y += vpsci.o
 obj-y += vuart.o
 extra-y += $(TARGET_SUBARCH)/head.o
+obj-$(CONFIG_ARM64_LSE_ATOMICS) += lse.o
 
 #obj-bin-y += ....o
 
