@@ -200,6 +200,7 @@ static inline int atomic_add_return(int i, atomic_t *v)
 
 	return ret;
 }
+#define atomic_fetch_add(i, v) atomic_add_return(i, v)
 
 static inline int atomic_sub_return(int i, atomic_t *v)
 {
@@ -211,6 +212,5 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 
 	return ret;
 }
-
 
 #endif /* __ASM_ARM_ARM32_ATOMIC_H */
