@@ -138,4 +138,7 @@
 # define CLANG_DISABLE_WARN_GCC_COMPAT_END
 #endif
 
+#define __READ_ONCE(x)	    (*(volatile typeof(x) *)&(x))
+#define __WRITE_ONCE(x, v)  (*(volatile typeof(x) *)&(x) = (v))
+
 #endif /* __LINUX_COMPILER_H */

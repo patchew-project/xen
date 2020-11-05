@@ -2,7 +2,7 @@
 #ifndef __ASM_ARM64_SYSTEM_H
 #define __ASM_ARM64_SYSTEM_H
 
-#include <asm/arm64/cmpxchg.h>
+#include <asm/atomic.h>
 
 /* Uses uimm4 as a bitmask to select the clearing of one or more of
  * the DAIF exception mask bits:
