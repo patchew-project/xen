@@ -15,6 +15,7 @@
 #define cpu_has_fp              (boot_cpu_feature(pfr64, fp) < 8)
 #define cpu_has_simd            (boot_cpu_feature(pfr64, simd) < 8)
 #define cpu_has_gicv3           (boot_cpu_feature(pfr64, gic) == 1)
+#define cpu_has_lse_atomics     (boot_cpu_feature(isa64, atomic) == 2)
 #endif
 
 #define cpu_has_arm       (boot_cpu_feature(pfr32, arm) == 1)
@@ -187,8 +188,15 @@ struct cpuinfo_arm {
         };
     } mm64;
 
-    struct {
+    union {
         uint64_t bits[2];
+        struct {
+            unsigned long __res0 : 20;
+            unsigned long atomic : 4;
+            unsigned long __res1 : 40;
+
+            unsigned long __res2 : 64;
+        };
     } isa64;
 
 #endif
