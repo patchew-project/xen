@@ -2393,31 +2393,6 @@ static int libxl__device_pci_get_num(libxl__gc *gc, const char *be_path,
     return rc;
 }
 
-libxl_device_pci *libxl_device_pci_list(libxl_ctx *ctx, uint32_t domid, int *num)
-{
-    GC_INIT(ctx);
-    char *be_path;
-    unsigned int n, i;
-    libxl_device_pci *pcis = NULL;
-
-    *num = 0;
-
-    be_path = libxl__domain_device_backend_path(gc, 0, domid, 0,
-                                                LIBXL__DEVICE_KIND_PCI);
-    if (libxl__device_pci_get_num(gc, be_path, &n))
-        goto out;
-
-    pcis = calloc(n, sizeof(libxl_device_pci));
-
-    for (i = 0; i < n; i++)
-        libxl__device_pci_from_xs_be(gc, be_path, i, pcis + i);
-
-    *num = n;
-out:
-    GC_FREE;
-    return pcis;
-}
-
 void libxl__device_pci_destroy_all(libxl__egc *egc, uint32_t domid,
                                    libxl__multidev *multidev)
 {
@@ -2491,6 +2466,8 @@ static int libxl_device_pci_compare(const libxl_device_pci *d1,
 {
     return COMPARE_PCI(d1, d2);
 }
+
+LIBXL_DEFINE_DEVICE_LIST(pci)
 
 #define libxl__device_pci_update_devid NULL
 
