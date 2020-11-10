@@ -403,24 +403,6 @@ static int libxl__nic_from_xenstore(libxl__gc *gc, const char *libxl_path,
     return rc;
 }
 
-libxl_device_nic *libxl_device_nic_list(libxl_ctx *ctx, uint32_t domid, int *num)
-{
-    libxl_device_nic *r;
-
-    GC_INIT(ctx);
-
-    r = libxl__device_list(gc, &libxl__nic_devtype, domid, num);
-
-    GC_FREE;
-
-    return r;
-}
-
-void libxl_device_nic_list_free(libxl_device_nic* list, int num)
-{
-    libxl__device_list_free(&libxl__nic_devtype, list, num);
-}
-
 int libxl_device_nic_getinfo(libxl_ctx *ctx, uint32_t domid,
                               const libxl_device_nic *nic,
                               libxl_nicinfo *nicinfo)
@@ -527,6 +509,7 @@ LIBXL_DEFINE_DEVID_TO_DEVICE(nic)
 LIBXL_DEFINE_DEVICE_ADD(nic)
 LIBXL_DEFINE_DEVICES_ADD(nic)
 LIBXL_DEFINE_DEVICE_REMOVE(nic)
+LIBXL_DEFINE_DEVICE_LIST(nic)
 
 DEFINE_DEVICE_TYPE_STRUCT(nic, VIF,
     .update_config = libxl_device_nic_update_config,
