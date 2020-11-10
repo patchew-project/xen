@@ -442,7 +442,7 @@ int libxl__domain_device_construct_rdm(libxl__gc *gc,
 
     /* Might not expose rdm. */
     if (strategy == LIBXL_RDM_RESERVE_STRATEGY_IGNORE &&
-        !d_config->num_pcidevs)
+        !d_config->num_pcis)
         return 0;
 
     /* Query all RDM entries in this platform */
@@ -469,13 +469,13 @@ int libxl__domain_device_construct_rdm(libxl__gc *gc,
     }
 
     /* Query RDM entries per-device */
-    for (i = 0; i < d_config->num_pcidevs; i++) {
+    for (i = 0; i < d_config->num_pcis; i++) {
         unsigned int n, nr_entries;
 
-        seg = d_config->pcidevs[i].domain;
-        bus = d_config->pcidevs[i].bus;
-        devfn = PCI_DEVFN(d_config->pcidevs[i].dev,
-                          d_config->pcidevs[i].func);
+        seg = d_config->pcis[i].domain;
+        bus = d_config->pcis[i].bus;
+        devfn = PCI_DEVFN(d_config->pcis[i].dev,
+                          d_config->pcis[i].func);
         nr_entries = 0;
         rc = libxl__xc_device_get_rdm(gc, 0,
                                       seg, bus, devfn, &nr_entries, &xrdm);
@@ -488,7 +488,7 @@ int libxl__domain_device_construct_rdm(libxl__gc *gc,
         assert(xrdm);
 
         rc = libxl__device_pci_setdefault(gc, DOMID_INVALID,
-                                          &d_config->pcidevs[i], false);
+                                          &d_config->pcis[i], false);
         if (rc)
             goto out;
 
@@ -516,7 +516,7 @@ int libxl__domain_device_construct_rdm(libxl__gc *gc,
                      * global policy in this case.
                      */
                     d_config->rdms[j].policy
-                        = d_config->pcidevs[i].rdm_policy;
+                        = d_config->pcis[i].rdm_policy;
                     new = false;
                     break;
                 }
@@ -526,7 +526,7 @@ int libxl__domain_device_construct_rdm(libxl__gc *gc,
                 add_rdm_entry(gc, d_config,
                               pfn_to_paddr(xrdm[n].start_pfn),
                               pfn_to_paddr(xrdm[n].nr_pages),
-                              d_config->pcidevs[i].rdm_policy);
+                              d_config->pcis[i].rdm_policy);
         }
     }
 

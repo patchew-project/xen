@@ -1100,7 +1100,7 @@ int libxl__domain_config_setdefault(libxl__gc *gc,
         goto error_out;
     }
 
-    bool need_pt = d_config->num_pcidevs || d_config->num_dtdevs;
+    bool need_pt = d_config->num_pcis || d_config->num_dtdevs;
     if (c_info->passthrough == LIBXL_PASSTHROUGH_DEFAULT) {
         c_info->passthrough = need_pt
             ? LIBXL_PASSTHROUGH_ENABLED : LIBXL_PASSTHROUGH_DISABLED;
@@ -1141,7 +1141,7 @@ int libxl__domain_config_setdefault(libxl__gc *gc,
      * assignment when PoD is enabled.
      */
     if (d_config->c_info.type != LIBXL_DOMAIN_TYPE_PV &&
-        d_config->num_pcidevs && pod_enabled) {
+        d_config->num_pcis && pod_enabled) {
         ret = ERROR_INVAL;
         LOGD(ERROR, domid,
              "PCI device assignment for HVM guest failed due to PoD enabled");
@@ -1817,7 +1817,7 @@ const libxl__device_type *device_type_tbl[] = {
     &libxl__vtpm_devtype,
     &libxl__usbctrl_devtype,
     &libxl__usbdev_devtype,
-    &libxl__pcidev_devtype,
+    &libxl__pci_devtype,
     &libxl__dtdev_devtype,
     &libxl__vdispl_devtype,
     &libxl__vsnd_devtype,
