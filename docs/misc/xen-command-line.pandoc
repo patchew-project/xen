@@ -1876,7 +1876,7 @@ with read and write permissions.
 ### sched
 > `= credit | credit2 | arinc653 | rtds | null`
 
-> Default: `sched=credit`
+> Default: selectable via Kconfig.  Depends on enabled schedulers.
 
 Choose the default scheduler.
 
