@@ -1876,7 +1876,7 @@ with read and write permissions.
 ### sched
 > `= credit | credit2 | arinc653 | rtds | null`
 
-> Default: `sched=credit`
+> Default: `sched=credit2`
 
 Choose the default scheduler.
 
