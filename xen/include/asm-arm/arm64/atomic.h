@@ -1,23 +1,23 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
+
 /*
- * Based on arch/arm/include/asm/atomic.h
+ * Taken from Linux 5.10-rc2 (last commit 3cea11cd5)
  *
  * Copyright (C) 1996 Russell King.
  * Copyright (C) 2002 Deep Blue Solutions Ltd.
  * Copyright (C) 2012 ARM Ltd.
+ * SPDX-License-Identifier: GPL-2.0-only
  */
-#ifndef __ASM_ATOMIC_H
-#define __ASM_ATOMIC_H
+#ifndef __ASM_ARM_ARM64_ATOMIC_H
+#define __ASM_ARM_ARM64_ATOMIC_H
 
-#include <linux/compiler.h>
-#include <linux/types.h>
+#include <xen/rwonce.h>
+#include <xen/types.h>
 
-#include <asm/barrier.h>
-#include <asm/cmpxchg.h>
-#include <asm/lse.h>
+#include "lse.h"
+#include "cmpxchg.h"
 
 #define ATOMIC_OP(op)							\
-static inline void arch_##op(int i, atomic_t *v)			\
+static inline void op(int i, atomic_t *v)			\
 {									\
 	__lse_ll_sc_body(op, i, v);					\
 }
@@ -32,7 +32,7 @@ ATOMIC_OP(atomic_sub)
 #undef ATOMIC_OP
 
 #define ATOMIC_FETCH_OP(name, op)					\
-static inline int arch_##op##name(int i, atomic_t *v)			\
+static inline int op##name(int i, atomic_t *v)			\
 {									\
 	return __lse_ll_sc_body(op##name, i, v);			\
 }
@@ -54,175 +54,65 @@ ATOMIC_FETCH_OPS(atomic_sub_return)
 
 #undef ATOMIC_FETCH_OP
 #undef ATOMIC_FETCH_OPS
+#define atomic_read(v)			__READ_ONCE((v)->counter)
+#define atomic_set(v, i)			__WRITE_ONCE(((v)->counter), (i))
 
-#define ATOMIC64_OP(op)							\
-static inline void arch_##op(long i, atomic64_t *v)			\
-{									\
-	__lse_ll_sc_body(op, i, v);					\
-}
+#define atomic_add_return_relaxed		atomic_add_return_relaxed
+#define atomic_add_return_acquire		atomic_add_return_acquire
+#define atomic_add_return_release		atomic_add_return_release
+#define atomic_add_return			atomic_add_return
 
-ATOMIC64_OP(atomic64_andnot)
-ATOMIC64_OP(atomic64_or)
-ATOMIC64_OP(atomic64_xor)
-ATOMIC64_OP(atomic64_add)
-ATOMIC64_OP(atomic64_and)
-ATOMIC64_OP(atomic64_sub)
+#define atomic_sub_return_relaxed		atomic_sub_return_relaxed
+#define atomic_sub_return_acquire		atomic_sub_return_acquire
+#define atomic_sub_return_release		atomic_sub_return_release
+#define atomic_sub_return			atomic_sub_return
 
-#undef ATOMIC64_OP
+#define atomic_fetch_add_relaxed		atomic_fetch_add_relaxed
+#define atomic_fetch_add_acquire		atomic_fetch_add_acquire
+#define atomic_fetch_add_release		atomic_fetch_add_release
+#define atomic_fetch_add			atomic_fetch_add
 
-#define ATOMIC64_FETCH_OP(name, op)					\
-static inline long arch_##op##name(long i, atomic64_t *v)		\
-{									\
-	return __lse_ll_sc_body(op##name, i, v);			\
-}
+#define atomic_fetch_sub_relaxed		atomic_fetch_sub_relaxed
+#define atomic_fetch_sub_acquire		atomic_fetch_sub_acquire
+#define atomic_fetch_sub_release		atomic_fetch_sub_release
+#define atomic_fetch_sub			atomic_fetch_sub
 
-#define ATOMIC64_FETCH_OPS(op)						\
-	ATOMIC64_FETCH_OP(_relaxed, op)					\
-	ATOMIC64_FETCH_OP(_acquire, op)					\
-	ATOMIC64_FETCH_OP(_release, op)					\
-	ATOMIC64_FETCH_OP(        , op)
+#define atomic_fetch_and_relaxed		atomic_fetch_and_relaxed
+#define atomic_fetch_and_acquire		atomic_fetch_and_acquire
+#define atomic_fetch_and_release		atomic_fetch_and_release
+#define atomic_fetch_and			atomic_fetch_and
 
-ATOMIC64_FETCH_OPS(atomic64_fetch_andnot)
-ATOMIC64_FETCH_OPS(atomic64_fetch_or)
-ATOMIC64_FETCH_OPS(atomic64_fetch_xor)
-ATOMIC64_FETCH_OPS(atomic64_fetch_add)
-ATOMIC64_FETCH_OPS(atomic64_fetch_and)
-ATOMIC64_FETCH_OPS(atomic64_fetch_sub)
-ATOMIC64_FETCH_OPS(atomic64_add_return)
-ATOMIC64_FETCH_OPS(atomic64_sub_return)
+#define atomic_fetch_andnot_relaxed	atomic_fetch_andnot_relaxed
+#define atomic_fetch_andnot_acquire	atomic_fetch_andnot_acquire
+#define atomic_fetch_andnot_release	atomic_fetch_andnot_release
+#define atomic_fetch_andnot		atomic_fetch_andnot
 
-#undef ATOMIC64_FETCH_OP
-#undef ATOMIC64_FETCH_OPS
+#define atomic_fetch_or_relaxed		atomic_fetch_or_relaxed
+#define atomic_fetch_or_acquire		atomic_fetch_or_acquire
+#define atomic_fetch_or_release		atomic_fetch_or_release
+#define atomic_fetch_or			atomic_fetch_or
 
-static inline long arch_atomic64_dec_if_positive(atomic64_t *v)
-{
-	return __lse_ll_sc_body(atomic64_dec_if_positive, v);
-}
+#define atomic_fetch_xor_relaxed		atomic_fetch_xor_relaxed
+#define atomic_fetch_xor_acquire		atomic_fetch_xor_acquire
+#define atomic_fetch_xor_release		atomic_fetch_xor_release
+#define atomic_fetch_xor			atomic_fetch_xor
 
-#define arch_atomic_read(v)			__READ_ONCE((v)->counter)
-#define arch_atomic_set(v, i)			__WRITE_ONCE(((v)->counter), (i))
+#define atomic_xchg_relaxed(v, new) \
+	xchg_relaxed(&((v)->counter), (new))
+#define atomic_xchg_acquire(v, new) \
+	xchg_acquire(&((v)->counter), (new))
+#define atomic_xchg_release(v, new) \
+	xchg_release(&((v)->counter), (new))
+#define atomic_xchg(v, new) \
+	xchg(&((v)->counter), (new))
 
-#define arch_atomic_add_return_relaxed		arch_atomic_add_return_relaxed
-#define arch_atomic_add_return_acquire		arch_atomic_add_return_acquire
-#define arch_atomic_add_return_release		arch_atomic_add_return_release
-#define arch_atomic_add_return			arch_atomic_add_return
+#define atomic_cmpxchg_relaxed(v, old, new) \
+	cmpxchg_relaxed(&((v)->counter), (old), (new))
+#define atomic_cmpxchg_acquire(v, old, new) \
+	cmpxchg_acquire(&((v)->counter), (old), (new))
+#define atomic_cmpxchg_release(v, old, new) \
+	cmpxchg_release(&((v)->counter), (old), (new))
 
-#define arch_atomic_sub_return_relaxed		arch_atomic_sub_return_relaxed
-#define arch_atomic_sub_return_acquire		arch_atomic_sub_return_acquire
-#define arch_atomic_sub_return_release		arch_atomic_sub_return_release
-#define arch_atomic_sub_return			arch_atomic_sub_return
+#define atomic_andnot			atomic_andnot
 
-#define arch_atomic_fetch_add_relaxed		arch_atomic_fetch_add_relaxed
-#define arch_atomic_fetch_add_acquire		arch_atomic_fetch_add_acquire
-#define arch_atomic_fetch_add_release		arch_atomic_fetch_add_release
-#define arch_atomic_fetch_add			arch_atomic_fetch_add
-
-#define arch_atomic_fetch_sub_relaxed		arch_atomic_fetch_sub_relaxed
-#define arch_atomic_fetch_sub_acquire		arch_atomic_fetch_sub_acquire
-#define arch_atomic_fetch_sub_release		arch_atomic_fetch_sub_release
-#define arch_atomic_fetch_sub			arch_atomic_fetch_sub
-
-#define arch_atomic_fetch_and_relaxed		arch_atomic_fetch_and_relaxed
-#define arch_atomic_fetch_and_acquire		arch_atomic_fetch_and_acquire
-#define arch_atomic_fetch_and_release		arch_atomic_fetch_and_release
-#define arch_atomic_fetch_and			arch_atomic_fetch_and
-
-#define arch_atomic_fetch_andnot_relaxed	arch_atomic_fetch_andnot_relaxed
-#define arch_atomic_fetch_andnot_acquire	arch_atomic_fetch_andnot_acquire
-#define arch_atomic_fetch_andnot_release	arch_atomic_fetch_andnot_release
-#define arch_atomic_fetch_andnot		arch_atomic_fetch_andnot
-
-#define arch_atomic_fetch_or_relaxed		arch_atomic_fetch_or_relaxed
-#define arch_atomic_fetch_or_acquire		arch_atomic_fetch_or_acquire
-#define arch_atomic_fetch_or_release		arch_atomic_fetch_or_release
-#define arch_atomic_fetch_or			arch_atomic_fetch_or
-
-#define arch_atomic_fetch_xor_relaxed		arch_atomic_fetch_xor_relaxed
-#define arch_atomic_fetch_xor_acquire		arch_atomic_fetch_xor_acquire
-#define arch_atomic_fetch_xor_release		arch_atomic_fetch_xor_release
-#define arch_atomic_fetch_xor			arch_atomic_fetch_xor
-
-#define arch_atomic_xchg_relaxed(v, new) \
-	arch_xchg_relaxed(&((v)->counter), (new))
-#define arch_atomic_xchg_acquire(v, new) \
-	arch_xchg_acquire(&((v)->counter), (new))
-#define arch_atomic_xchg_release(v, new) \
-	arch_xchg_release(&((v)->counter), (new))
-#define arch_atomic_xchg(v, new) \
-	arch_xchg(&((v)->counter), (new))
-
-#define arch_atomic_cmpxchg_relaxed(v, old, new) \
-	arch_cmpxchg_relaxed(&((v)->counter), (old), (new))
-#define arch_atomic_cmpxchg_acquire(v, old, new) \
-	arch_cmpxchg_acquire(&((v)->counter), (old), (new))
-#define arch_atomic_cmpxchg_release(v, old, new) \
-	arch_cmpxchg_release(&((v)->counter), (old), (new))
-#define arch_atomic_cmpxchg(v, old, new) \
-	arch_cmpxchg(&((v)->counter), (old), (new))
-
-#define arch_atomic_andnot			arch_atomic_andnot
-
-/*
- * 64-bit arch_atomic operations.
- */
-#define ATOMIC64_INIT				ATOMIC_INIT
-#define arch_atomic64_read			arch_atomic_read
-#define arch_atomic64_set			arch_atomic_set
-
-#define arch_atomic64_add_return_relaxed	arch_atomic64_add_return_relaxed
-#define arch_atomic64_add_return_acquire	arch_atomic64_add_return_acquire
-#define arch_atomic64_add_return_release	arch_atomic64_add_return_release
-#define arch_atomic64_add_return		arch_atomic64_add_return
-
-#define arch_atomic64_sub_return_relaxed	arch_atomic64_sub_return_relaxed
-#define arch_atomic64_sub_return_acquire	arch_atomic64_sub_return_acquire
-#define arch_atomic64_sub_return_release	arch_atomic64_sub_return_release
-#define arch_atomic64_sub_return		arch_atomic64_sub_return
-
-#define arch_atomic64_fetch_add_relaxed		arch_atomic64_fetch_add_relaxed
-#define arch_atomic64_fetch_add_acquire		arch_atomic64_fetch_add_acquire
-#define arch_atomic64_fetch_add_release		arch_atomic64_fetch_add_release
-#define arch_atomic64_fetch_add			arch_atomic64_fetch_add
-
-#define arch_atomic64_fetch_sub_relaxed		arch_atomic64_fetch_sub_relaxed
-#define arch_atomic64_fetch_sub_acquire		arch_atomic64_fetch_sub_acquire
-#define arch_atomic64_fetch_sub_release		arch_atomic64_fetch_sub_release
-#define arch_atomic64_fetch_sub			arch_atomic64_fetch_sub
-
-#define arch_atomic64_fetch_and_relaxed		arch_atomic64_fetch_and_relaxed
-#define arch_atomic64_fetch_and_acquire		arch_atomic64_fetch_and_acquire
-#define arch_atomic64_fetch_and_release		arch_atomic64_fetch_and_release
-#define arch_atomic64_fetch_and			arch_atomic64_fetch_and
-
-#define arch_atomic64_fetch_andnot_relaxed	arch_atomic64_fetch_andnot_relaxed
-#define arch_atomic64_fetch_andnot_acquire	arch_atomic64_fetch_andnot_acquire
-#define arch_atomic64_fetch_andnot_release	arch_atomic64_fetch_andnot_release
-#define arch_atomic64_fetch_andnot		arch_atomic64_fetch_andnot
-
-#define arch_atomic64_fetch_or_relaxed		arch_atomic64_fetch_or_relaxed
-#define arch_atomic64_fetch_or_acquire		arch_atomic64_fetch_or_acquire
-#define arch_atomic64_fetch_or_release		arch_atomic64_fetch_or_release
-#define arch_atomic64_fetch_or			arch_atomic64_fetch_or
-
-#define arch_atomic64_fetch_xor_relaxed		arch_atomic64_fetch_xor_relaxed
-#define arch_atomic64_fetch_xor_acquire		arch_atomic64_fetch_xor_acquire
-#define arch_atomic64_fetch_xor_release		arch_atomic64_fetch_xor_release
-#define arch_atomic64_fetch_xor			arch_atomic64_fetch_xor
-
-#define arch_atomic64_xchg_relaxed		arch_atomic_xchg_relaxed
-#define arch_atomic64_xchg_acquire		arch_atomic_xchg_acquire
-#define arch_atomic64_xchg_release		arch_atomic_xchg_release
-#define arch_atomic64_xchg			arch_atomic_xchg
-
-#define arch_atomic64_cmpxchg_relaxed		arch_atomic_cmpxchg_relaxed
-#define arch_atomic64_cmpxchg_acquire		arch_atomic_cmpxchg_acquire
-#define arch_atomic64_cmpxchg_release		arch_atomic_cmpxchg_release
-#define arch_atomic64_cmpxchg			arch_atomic_cmpxchg
-
-#define arch_atomic64_andnot			arch_atomic64_andnot
-
-#define arch_atomic64_dec_if_positive		arch_atomic64_dec_if_positive
-
-#define ARCH_ATOMIC
-
-#endif /* __ASM_ATOMIC_H */
+#endif /* __ASM_ARM_ARM64_ATOMIC_H */
