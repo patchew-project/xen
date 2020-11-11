@@ -2,8 +2,6 @@
 #define __ARCH_ARM_ATOMIC__
 
 #include <xen/atomic.h>
-#include <xen/prefetch.h>
-#include <asm/system.h>
 
 #define build_atomic_read(name, size, width, type) \
 static inline type name(const volatile type *addr) \
@@ -220,10 +218,19 @@ static inline int atomic_add_negative(int i, atomic_t *v)
 
 static inline int atomic_add_unless(atomic_t *v, int a, int u)
 {
-    return __atomic_add_unless(v, a, u);
+	int c, old;
+
+	c = atomic_read(v);
+	while (c != u && (old = atomic_cmpxchg((v), c, c + a)) != c)
+		c = old;
+
+	return c;
 }
 
-#define atomic_xchg(v, new) (xchg(&((v)->counter), new))
+static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
+{
+	return cmpxchg(&((v)->counter), (old), (new));
+}
 
 #endif /* __ARCH_ARM_ATOMIC__ */
 /*
