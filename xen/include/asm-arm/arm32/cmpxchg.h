@@ -1,46 +1,24 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-#ifndef __ASM_ARM_CMPXCHG_H
-#define __ASM_ARM_CMPXCHG_H
-
-#include <linux/irqflags.h>
-#include <linux/prefetch.h>
-#include <asm/barrier.h>
-
-#if defined(CONFIG_CPU_SA1100) || defined(CONFIG_CPU_SA110)
 /*
- * On the StrongARM, "swp" is terminally broken since it bypasses the
- * cache totally.  This means that the cache becomes inconsistent, and,
- * since we use normal loads/stores as well, this is really bad.
- * Typically, this causes oopsen in filp_close, but could have other,
- * more disastrous effects.  There are two work-arounds:
- *  1. Disable interrupts and emulate the atomic swap
- *  2. Clean the cache, perform atomic swap, flush the cache
+ * Taken from Linux 5.10-rc2 (last commit 3cea11cd5)
  *
- * We choose (1) since its the "easiest" to achieve here and is not
- * dependent on the processor type.
- *
- * NOTE that this solution won't work on an SMP system, so explcitly
- * forbid it here.
+ * SPDX-License-Identifier: GPL-2.0
  */
-#define swp_is_buggy
-#endif
+#ifndef __ASM_ARM_ARM32_CMPXCHG_H
+#define __ASM_ARM_ARM32_CMPXCHG_H
+
+#include <xen/prefetch.h>
+#include <xen/types.h>
+
+extern void __bad_cmpxchg(volatile void *ptr, int size);
 
 static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size)
 {
-	extern void __bad_xchg(volatile void *, int);
 	unsigned long ret;
-#ifdef swp_is_buggy
-	unsigned long flags;
-#endif
-#if __LINUX_ARM_ARCH__ >= 6
 	unsigned int tmp;
-#endif
 
 	prefetchw((const void *)ptr);
 
 	switch (size) {
-#if __LINUX_ARM_ARCH__ >= 6
-#ifndef CONFIG_CPU_V6 /* MIN ARCH >= V6K */
 	case 1:
 		asm volatile("@	__xchg1\n"
 		"1:	ldrexb	%0, [%3]\n"
@@ -61,7 +39,6 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 			: "r" (x), "r" (ptr)
 			: "memory", "cc");
 		break;
-#endif
 	case 4:
 		asm volatile("@	__xchg4\n"
 		"1:	ldrex	%0, [%3]\n"
@@ -72,42 +49,10 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 			: "r" (x), "r" (ptr)
 			: "memory", "cc");
 		break;
-#elif defined(swp_is_buggy)
-#ifdef CONFIG_SMP
-#error SMP is not supported on this platform
-#endif
-	case 1:
-		raw_local_irq_save(flags);
-		ret = *(volatile unsigned char *)ptr;
-		*(volatile unsigned char *)ptr = x;
-		raw_local_irq_restore(flags);
-		break;
 
-	case 4:
-		raw_local_irq_save(flags);
-		ret = *(volatile unsigned long *)ptr;
-		*(volatile unsigned long *)ptr = x;
-		raw_local_irq_restore(flags);
-		break;
-#else
-	case 1:
-		asm volatile("@	__xchg1\n"
-		"	swpb	%0, %1, [%2]"
-			: "=&r" (ret)
-			: "r" (x), "r" (ptr)
-			: "memory", "cc");
-		break;
-	case 4:
-		asm volatile("@	__xchg4\n"
-		"	swp	%0, %1, [%2]"
-			: "=&r" (ret)
-			: "r" (x), "r" (ptr)
-			: "memory", "cc");
-		break;
-#endif
 	default:
-		/* Cause a link-time error, the xchg() size is not supported */
-		__bad_xchg(ptr, size), ret = 0;
+		/* Cause a link-time error, the size is not supported */
+		__bad_cmpxchg(ptr, size), ret = 0;
 		break;
 	}
 
@@ -119,40 +64,6 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 				   sizeof(*(ptr)));			\
 })
 
-#include <asm-generic/cmpxchg-local.h>
-
-#if __LINUX_ARM_ARCH__ < 6
-/* min ARCH < ARMv6 */
-
-#ifdef CONFIG_SMP
-#error "SMP is not supported on this platform"
-#endif
-
-#define xchg xchg_relaxed
-
-/*
- * cmpxchg_local and cmpxchg64_local are atomic wrt current CPU. Always make
- * them available.
- */
-#define cmpxchg_local(ptr, o, n) ({					\
-	(__typeof(*ptr))__cmpxchg_local_generic((ptr),			\
-					        (unsigned long)(o),	\
-					        (unsigned long)(n),	\
-					        sizeof(*(ptr)));	\
-})
-
-#define cmpxchg64_local(ptr, o, n) __cmpxchg64_local_generic((ptr), (o), (n))
-
-#include <asm-generic/cmpxchg.h>
-
-#else	/* min ARCH >= ARMv6 */
-
-extern void __bad_cmpxchg(volatile void *ptr, int size);
-
-/*
- * cmpxchg only support 32-bits operands on ARMv6.
- */
-
 static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 				      unsigned long new, int size)
 {
@@ -161,7 +72,6 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 	prefetchw((const void *)ptr);
 
 	switch (size) {
-#ifndef CONFIG_CPU_V6	/* min ARCH >= ARMv6K */
 	case 1:
 		do {
 			asm volatile("@ __cmpxchg1\n"
@@ -186,7 +96,6 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 				: "memory", "cc");
 		} while (res);
 		break;
-#endif
 	case 4:
 		do {
 			asm volatile("@ __cmpxchg4\n"
@@ -199,6 +108,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 				: "memory", "cc");
 		} while (res);
 		break;
+
 	default:
 		__bad_cmpxchg(ptr, size);
 		oldval = 0;
@@ -214,41 +124,14 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 				      sizeof(*(ptr)));			\
 })
 
-static inline unsigned long __cmpxchg_local(volatile void *ptr,
-					    unsigned long old,
-					    unsigned long new, int size)
-{
-	unsigned long ret;
-
-	switch (size) {
-#ifdef CONFIG_CPU_V6	/* min ARCH == ARMv6 */
-	case 1:
-	case 2:
-		ret = __cmpxchg_local_generic(ptr, old, new, size);
-		break;
-#endif
-	default:
-		ret = __cmpxchg(ptr, old, new, size);
-	}
-
-	return ret;
-}
-
-#define cmpxchg_local(ptr, o, n) ({					\
-	(__typeof(*ptr))__cmpxchg_local((ptr),				\
-				        (unsigned long)(o),		\
-				        (unsigned long)(n),		\
-				        sizeof(*(ptr)));		\
-})
-
-static inline unsigned long long __cmpxchg64(unsigned long long *ptr,
+static inline unsigned long long __cmpxchg64(volatile unsigned long long *ptr,
 					     unsigned long long old,
 					     unsigned long long new)
 {
 	unsigned long long oldval;
 	unsigned long res;
 
-	prefetchw(ptr);
+	prefetchw((const void *)ptr);
 
 	__asm__ __volatile__(
 "1:	ldrexd		%1, %H1, [%3]\n"
@@ -272,8 +155,179 @@ static inline unsigned long long __cmpxchg64(unsigned long long *ptr,
 					(unsigned long long)(n));	\
 })
 
-#define cmpxchg64_local(ptr, o, n) cmpxchg64_relaxed((ptr), (o), (n))
 
-#endif	/* __LINUX_ARM_ARCH__ >= 6 */
+/*
+ * Linux doesn't provide strict versions of xchg(), cmpxchg(), and cmpxchg64(),
+ * so manually define these for Xen as smp_mb() wrappers around the relaxed
+ * variants.
+ */
 
-#endif /* __ASM_ARM_CMPXCHG_H */
+#define xchg(ptr, x) ({ \
+	long ret; \
+	smp_mb(); \
+	ret = xchg_relaxed(ptr, x); \
+	smp_mb(); \
+	ret; \
+})
+
+#define cmpxchg(ptr, o, n) ({ \
+	long ret; \
+	smp_mb(); \
+	ret = cmpxchg_relaxed(ptr, o, n); \
+	smp_mb(); \
+	ret; \
+})
+
+#define cmpxchg64(ptr, o, n) ({ \
+	long long ret; \
+	smp_mb(); \
+	ret = cmpxchg64_relaxed(ptr, o, n); \
+	smp_mb(); \
+	ret; \
+})
+
+/*
+ * This code is from the original Xen arm32 cmpxchg.h, from before the
+ * Linux 5.10-rc2 atomics helpers were ported over. The only changes
+ * here are renaming the macros and functions to explicitly use
+ * "timeout" in their names so that they don't clash with the above.
+ *
+ * We need this here for guest atomics (the only user of the timeout
+ * variants).
+ */
+
+#define __CMPXCHG_TIMEOUT_CASE(sz, name)                                        \
+static inline bool __cmpxchg_timeout_case_##name(volatile void *ptr,            \
+                                         unsigned long *old,            \
+                                         unsigned long new,             \
+                                         bool timeout,                  \
+                                         unsigned int max_try)          \
+{                                                                       \
+        unsigned long oldval;                                           \
+        unsigned long res;                                              \
+                                                                        \
+        do {                                                            \
+                asm volatile("@ __cmpxchg_timeout_case_" #name "\n"             \
+                "       ldrex" #sz "    %1, [%2]\n"                     \
+                "       mov     %0, #0\n"                               \
+                "       teq     %1, %3\n"                               \
+                "       strex" #sz "eq %0, %4, [%2]\n"                  \
+                : "=&r" (res), "=&r" (oldval)                           \
+                : "r" (ptr), "Ir" (*old), "r" (new)                     \
+                : "memory", "cc");                                      \
+                                                                        \
+                if (!res)                                               \
+                        break;                                          \
+        } while (!timeout || ((--max_try) > 0));                        \
+                                                                        \
+        *old = oldval;                                                  \
+                                                                        \
+        return !res;                                                    \
+}
+
+__CMPXCHG_TIMEOUT_CASE(b, 1)
+__CMPXCHG_TIMEOUT_CASE(h, 2)
+__CMPXCHG_TIMEOUT_CASE( , 4)
+
+static inline bool __cmpxchg_timeout_case_8(volatile uint64_t *ptr,
+                                    uint64_t *old,
+                                    uint64_t new,
+                                    bool timeout,
+                                    unsigned int max_try)
+{
+        uint64_t oldval;
+        uint64_t res;
+
+        do {
+                asm volatile(
+                "       ldrexd          %1, %H1, [%3]\n"
+                "       teq             %1, %4\n"
+                "       teqeq           %H1, %H4\n"
+                "       movne           %0, #0\n"
+                "       movne           %H0, #0\n"
+                "       bne             2f\n"
+                "       strexd          %0, %5, %H5, [%3]\n"
+                "2:"
+                : "=&r" (res), "=&r" (oldval), "+Qo" (*ptr)
+                : "r" (ptr), "r" (*old), "r" (new)
+                : "memory", "cc");
+                if (!res)
+                        break;
+        } while (!timeout || ((--max_try) > 0));
+
+        *old = oldval;
+
+        return !res;
+}
+
+static always_inline bool __int_cmpxchg(volatile void *ptr, unsigned long *old,
+                                        unsigned long new, int size,
+                                        bool timeout, unsigned int max_try)
+{
+        prefetchw((const void *)ptr);
+
+        switch (size) {
+        case 1:
+                return __cmpxchg_timeout_case_1(ptr, old, new, timeout, max_try);
+        case 2:
+                return __cmpxchg_timeout_case_2(ptr, old, new, timeout, max_try);
+        case 4:
+                return __cmpxchg_timeout_case_4(ptr, old, new, timeout, max_try);
+        default:
+                __bad_cmpxchg(ptr, size);
+				return false;
+        }
+
+        ASSERT_UNREACHABLE();
+}
+
+/*
+ * The helper may fail to update the memory if the action takes too long.
+ *
+ * @old: On call the value pointed contains the expected old value. It will be
+ * updated to the actual old value.
+ * @max_try: Maximum number of iterations
+ *
+ * The helper will return true when the update has succeeded (i.e no
+ * timeout) and false if the update has failed.
+ */
+static always_inline bool __cmpxchg_timeout(volatile void *ptr,
+                                            unsigned long *old,
+                                            unsigned long new,
+                                            int size,
+                                            unsigned int max_try)
+{
+        bool ret;
+
+        smp_mb();
+        ret = __int_cmpxchg(ptr, old, new, size, true, max_try);
+        smp_mb();
+
+        return ret;
+}
+
+/*
+ * The helper may fail to update the memory if the action takes too long.
+ *
+ * @old: On call the value pointed contains the expected old value. It will be
+ * updated to the actual old value.
+ * @max_try: Maximum number of iterations
+ *
+ * The helper will return true when the update has succeeded (i.e no
+ * timeout) and false if the update has failed.
+ */
+static always_inline bool __cmpxchg64_timeout(volatile uint64_t *ptr,
+                                              uint64_t *old,
+                                              uint64_t new,
+                                              unsigned int max_try)
+{
+        bool ret;
+
+        smp_mb();
+        ret = __cmpxchg_timeout_case_8(ptr, old, new, true, max_try);
+        smp_mb();
+
+        return ret;
+}
+
+#endif /* __ASM_ARM_ARM32_CMPXCHG_H */
