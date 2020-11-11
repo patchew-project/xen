@@ -11,6 +11,7 @@
 #include <xen/hypercall.h>
 #include <xen/domain_page.h>
 #include <xen/param.h>
+#include <xen/softirq.h>
 #include <asm/guest/hyperv-tlfs.h>
 #include <asm/paging.h>
 #include <asm/p2m.h>
@@ -509,6 +510,7 @@ void viridian_domain_deinit(struct domain *d)
 
 struct hypercall_vpmask {
     DECLARE_BITMAP(mask, HVM_MAX_VCPUS);
+    unsigned int nr;
 };
 
 static DEFINE_PER_CPU(struct hypercall_vpmask, hypercall_vpmask);
@@ -516,21 +518,24 @@ static DEFINE_PER_CPU(struct hypercall_vpmask, hypercall_vpmask);
 static void vpmask_empty(struct hypercall_vpmask *vpmask)
 {
     bitmap_zero(vpmask->mask, HVM_MAX_VCPUS);
+    vpmask->nr = 0;
 }
 
 static void vpmask_set(struct hypercall_vpmask *vpmask, unsigned int vp)
 {
-    __set_bit(vp, vpmask->mask);
+    if ( !test_and_set_bit(vp, vpmask->mask) )
+        vpmask->nr++;
 }
 
 static void vpmask_fill(struct hypercall_vpmask *vpmask)
 {
     bitmap_fill(vpmask->mask, HVM_MAX_VCPUS);
+    vpmask->nr = HVM_MAX_VCPUS;
 }
 
 static bool vpmask_test(struct hypercall_vpmask *vpmask, unsigned int vp)
 {
-    return test_bit(vp, vpmask->mask);
+    return vpmask->nr && test_bit(vp, vpmask->mask);
 }
 
 static unsigned int vpmask_first(struct hypercall_vpmask *vpmask)
@@ -644,8 +649,17 @@ static void send_ipi(struct hypercall_vpmask *vpmask, uint8_t vector)
     struct domain *currd = current->domain;
     unsigned int vp;
 
+    if ( !vpmask->nr )
+        return;
+
+    if ( vpmask->nr > 1 )
+        cpu_raise_softirq_batch_begin();
+
     for_each_vp ( vpmask, vp )
         vlapic_set_irq(vcpu_vlapic(currd->vcpu[vp]), vector, 0);
+
+    if ( vpmask->nr > 1 )
+        cpu_raise_softirq_batch_finish();
 }
 
 static int hvcall_ipi(union hypercall_input *input,
