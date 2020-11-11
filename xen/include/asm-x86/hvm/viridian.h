@@ -59,6 +59,14 @@ struct viridian_domain
 {
     union hv_guest_os_id guest_os_id;
     union hv_vp_assist_page_msr hypercall_gpa;
+    unsigned long hypercall_flags;
+
+#define _HCALL_spin_wait 0
+#define _HCALL_flush 1
+#define _HCALL_flush_ex 2
+#define _HCALL_ipi 3
+#define _HCALL_ipi_ex 4
+
     struct viridian_time_ref_count time_ref_count;
     struct viridian_page reference_tsc;
 };
