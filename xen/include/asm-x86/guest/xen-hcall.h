@@ -39,53 +39,50 @@
 
 #define _hypercall64_1(type, hcall, a1)                                 \
     ({                                                                  \
-        long res, tmp__;                                                \
+        long res, _a1 = (long)(a1);                                     \
         asm volatile (                                                  \
             "call hypercall_page + %c[offset]"                          \
-            : "=a" (res), "=D" (tmp__) ASM_CALL_CONSTRAINT              \
-            : [offset] "i" (hcall * 32),                                \
-              "1" ((long)(a1))                                          \
+            : "=a" (res), "+D" (_a1) ASM_CALL_CONSTRAINT                \
+            : [offset] "i" (hcall * 32)                                 \
             : "memory" );                                               \
         (type)res;                                                      \
     })
 
 #define _hypercall64_2(type, hcall, a1, a2)                             \
     ({                                                                  \
-        long res, tmp__;                                                \
+        long res, _a1 = (long)(a1), _a2 = (long)(a2);                   \
         asm volatile (                                                  \
             "call hypercall_page + %c[offset]"                          \
-            : "=a" (res), "=D" (tmp__), "=S" (tmp__)                    \
+            : "=a" (res), "+D" (_a1), "+S" (_a2)                        \
               ASM_CALL_CONSTRAINT                                       \
-            : [offset] "i" (hcall * 32),                                \
-              "1" ((long)(a1)), "2" ((long)(a2))                        \
+            : [offset] "i" (hcall * 32)                                 \
             : "memory" );                                               \
         (type)res;                                                      \
     })
 
 #define _hypercall64_3(type, hcall, a1, a2, a3)                         \
     ({                                                                  \
-        long res, tmp__;                                                \
+        long res, _a1 = (long)(a1), _a2 = (long)(a2),                   \
+            _a3 = (long)(a3);                                           \
         asm volatile (                                                  \
             "call hypercall_page + %c[offset]"                          \
-            : "=a" (res), "=D" (tmp__), "=S" (tmp__), "=d" (tmp__)      \
+            : "=a" (res), "+D" (_a1), "+S" (_a2), "+d" (_a3)            \
               ASM_CALL_CONSTRAINT                                       \
-            : [offset] "i" (hcall * 32),                                \
-              "1" ((long)(a1)), "2" ((long)(a2)), "3" ((long)(a3))      \
+            : [offset] "i" (hcall * 32)                                 \
             : "memory" );                                               \
         (type)res;                                                      \
     })
 
 #define _hypercall64_4(type, hcall, a1, a2, a3, a4)                     \
     ({                                                                  \
-        long res, tmp__;                                                \
-        register long _a4 asm ("r10") = ((long)(a4));                   \
+        long res, _a1 = (long)(a1), _a2 = (long)(a2),                   \
+            _a3 = (long)(a3);                                           \
+        register long _a4 asm ("r10") = (long)(a4);                     \
         asm volatile (                                                  \
             "call hypercall_page + %c[offset]"                          \
-            : "=a" (res), "=D" (tmp__), "=S" (tmp__), "=d" (tmp__),     \
-              "=&r" (tmp__) ASM_CALL_CONSTRAINT                         \
-            : [offset] "i" (hcall * 32),                                \
-              "1" ((long)(a1)), "2" ((long)(a2)), "3" ((long)(a3)),     \
-              "4" (_a4)                                                 \
+            : "=a" (res), "+D" (_a1), "+S" (_a2), "+d" (_a3)            \
+              "+r" (_a4) ASM_CALL_CONSTRAINT                            \
+            : [offset] "i" (hcall * 32)                                 \
             : "memory" );                                               \
         (type)res;                                                      \
     })
