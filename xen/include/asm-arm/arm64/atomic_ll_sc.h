@@ -1,16 +1,16 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Based on arch/arm/include/asm/atomic.h
+ * Taken from Linux 5.10-rc2 (last commit 3cea11cd5)
  *
  * Copyright (C) 1996 Russell King.
  * Copyright (C) 2002 Deep Blue Solutions Ltd.
  * Copyright (C) 2012 ARM Ltd.
+ * SPDX-License-Identifier: GPL-2.0-only
  */
 
-#ifndef __ASM_ATOMIC_LL_SC_H
-#define __ASM_ATOMIC_LL_SC_H
+#ifndef __ASM_ARM_ARM64_ATOMIC_LL_SC_H
+#define __ASM_ARM_ARM64_ATOMIC_LL_SC_H
 
-#include <linux/stringify.h>
+#include <xen/stringify.h>
 
 #ifdef CONFIG_ARM64_LSE_ATOMICS
 #define __LL_SC_FALLBACK(asm_ops)					\
@@ -134,128 +134,6 @@ ATOMIC_OPS(andnot, bic, )
 #undef ATOMIC_OP_RETURN
 #undef ATOMIC_OP
 
-#define ATOMIC64_OP(op, asm_op, constraint)				\
-static inline void							\
-__ll_sc_atomic64_##op(s64 i, atomic64_t *v)				\
-{									\
-	s64 result;							\
-	unsigned long tmp;						\
-									\
-	asm volatile("// atomic64_" #op "\n"				\
-	__LL_SC_FALLBACK(						\
-"	prfm	pstl1strm, %2\n"					\
-"1:	ldxr	%0, %2\n"						\
-"	" #asm_op "	%0, %0, %3\n"					\
-"	stxr	%w1, %0, %2\n"						\
-"	cbnz	%w1, 1b")						\
-	: "=&r" (result), "=&r" (tmp), "+Q" (v->counter)		\
-	: __stringify(constraint) "r" (i));				\
-}
-
-#define ATOMIC64_OP_RETURN(name, mb, acq, rel, cl, op, asm_op, constraint)\
-static inline long							\
-__ll_sc_atomic64_##op##_return##name(s64 i, atomic64_t *v)		\
-{									\
-	s64 result;							\
-	unsigned long tmp;						\
-									\
-	asm volatile("// atomic64_" #op "_return" #name "\n"		\
-	__LL_SC_FALLBACK(						\
-"	prfm	pstl1strm, %2\n"					\
-"1:	ld" #acq "xr	%0, %2\n"					\
-"	" #asm_op "	%0, %0, %3\n"					\
-"	st" #rel "xr	%w1, %0, %2\n"					\
-"	cbnz	%w1, 1b\n"						\
-"	" #mb )								\
-	: "=&r" (result), "=&r" (tmp), "+Q" (v->counter)		\
-	: __stringify(constraint) "r" (i)				\
-	: cl);								\
-									\
-	return result;							\
-}
-
-#define ATOMIC64_FETCH_OP(name, mb, acq, rel, cl, op, asm_op, constraint)\
-static inline long							\
-__ll_sc_atomic64_fetch_##op##name(s64 i, atomic64_t *v)		\
-{									\
-	s64 result, val;						\
-	unsigned long tmp;						\
-									\
-	asm volatile("// atomic64_fetch_" #op #name "\n"		\
-	__LL_SC_FALLBACK(						\
-"	prfm	pstl1strm, %3\n"					\
-"1:	ld" #acq "xr	%0, %3\n"					\
-"	" #asm_op "	%1, %0, %4\n"					\
-"	st" #rel "xr	%w2, %1, %3\n"					\
-"	cbnz	%w2, 1b\n"						\
-"	" #mb )								\
-	: "=&r" (result), "=&r" (val), "=&r" (tmp), "+Q" (v->counter)	\
-	: __stringify(constraint) "r" (i)				\
-	: cl);								\
-									\
-	return result;							\
-}
-
-#define ATOMIC64_OPS(...)						\
-	ATOMIC64_OP(__VA_ARGS__)					\
-	ATOMIC64_OP_RETURN(, dmb ish,  , l, "memory", __VA_ARGS__)	\
-	ATOMIC64_OP_RETURN(_relaxed,,  ,  ,         , __VA_ARGS__)	\
-	ATOMIC64_OP_RETURN(_acquire,, a,  , "memory", __VA_ARGS__)	\
-	ATOMIC64_OP_RETURN(_release,,  , l, "memory", __VA_ARGS__)	\
-	ATOMIC64_FETCH_OP (, dmb ish,  , l, "memory", __VA_ARGS__)	\
-	ATOMIC64_FETCH_OP (_relaxed,,  ,  ,         , __VA_ARGS__)	\
-	ATOMIC64_FETCH_OP (_acquire,, a,  , "memory", __VA_ARGS__)	\
-	ATOMIC64_FETCH_OP (_release,,  , l, "memory", __VA_ARGS__)
-
-ATOMIC64_OPS(add, add, I)
-ATOMIC64_OPS(sub, sub, J)
-
-#undef ATOMIC64_OPS
-#define ATOMIC64_OPS(...)						\
-	ATOMIC64_OP(__VA_ARGS__)					\
-	ATOMIC64_FETCH_OP (, dmb ish,  , l, "memory", __VA_ARGS__)	\
-	ATOMIC64_FETCH_OP (_relaxed,,  ,  ,         , __VA_ARGS__)	\
-	ATOMIC64_FETCH_OP (_acquire,, a,  , "memory", __VA_ARGS__)	\
-	ATOMIC64_FETCH_OP (_release,,  , l, "memory", __VA_ARGS__)
-
-ATOMIC64_OPS(and, and, L)
-ATOMIC64_OPS(or, orr, L)
-ATOMIC64_OPS(xor, eor, L)
-/*
- * GAS converts the mysterious and undocumented BIC (immediate) alias to
- * an AND (immediate) instruction with the immediate inverted. We don't
- * have a constraint for this, so fall back to register.
- */
-ATOMIC64_OPS(andnot, bic, )
-
-#undef ATOMIC64_OPS
-#undef ATOMIC64_FETCH_OP
-#undef ATOMIC64_OP_RETURN
-#undef ATOMIC64_OP
-
-static inline s64
-__ll_sc_atomic64_dec_if_positive(atomic64_t *v)
-{
-	s64 result;
-	unsigned long tmp;
-
-	asm volatile("// atomic64_dec_if_positive\n"
-	__LL_SC_FALLBACK(
-"	prfm	pstl1strm, %2\n"
-"1:	ldxr	%0, %2\n"
-"	subs	%0, %0, #1\n"
-"	b.lt	2f\n"
-"	stlxr	%w1, %0, %2\n"
-"	cbnz	%w1, 1b\n"
-"	dmb	ish\n"
-"2:")
-	: "=&r" (result), "=&r" (tmp), "+Q" (v->counter)
-	:
-	: "cc", "memory");
-
-	return result;
-}
-
 #define __CMPXCHG_CASE(w, sfx, name, sz, mb, acq, rel, cl, constraint)	\
 static inline u##sz							\
 __ll_sc__cmpxchg_case_##name##sz(volatile void *ptr,			\
@@ -350,4 +228,4 @@ __CMPXCHG_DBL(_mb, dmb ish, l, "memory")
 #undef __CMPXCHG_DBL
 #undef K
 
-#endif	/* __ASM_ATOMIC_LL_SC_H */
+#endif	/* __ASM_ARM_ARM64_ATOMIC_LL_SC_H */
