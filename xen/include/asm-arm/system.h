@@ -58,7 +58,14 @@ static inline int local_abort_is_enabled(void)
     return !(flags & PSR_ABT_MASK);
 }
 
-#define arch_fetch_and_add(x, v) __sync_fetch_and_add(x, v)
+#define arch_fetch_and_add(ptr, x) ({                                   \
+    int ret;                                                            \
+                                                                        \
+    atomic_t * tmp = container_of((int *)(&(x)), atomic_t, counter);    \
+    ret = atomic_fetch_add(x, tmp);                                     \
+                                                                        \
+    ret;                                                                \
+})
 
 extern struct vcpu *__context_switch(struct vcpu *prev, struct vcpu *next);
 
