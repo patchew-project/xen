@@ -89,6 +89,7 @@ static unsigned int cpu_mask_to_apicid_x2apic_cluster(const cpumask_t *cpumask)
 
 static void send_IPI_self_x2apic(uint8_t vector)
 {
+    /* NMI continuation handling relies on using a shorthand here. */
     apic_wrmsr(APIC_SELF_IPI, vector);
 }
 
