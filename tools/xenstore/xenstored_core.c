@@ -1844,6 +1844,7 @@ static void usage(void)
 
 
 static struct option options[] = {
+	{ "buildid-file", 1, NULL, 'B' },
 	{ "no-domain-init", 0, NULL, 'D' },
 	{ "entry-nb", 1, NULL, 'E' },
 	{ "pid-file", 1, NULL, 'F' },
@@ -1875,12 +1876,16 @@ int main(int argc, char *argv[])
 	bool outputpid = false;
 	bool no_domain_init = false;
 	const char *pidfile = NULL;
+	const char *buildid_file = NULL;
 	int timeout;
 
 
 	while ((opt = getopt_long(argc, argv, "DE:F:HNPS:t:T:RVW:", options,
 				  NULL)) != -1) {
 		switch (opt) {
+		case 'B':
+			buildid_file = optarg;
+			break;
 		case 'D':
 			no_domain_init = true;
 			break;
@@ -1947,6 +1952,9 @@ int main(int argc, char *argv[])
 	}
 	if (pidfile)
 		write_pidfile(pidfile);
+
+	if (buildid_file)
+		write_buildid_file(buildid_file);
 
 	/* Talloc leak reports go to stderr, which is closed if we fork. */
 	if (!dofork)

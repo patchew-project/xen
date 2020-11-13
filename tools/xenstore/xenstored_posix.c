@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 
@@ -46,6 +47,57 @@ void write_pidfile(const char *pidfile)
 		barf_perror("Writing pid file %s", pidfile);
 
 	close(fd);
+}
+
+/*
+ * We don't have a working elf.h available here, so let's define our very own
+ * data structs and accessor macros for ELF notes.
+ *
+ * https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-18048.html:
+ * For 64–bit objects and 32–bit objects, each entry is an array of 4-byte
+ * words in the format of the target processor.
+ */
+typedef struct
+{
+	uint32_t namesz;
+	uint32_t descsz;
+	uint32_t type;
+} elf_note_hdr;
+
+/* ELF Note accessors, copied from Xen's elf.h */
+#define ELFNOTE_ALIGN(_n_) (((_n_)+3)&~3)
+#define ELFNOTE_NAME(_n_) ((char*)(_n_) + sizeof(*(_n_)))
+#define ELFNOTE_DESC(_n_) (ELFNOTE_NAME(_n_) + ELFNOTE_ALIGN((_n_)->namesz))
+/* GNU LD: type == note (NT_GNU_BUILD_ID as in
+ * https://sourceware.org/ml/binutils/2007-07/msg00012.html)*/
+#define NT_GNU_BUILD_ID 3
+
+
+void write_buildid_file(const char *buildid_file)
+{
+	unsigned int i = 0;
+	FILE *fdesc;
+	extern elf_note_hdr __buildid_note_section;
+	unsigned int id_length = __buildid_note_section.descsz;
+	char* desc = ELFNOTE_DESC(&__buildid_note_section);
+
+	if (__buildid_note_section.type != NT_GNU_BUILD_ID)
+		barf("Expected GNU_BUILDID note, but found type '%d'",
+		     __buildid_note_section.type);
+
+	fdesc = fopen(buildid_file, "w+");
+	if (!fdesc)
+		barf_perror("Error opening buildid file %s", buildid_file);
+
+	/* We exit silently if daemon already running. */
+	if (lockf(fileno(fdesc), F_TLOCK, 0) == -1)
+		exit(0);
+
+	for (i = 0; i < id_length; ++i)
+		fprintf(fdesc, "%02x", (unsigned char)desc[i]);
+	fprintf(fdesc, "\n");
+
+	fclose(fdesc);
 }
 
 /* Stevens. */

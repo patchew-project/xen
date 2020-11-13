@@ -66,6 +66,10 @@ $(XENSTORED_OBJS): CFLAGS += $(SYSTEMD_CFLAGS)
 xenstored: LDFLAGS += $(SYSTEMD_LIBS)
 endif
 
+# xenstored: enforce creation of a buildID section and use a linker
+# script to add additional symbols around that section
+xenstored: LDFLAGS +=  -Wl,--build-id=sha1 -Wl,-T,buildid_symbols.ld
+
 $(XENSTORED_OBJS): CFLAGS += $(CFLAGS_libxengnttab)
 
 xenstored: $(XENSTORED_OBJS)

@@ -24,6 +24,10 @@ void write_pidfile(const char *pidfile)
 {
 }
 
+void write_buildid_file(const char *buildid_file)
+{
+}
+
 void daemonize(void)
 {
 }

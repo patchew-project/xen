@@ -193,6 +193,9 @@ void xenbus_notify_running(void);
 /* Write out the pidfile */
 void write_pidfile(const char *pidfile);
 
+/* Write the buildid file */
+void write_buildid_file(const char *buildidfile);
+
 /* Fork but do not close terminal FDs */
 void daemonize(void);
 /* Close stdin/stdout/stderr to complete daemonize */
