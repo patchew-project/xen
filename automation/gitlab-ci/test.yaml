@@ -27,6 +27,7 @@ qemu-smoke-arm64-gcc:
   image: registry.gitlab.com/xen-project/xen/${CONTAINER}
   variables:
     CONTAINER: debian:unstable-arm64v8
+    LINUX_VERSION: 5.9.8
   script:
     - ./automation/scripts/qemu-smoke-arm64.sh 2>&1 | tee qemu-smoke-arm64.log
   dependencies:
