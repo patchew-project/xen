@@ -4,6 +4,10 @@ config HAS_NS16550
 	help
 	  This selects the 16550-series UART support. For most systems, say Y.
 
+config HAS_NS16550_PCI
+	def_bool y
+	depends on X86 && HAS_NS16550 && HAS_PCI
+
 config HAS_CADENCE_UART
 	bool "Xilinx Cadence UART driver"
 	default y
