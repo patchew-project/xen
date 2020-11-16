@@ -9,6 +9,11 @@
  * DSB ISH          // Ensure the TLB invalidation has completed
  * ISB              // See explanation below
  *
+ * ARM64_WORKAROUND_REPEAT_TLBI:
+ * Modification of the translation table for a virtual address might lead to
+ * read-after-read ordering violation.
+ * The workaround repeats TLBI+DSB operation.
+ *
  * For Xen page-tables the ISB will discard any instructions fetched
  * from the old mappings.
  *
@@ -16,15 +21,21 @@
  * (and therefore the TLB invalidation) before continuing. So we know
  * the TLBs cannot contain an entry for a mapping we may have removed.
  */
-#define TLB_HELPER(name, tlbop) \
-static inline void name(void)   \
-{                               \
-    asm volatile(               \
-        "dsb  ishst;"           \
-        "tlbi "  # tlbop  ";"   \
-        "dsb  ish;"             \
-        "isb;"                  \
-        : : : "memory");        \
+#define TLB_HELPER(name, tlbop)       \
+static inline void name(void)         \
+{                                     \
+    asm volatile(                     \
+        "dsb  ishst;"                 \
+        "tlbi "  # tlbop  ";"         \
+        ALTERNATIVE(                  \
+        "nop; nop;",                  \
+        "dsb  ish;"                   \
+        "tlbi "  # tlbop  ";",        \
+        ARM64_WORKAROUND_REPEAT_TLBI, \
+        CONFIG_ARM64_ERRATUM_1286807) \
+        "dsb  ish;"                   \
+        "isb;"                        \
+        : : : "memory");              \
 }
 
 /* Flush local TLBs, current VMID only. */
