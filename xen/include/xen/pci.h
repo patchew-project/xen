@@ -208,4 +208,6 @@ int msixtbl_pt_register(struct domain *, struct pirq *, uint64_t gtable);
 void msixtbl_pt_unregister(struct domain *, struct pirq *);
 void msixtbl_pt_cleanup(struct domain *d);
 
+int arch_pci_clean_pirqs(struct domain *d);
+
 #endif /* __XEN_PCI_H__ */

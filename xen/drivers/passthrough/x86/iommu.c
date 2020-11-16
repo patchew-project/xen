@@ -308,6 +308,13 @@ struct page_info *iommu_alloc_pgtable(struct domain *d)
     return pg;
 }
 
+int iommu_update_ire_from_msi(
+    struct msi_desc *msi_desc, struct msi_msg *msg)
+{
+    return iommu_intremap
+           ? iommu_call(&iommu_ops, update_ire_from_msi, msi_desc, msg) : 0;
+}
+
 /*
  * Local variables:
  * mode: C
