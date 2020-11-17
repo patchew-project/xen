@@ -145,6 +145,8 @@ val close_handle: unit -> unit
 
 external domain_create : handle -> domctl_create_config -> domid
   = "stub_xc_domain_create"
+external domain_create_domid : handle -> domctl_create_config -> domid -> domid
+  = "stub_xc_domain_create_domid"
 external domain_sethandle : handle -> domid -> string -> unit = "stub_xc_domain_sethandle"
 external domain_max_vcpus : handle -> domid -> int -> unit
   = "stub_xc_domain_max_vcpus"
