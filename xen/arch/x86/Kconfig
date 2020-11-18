@@ -102,8 +102,8 @@ config HVM
 	  If unsure, say Y.
 
 config XEN_SHSTK
-	bool "Supervisor Shadow Stacks"
-	depends on HAS_AS_CET_SS && EXPERT
+	bool "Supervisor Shadow Stacks (UNSUPPORTED)"
+	depends on HAS_AS_CET_SS && UNSUPPORTED
 	default y
 	---help---
 	  Control-flow Enforcement Technology (CET) is a set of features in
@@ -165,7 +165,7 @@ config HVM_FEP
 	  If unsure, say N.
 
 config TBOOT
-	bool "Xen tboot support" if EXPERT
+	bool "Xen tboot support (UNSUPPORTED)" if UNSUPPORTED
 	default y if !PV_SHIM_EXCLUSIVE
 	select CRYPTO
 	---help---
@@ -251,7 +251,7 @@ config HYPERV_GUEST
 endif
 
 config MEM_SHARING
-	bool "Xen memory sharing support" if EXPERT
+	bool "Xen memory sharing support (UNSUPPORTED)" if UNSUPPORTED
 	depends on HVM
 
 endmenu

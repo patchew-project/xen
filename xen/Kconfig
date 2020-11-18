@@ -34,8 +34,17 @@ config DEFCONFIG_LIST
 	option defconfig_list
 	default ARCH_DEFCONFIG
 
+config UNSUPPORTED
+	bool "Configure UNSUPPORTED features"
+	help
+	  This option allows unsupported Xen options to be enabled, which
+	  includes non-security-supported, experimental, and tech preview
+	  features as defined by SUPPORT.md. Xen binaries built with this
+	  option enabled are not security supported.
+	default n
+
 config EXPERT
-	bool "Configure standard Xen features (expert users)"
+	bool "Configure EXPERT features"
 	help
 	  This option allows certain base Xen options and settings
 	  to be disabled or tweaked. This is for specialized environments
