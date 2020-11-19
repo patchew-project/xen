@@ -88,7 +88,12 @@ static int __init init_irq_data(void)
     for ( irq = NR_LOCAL_IRQS; irq < NR_IRQS; irq++ )
     {
         struct irq_desc *desc = irq_to_desc(irq);
-        init_one_irq_desc(desc);
+        int rc;
+
+        rc = init_one_irq_desc(desc);
+        if ( rc )
+            return rc;
+
         desc->irq = irq;
         desc->action  = NULL;
     }
