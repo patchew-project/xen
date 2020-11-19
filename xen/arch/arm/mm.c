@@ -1060,15 +1060,23 @@ static int xen_pt_next_level(bool read_only, unsigned int level,
 }
 
 /* Sanity check of the entry */
-static bool xen_pt_check_entry(lpae_t entry, mfn_t mfn, unsigned int flags)
+static bool xen_pt_check_entry(lpae_t entry, mfn_t mfn, unsigned int level,
+                               unsigned int flags)
 {
-    /* Sanity check when modifying a page. */
+    /* Sanity check when modifying an entry. */
     if ( (flags & _PAGE_PRESENT) && mfn_eq(mfn, INVALID_MFN) )
     {
         /* We don't allow modifying an invalid entry. */
         if ( !lpae_is_valid(entry) )
         {
             mm_printk("Modifying invalid entry is not allowed.\n");
+            return false;
+        }
+
+        /* We don't allow modifying a table entry */
+        if ( !lpae_is_mapping(entry, level) )
+        {
+            mm_printk("Modifying a table entry is not allowed.\n");
             return false;
         }
 
@@ -1087,7 +1095,7 @@ static bool xen_pt_check_entry(lpae_t entry, mfn_t mfn, unsigned int flags)
             return false;
         }
     }
-    /* Sanity check when inserting a page */
+    /* Sanity check when inserting a mapping */
     else if ( flags & _PAGE_PRESENT )
     {
         /* We should be here with a valid MFN. */
@@ -1096,18 +1104,28 @@ static bool xen_pt_check_entry(lpae_t entry, mfn_t mfn, unsigned int flags)
         /* We don't allow replacing any valid entry. */
         if ( lpae_is_valid(entry) )
         {
-            mm_printk("Changing MFN for a valid entry is not allowed (%#"PRI_mfn" -> %#"PRI_mfn").\n",
-                      mfn_x(lpae_get_mfn(entry)), mfn_x(mfn));
+            if ( lpae_is_mapping(entry, level) )
+                mm_printk("Changing MFN for a valid entry is not allowed (%#"PRI_mfn" -> %#"PRI_mfn").\n",
+                          mfn_x(lpae_get_mfn(entry)), mfn_x(mfn));
+            else
+                mm_printk("Trying to replace a table with a mapping.\n");
             return false;
         }
     }
-    /* Sanity check when removing a page. */
+    /* Sanity check when removing a mapping. */
     else if ( (flags & (_PAGE_PRESENT|_PAGE_POPULATE)) == 0 )
     {
         /* We should be here with an invalid MFN. */
         ASSERT(mfn_eq(mfn, INVALID_MFN));
 
-        /* We don't allow removing page with contiguous bit set. */
+        /* We don't allow removing a table */
+        if ( lpae_is_table(entry, level) )
+        {
+            mm_printk("Removing a table is not allowed.\n");
+            return false;
+        }
+
+        /* We don't allow removing a mapping with contiguous bit set. */
         if ( entry.pt.contig )
         {
             mm_printk("Removing entry with contiguous bit set is not allowed.\n");
@@ -1126,12 +1144,12 @@ static bool xen_pt_check_entry(lpae_t entry, mfn_t mfn, unsigned int flags)
 }
 
 static int xen_pt_update_entry(mfn_t root, unsigned long virt,
-                               mfn_t mfn, unsigned int flags)
+                               mfn_t mfn, unsigned int page_order,
+                               unsigned int flags)
 {
     int rc;
     unsigned int level;
-    /* We only support 4KB mapping (i.e level 3) for now */
-    unsigned int target = 3;
+    unsigned int target = 3 - (page_order / LPAE_SHIFT);
     lpae_t *table;
     /*
      * The intermediate page tables are read-only when the MFN is not valid
@@ -1186,7 +1204,7 @@ static int xen_pt_update_entry(mfn_t root, unsigned long virt,
     entry = table + offsets[level];
 
     rc = -EINVAL;
-    if ( !xen_pt_check_entry(*entry, mfn, flags) )
+    if ( !xen_pt_check_entry(*entry, mfn, level, flags) )
         goto out;
 
     /* If we are only populating page-table, then we are done. */
@@ -1204,8 +1222,11 @@ static int xen_pt_update_entry(mfn_t root, unsigned long virt,
         {
             pte = mfn_to_xen_entry(mfn, PAGE_AI_MASK(flags));
 
-            /* Third level entries set pte.pt.table = 1 */
-            pte.pt.table = 1;
+            /*
+             * First and second level pages set pte.pt.table = 0, but
+             * third level entries set pte.pt.table = 1.
+             */
+            pte.pt.table = (level == 3);
         }
         else /* We are updating the permission => Copy the current pte. */
             pte = *entry;
@@ -1229,11 +1250,12 @@ static DEFINE_SPINLOCK(xen_pt_lock);
 
 static int xen_pt_update(unsigned long virt,
                          mfn_t mfn,
-                         unsigned long nr_mfns,
+                         const unsigned long nr_mfns,
                          unsigned int flags)
 {
     int rc = 0;
-    unsigned long addr = virt, addr_end = addr + nr_mfns * PAGE_SIZE;
+    unsigned long vfn = paddr_to_pfn(virt);
+    unsigned long left = nr_mfns;
 
     /*
      * For arm32, page-tables are different on each CPUs. Yet, they share
@@ -1265,14 +1287,43 @@ static int xen_pt_update(unsigned long virt,
 
     spin_lock(&xen_pt_lock);
 
-    for ( ; addr < addr_end; addr += PAGE_SIZE )
+    while ( left )
     {
-        rc = xen_pt_update_entry(root, addr, mfn, flags);
+        unsigned int order;
+        unsigned long mask;
+
+        /*
+         * Don't take into account the MFN when removing mapping (i.e
+         * MFN_INVALID) to calculate the correct target order.
+         *
+         * XXX: Support superpage mappings if nr is not aligned to a
+         * superpage size.
+         */
+        mask = !mfn_eq(mfn, INVALID_MFN) ? mfn_x(mfn) : 0;
+        mask |= vfn | left;
+
+        /*
+         * Always use level 3 mapping unless the caller request block
+         * mapping.
+         */
+        if ( likely(!(flags & _PAGE_BLOCK)) )
+            order = THIRD_ORDER;
+        else if ( !(mask & (BIT(FIRST_ORDER, UL) - 1)) )
+            order = FIRST_ORDER;
+        else if ( !(mask & (BIT(SECOND_ORDER, UL) - 1)) )
+            order = SECOND_ORDER;
+        else
+            order = THIRD_ORDER;
+
+        rc = xen_pt_update_entry(root, pfn_to_paddr(vfn), mfn, order, flags);
         if ( rc )
             break;
 
+        vfn += 1U << order;
         if ( !mfn_eq(mfn, INVALID_MFN) )
-            mfn = mfn_add(mfn, 1);
+            mfn = mfn_add(mfn, 1U << order);
+
+        left -= (1U << order);
     }
 
     /*
