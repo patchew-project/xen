@@ -86,8 +86,6 @@ static int domain_iommu_domid(struct domain *d,
     return -1;
 }
 
-#define DID_FIELD_WIDTH 16
-#define DID_HIGH_OFFSET 8
 static int context_set_domain_id(struct context_entry *context,
                                  struct domain *d,
                                  struct vtd_iommu *iommu)
@@ -121,21 +119,22 @@ static int context_set_domain_id(struct context_entry *context,
     }
 
     set_bit(i, iommu->domid_bitmap);
-    context->hi |= (i & ((1 << DID_FIELD_WIDTH) - 1)) << DID_HIGH_OFFSET;
+    context->did = i;
+
     return 0;
 }
 
 static int context_get_domain_id(struct context_entry *context,
                                  struct vtd_iommu *iommu)
 {
-    unsigned long dom_index, nr_dom;
     int domid = -1;
 
     if (iommu && context)
     {
-        nr_dom = cap_ndoms(iommu->cap);
+        unsigned long dom_index, nr_dom;
 
-        dom_index = context_domain_id(*context);
+        nr_dom = cap_ndoms(iommu->cap);
+        dom_index = context->did;
 
         if ( dom_index < nr_dom && iommu->domid_map )
             domid = iommu->domid_map[dom_index];
@@ -1338,7 +1337,7 @@ int domain_context_mapping_one(
     context_entries = (struct context_entry *)map_vtd_domain_page(maddr);
     context = &context_entries[devfn];
 
-    if ( context_present(*context) )
+    if ( context->p )
     {
         int res = 0;
 
@@ -1382,7 +1381,7 @@ int domain_context_mapping_one(
 
     if ( iommu_hwdom_passthrough && is_hardware_domain(domain) )
     {
-        context_set_translation_type(*context, CONTEXT_TT_PASS_THRU);
+        context->tt = CONTEXT_TT_PASS_THRU;
     }
     else
     {
@@ -1397,11 +1396,11 @@ int domain_context_mapping_one(
             return -ENOMEM;
         }
 
-        context_set_address_root(*context, pgd_maddr);
+        context->slptptr = paddr_to_pfn(pgd_maddr);
         if ( ats_enabled && ecap_dev_iotlb(iommu->ecap) )
-            context_set_translation_type(*context, CONTEXT_TT_DEV_IOTLB);
+            context->tt = CONTEXT_TT_DEV_IOTLB;
         else
-            context_set_translation_type(*context, CONTEXT_TT_MULTI_LEVEL);
+            context->tt = CONTEXT_TT_MULTI_LEVEL;
 
         spin_unlock(&hd->arch.mapping_lock);
     }
@@ -1413,9 +1412,10 @@ int domain_context_mapping_one(
         return -EFAULT;
     }
 
-    context_set_address_width(*context, level_to_agaw(iommu->nr_pt_levels));
-    context_set_fault_enable(*context);
-    context_set_present(*context);
+    context->aw = level_to_agaw(iommu->nr_pt_levels);
+    context->fpd = false;
+    smp_wmb();
+    context->p = true;
     iommu_sync_cache(context, sizeof(struct context_entry));
     spin_unlock(&iommu->lock);
 
@@ -1567,16 +1567,18 @@ int domain_context_unmap_one(
     context_entries = (struct context_entry *)map_vtd_domain_page(maddr);
     context = &context_entries[devfn];
 
-    if ( !context_present(*context) )
+    if ( !context->p )
     {
         spin_unlock(&iommu->lock);
         unmap_vtd_domain_page(context_entries);
         return 0;
     }
 
-    context_clear_present(*context);
-    context_clear_entry(*context);
+    context->p = false;
+    smp_wmb();
     iommu_sync_cache(context, sizeof(struct context_entry));
+
+    context->val = 0; /* No need to sync; present bit is already cleared */
 
     iommu_domid= domain_iommu_domid(domain, iommu);
     if ( iommu_domid == -1 )

@@ -76,7 +76,6 @@ static bool device_in_domain(const struct vtd_iommu *iommu,
 {
     struct root_entry *root_entry, *root_entries;
     struct context_entry *context_entry, *context_entries = NULL;
-    unsigned int tt;
     bool found = false;
 
     if ( unlikely(!iommu->root_maddr) )
@@ -92,11 +91,10 @@ static bool device_in_domain(const struct vtd_iommu *iommu,
 
     context_entries = map_vtd_domain_page(root_entry->ctp);
     context_entry = &context_entries[pdev->devfn];
-    if ( context_domain_id(*context_entry) != did )
+    if ( context_entry->did != did )
         goto out;
 
-    tt = context_translation_type(*context_entry);
-    if ( tt != CONTEXT_TT_DEV_IOTLB )
+    if ( context_entry->tt != CONTEXT_TT_DEV_IOTLB )
         goto out;
 
     found = true;
