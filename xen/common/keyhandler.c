@@ -3,7 +3,9 @@
  */
 
 #include <asm/regs.h>
+#include <xen/delay.h>
 #include <xen/keyhandler.h>
+#include <xen/param.h>
 #include <xen/shutdown.h>
 #include <xen/event.h>
 #include <xen/console.h>
@@ -504,6 +506,42 @@ void __init initialize_keytable(void)
         alt_key_handling = 1;
         printk(XENLOG_INFO "Defaulting to alternative key handling; "
                "send 'A' to switch to normal mode.\n");
+    }
+}
+
+#define CRASHACTION_SIZE  32
+static char crash_debug_panic[CRASHACTION_SIZE];
+static char crash_debug_hwdom[CRASHACTION_SIZE];
+static char crash_debug_watchdog[CRASHACTION_SIZE];
+static char crash_debug_kexeccmd[CRASHACTION_SIZE];
+static char crash_debug_debugkey[CRASHACTION_SIZE];
+
+static char *crash_action[CRASHREASON_N] = {
+    [CRASHREASON_PANIC] = crash_debug_panic,
+    [CRASHREASON_HWDOM] = crash_debug_hwdom,
+    [CRASHREASON_WATCHDOG] = crash_debug_watchdog,
+    [CRASHREASON_KEXECCMD] = crash_debug_kexeccmd,
+    [CRASHREASON_DEBUGKEY] = crash_debug_debugkey,
+};
+
+string_runtime_param("crash-debug-panic", crash_debug_panic);
+string_runtime_param("crash-debug-hwdom", crash_debug_hwdom);
+string_runtime_param("crash-debug-watchdog", crash_debug_watchdog);
+string_runtime_param("crash-debug-kexeccmd", crash_debug_kexeccmd);
+string_runtime_param("crash-debug-debugkey", crash_debug_debugkey);
+
+void keyhandler_crash_action(enum crash_reason reason)
+{
+    const char *action = crash_action[reason];
+    struct cpu_user_regs *regs = get_irq_regs() ? : guest_cpu_user_regs();
+
+    while ( *action )
+    {
+        if ( *action == '+' )
+            mdelay(10);
+        else
+            handle_keypress(*action, regs);
+        action++;
     }
 }
 
