@@ -244,38 +244,21 @@ struct context_entry {
 #define level_size(l) (1 << level_to_offset_bits(l))
 #define align_to_level(addr, l) ((addr + level_size(l) - 1) & level_mask(l))
 
-/*
- * 0: readable
- * 1: writable
- * 2-6: reserved
- * 7: super page
- * 8-11: available
- * 12-63: Host physcial address
- */
 struct dma_pte {
-    u64 val;
+    union {
+        uint64_t val;
+        struct {
+            bool r:1;
+            bool w:1;
+            unsigned int reserved0:1;
+            unsigned int ignored0:4;
+            bool ps:1;
+            unsigned int ignored1:3;
+            bool snp:1;
+            uint64_t addr:52;
+        };
+    };
 };
-#define DMA_PTE_READ (1)
-#define DMA_PTE_WRITE (2)
-#define DMA_PTE_PROT (DMA_PTE_READ | DMA_PTE_WRITE)
-#define DMA_PTE_SP   (1 << 7)
-#define DMA_PTE_SNP  (1 << 11)
-#define dma_clear_pte(p)    do {(p).val = 0;} while(0)
-#define dma_set_pte_readable(p) do {(p).val |= DMA_PTE_READ;} while(0)
-#define dma_set_pte_writable(p) do {(p).val |= DMA_PTE_WRITE;} while(0)
-#define dma_set_pte_superpage(p) do {(p).val |= DMA_PTE_SP;} while(0)
-#define dma_set_pte_snp(p)  do {(p).val |= DMA_PTE_SNP;} while(0)
-#define dma_set_pte_prot(p, prot) do { \
-        (p).val = ((p).val & ~DMA_PTE_PROT) | ((prot) & DMA_PTE_PROT); \
-    } while (0)
-#define dma_pte_prot(p) ((p).val & DMA_PTE_PROT)
-#define dma_pte_read(p) (dma_pte_prot(p) & DMA_PTE_READ)
-#define dma_pte_write(p) (dma_pte_prot(p) & DMA_PTE_WRITE)
-#define dma_pte_addr(p) ((p).val & PADDR_MASK & PAGE_MASK_4K)
-#define dma_set_pte_addr(p, addr) do {\
-            (p).val |= ((addr) & PAGE_MASK_4K); } while (0)
-#define dma_pte_present(p) (((p).val & DMA_PTE_PROT) != 0)
-#define dma_pte_superpage(p) (((p).val & DMA_PTE_SP) != 0)
 
 /* interrupt remap entry */
 struct iremap_entry {

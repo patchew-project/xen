@@ -161,14 +161,14 @@ void print_vtd_entries(struct vtd_iommu *iommu, int bus, int devfn, u64 gmfn)
         unmap_vtd_domain_page(l);
         printk("    l%u[%03x] = %"PRIx64"\n", level, l_index, pte.val);
 
-        if ( !dma_pte_present(pte) )
+        if ( !pte.r && !pte.w )
         {
             printk("    l%u[%03x] not present\n", level, l_index);
             break;
         }
-        if ( dma_pte_superpage(pte) )
+        if ( pte.ps )
             break;
-        val = dma_pte_addr(pte);
+        val = pfn_to_paddr(pte.addr);
     } while ( --level );
 }
 
