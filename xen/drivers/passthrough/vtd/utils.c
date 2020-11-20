@@ -112,15 +112,15 @@ void print_vtd_entries(struct vtd_iommu *iommu, int bus, int devfn, u64 gmfn)
         return;
     }
 
-    printk("    root_entry[%02x] = %"PRIx64"\n", bus, root_entry[bus].val);
-    if ( !root_present(root_entry[bus]) )
+    printk("    root_entry[%02x] = %"PRIx64"\n", bus, root_entry[bus].lo);
+    if ( !root_entry[bus].p )
     {
         unmap_vtd_domain_page(root_entry);
         printk("    root_entry[%02x] not present\n", bus);
         return;
     }
 
-    val = root_entry[bus].val;
+    val = pfn_to_paddr(root_entry[bus].ctp);
     unmap_vtd_domain_page(root_entry);
     ctxt_entry = map_vtd_domain_page(val);
     if ( ctxt_entry == NULL )

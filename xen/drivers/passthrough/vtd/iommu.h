@@ -184,21 +184,20 @@
 #define dma_frcd_source_id(c) (c & 0xffff)
 #define dma_frcd_page_addr(d) (d & (((u64)-1) << 12)) /* low 64 bit */
 
-/*
- * 0: Present
- * 1-11: Reserved
- * 12-63: Context Ptr (12 - (haw-1))
- * 64-127: Reserved
- */
 struct root_entry {
-    u64    val;
-    u64    rsvd1;
+    union {
+        struct { uint64_t lo, hi; };
+        struct {
+            /* 0 - 63 */
+            bool p:1;
+            unsigned int reserved0:11;
+            uint64_t ctp:52;
+
+            /* 64 - 127 */
+            uint64_t reserved1;
+        };
+    };
 };
-#define root_present(root)    ((root).val & 1)
-#define set_root_present(root) do {(root).val |= 1;} while(0)
-#define get_context_addr(root) ((root).val & PAGE_MASK_4K)
-#define set_root_value(root, value) \
-    do {(root).val |= ((value) & PAGE_MASK_4K);} while(0)
 
 struct context_entry {
     u64 lo;

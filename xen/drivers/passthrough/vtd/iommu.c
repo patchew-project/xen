@@ -237,7 +237,7 @@ static u64 bus_to_context_maddr(struct vtd_iommu *iommu, u8 bus)
     ASSERT(spin_is_locked(&iommu->lock));
     root_entries = (struct root_entry *)map_vtd_domain_page(iommu->root_maddr);
     root = &root_entries[bus];
-    if ( !root_present(*root) )
+    if ( !root->p )
     {
         maddr = alloc_pgtable_maddr(1, iommu->node);
         if ( maddr == 0 )
@@ -245,11 +245,12 @@ static u64 bus_to_context_maddr(struct vtd_iommu *iommu, u8 bus)
             unmap_vtd_domain_page(root_entries);
             return 0;
         }
-        set_root_value(*root, maddr);
-        set_root_present(*root);
+        root->ctp = paddr_to_pfn(maddr);
+        smp_wmb();
+        root->p = true;
         iommu_sync_cache(root, sizeof(struct root_entry));
     }
-    maddr = (u64) get_context_addr(*root);
+    maddr = pfn_to_paddr(root->ctp);
     unmap_vtd_domain_page(root_entries);
     return maddr;
 }

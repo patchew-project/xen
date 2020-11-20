@@ -74,8 +74,8 @@ int ats_device(const struct pci_dev *pdev, const struct acpi_drhd_unit *drhd)
 static bool device_in_domain(const struct vtd_iommu *iommu,
                              const struct pci_dev *pdev, uint16_t did)
 {
-    struct root_entry *root_entry;
-    struct context_entry *ctxt_entry = NULL;
+    struct root_entry *root_entry, *root_entries;
+    struct context_entry *context_entry, *context_entries = NULL;
     unsigned int tt;
     bool found = false;
 
@@ -85,25 +85,28 @@ static bool device_in_domain(const struct vtd_iommu *iommu,
         return false;
     }
 
-    root_entry = map_vtd_domain_page(iommu->root_maddr);
-    if ( !root_present(root_entry[pdev->bus]) )
+    root_entries = (struct root_entry *)map_vtd_domain_page(iommu->root_maddr);
+    root_entry = &root_entries[pdev->bus];
+    if ( !root_entry->p )
         goto out;
 
-    ctxt_entry = map_vtd_domain_page(root_entry[pdev->bus].val);
-    if ( context_domain_id(ctxt_entry[pdev->devfn]) != did )
+    context_entries = map_vtd_domain_page(root_entry->ctp);
+    context_entry = &context_entries[pdev->devfn];
+    if ( context_domain_id(*context_entry) != did )
         goto out;
 
-    tt = context_translation_type(ctxt_entry[pdev->devfn]);
+    tt = context_translation_type(*context_entry);
     if ( tt != CONTEXT_TT_DEV_IOTLB )
         goto out;
 
     found = true;
-out:
-    if ( root_entry )
-        unmap_vtd_domain_page(root_entry);
 
-    if ( ctxt_entry )
-        unmap_vtd_domain_page(ctxt_entry);
+ out:
+    if ( root_entries )
+        unmap_vtd_domain_page(root_entries);
+
+    if ( context_entries )
+        unmap_vtd_domain_page(context_entries);
 
     return found;
 }
