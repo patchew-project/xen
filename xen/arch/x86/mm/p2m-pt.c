@@ -741,10 +741,18 @@ p2m_pt_set_entry(struct p2m_domain *p2m, gfn_t gfn_, mfn_t mfn,
 
     if ( need_iommu_pt_sync(p2m->domain) &&
          (iommu_old_flags != iommu_pte_flags || old_mfn != mfn_x(mfn)) )
-        rc = iommu_pte_flags
-             ? iommu_legacy_map(d, _dfn(gfn), mfn, 1ul << page_order,
-                                iommu_pte_flags)
-             : iommu_legacy_unmap(d, _dfn(gfn), 1ul << page_order);
+    {
+        unsigned int flush_flags = 0;
+
+        rc = iommu_pte_flags ?
+            iommu_map(d, _dfn(gfn), mfn, 1ul << page_order, iommu_pte_flags,
+                      &flush_flags) :
+            iommu_unmap(d, _dfn(gfn), 1ul << page_order, &flush_flags);
+
+        if ( !rc && !this_cpu(iommu_dont_flush_iotlb) )
+            rc = iommu_iotlb_flush(d, _dfn(gfn), 1ul << page_order,
+                                   flush_flags);
+    }
 
     /*
      * Free old intermediate tables if necessary.  This has to be the
